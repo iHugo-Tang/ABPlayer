@@ -27,7 +27,9 @@ final class AudioPlayerManager {
     }
 
     deinit {
-        teardownPlayer()
+        Task { [weak self] in
+            await self?.teardownPlayer()
+        }
     }
 
     func load(audioFile: AudioFile) {
