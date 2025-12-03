@@ -7,7 +7,7 @@ let project = Project(
             name: "ABPlayer",
             destinations: .macOS,
             product: .app,
-            bundleId: "dev.tuist.ABPlayer",
+            bundleId: "cc.ihugo.app.ABPlayer",
             infoPlist: .default,
             buildableFolders: [
                 "ABPlayer/Sources",
@@ -19,7 +19,7 @@ let project = Project(
             name: "ABPlayerTests",
             destinations: .macOS,
             product: .unitTests,
-            bundleId: "dev.tuist.ABPlayerTests",
+            bundleId: "cc.ihugo.app.ABPlayerTests",
             infoPlist: .default,
             buildableFolders: [
                 "ABPlayer/Tests"
