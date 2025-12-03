@@ -9,6 +9,7 @@ struct PlayerView: View {
     @Bindable var audioFile: AudioFile
 
     @State private var selectedSegmentID: UUID?
+    @AppStorage("segmentSortDescendingByStartTime") private var isSegmentSortDescendingByStartTime: Bool = true
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
@@ -128,6 +129,17 @@ struct PlayerView: View {
 
                 Spacer()
 
+                Button {
+                    isSegmentSortDescendingByStartTime.toggle()
+                } label: {
+                    HStack(spacing: 4) {
+                        Image(systemName: "arrow.up.arrow.down")
+                        Text(isSegmentSortDescendingByStartTime ? "Start ↓" : "Start ↑")
+                    }
+                }
+                .buttonStyle(.borderless)
+                .help("Sort segments by start time \(isSegmentSortDescendingByStartTime ? "descending" : "ascending")")
+
                 Button("Save Current A-B") {
                     saveCurrentSegment()
                 }
@@ -155,6 +167,13 @@ struct PlayerView: View {
                         .contentShape(Rectangle())
                         .onTapGesture {
                             selectSegment(segment)
+                        }
+                        .contextMenu {
+                            Button(role: .destructive) {
+                                deleteSegment(segment)
+                            } label: {
+                                Label("Delete Segment", systemImage: "trash")
+                            }
                         }
                     }
                 }
@@ -189,6 +208,13 @@ struct PlayerView: View {
             return
         }
 
+        if let existingSegment = audioFile.segments.first(
+            where: { $0.startTime == pointA && $0.endTime == pointB }
+        ) {
+            selectedSegmentID = existingSegment.id
+            return
+        }
+
         let nextIndex = (audioFile.segments.map(\.index).max() ?? -1) + 1
         let label = "Segment \(nextIndex + 1)"
 
@@ -204,8 +230,37 @@ struct PlayerView: View {
         selectedSegmentID = segment.id
     }
 
+    private func deleteSegment(_ segment: LoopSegment) {
+        guard let indexInArray = audioFile.segments.firstIndex(where: { $0.id == segment.id }) else {
+            return
+        }
+
+        let removedIndex = audioFile.segments[indexInArray].index
+
+        // 从模型中移除 segment
+        let removedSegment = audioFile.segments.remove(at: indexInArray)
+        modelContext.delete(removedSegment)
+
+        // 重新整理 index，保持順序連續
+        for segment in audioFile.segments where segment.index > removedIndex {
+            segment.index -= 1
+        }
+
+        // 如果當前選中的就是被刪除的段，清理選中與循環狀態
+        if selectedSegmentID == segment.id {
+            selectedSegmentID = audioFile.segments.first?.id
+            playerManager.clearLoop()
+        }
+    }
+
     private var segments: [LoopSegment] {
-        audioFile.segments.sorted { $0.index < $1.index }
+        audioFile.segments.sorted { first, second in
+            if isSegmentSortDescendingByStartTime {
+                return first.startTime > second.startTime
+            } else {
+                return first.startTime < second.startTime
+            }
+        }
     }
 
     private func selectSegment(_ segment: LoopSegment) {
