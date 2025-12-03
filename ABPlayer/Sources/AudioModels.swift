@@ -14,18 +14,23 @@ final class AudioFile {
     @Relationship(inverse: \LoopSegment.audioFile)
     var segments: [LoopSegment]
 
+    /// 上次播放进度（秒）
+    var lastPlaybackTime: Double
+
     init(
         id: UUID = UUID(),
         displayName: String,
         bookmarkData: Data,
         createdAt: Date = Date(),
-        segments: [LoopSegment] = []
+        segments: [LoopSegment] = [],
+        lastPlaybackTime: Double = 0
     ) {
         self.id = id
         self.displayName = displayName
         self.bookmarkData = bookmarkData
         self.createdAt = createdAt
         self.segments = segments
+        self.lastPlaybackTime = lastPlaybackTime
     }
 }
 

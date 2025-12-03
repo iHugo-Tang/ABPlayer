@@ -8,6 +8,7 @@ final class AudioPlayerManager {
     private var player: AVPlayer?
     private var timeObserverToken: Any?
     private var currentScopedURL: URL?
+    private var lastPersistedTime: Double = 0
 
     var currentFile: AudioFile?
 
@@ -37,6 +38,14 @@ final class AudioPlayerManager {
             let url = try resolveBookmark(from: audioFile)
             preparePlayer(with: url)
             currentFile = audioFile
+
+            let resumeTime = audioFile.lastPlaybackTime
+
+            if resumeTime > 0 {
+                seek(to: resumeTime)
+            } else {
+                lastPersistedTime = 0
+            }
         } catch {
             assertionFailure("Failed to load audio file: \(error)")
         }
@@ -61,11 +70,28 @@ final class AudioPlayerManager {
             return
         }
 
-        let clampedTime = min(max(time, 0), duration)
+        let maxTime: Double
+
+        if duration > 0 {
+            maxTime = duration
+        } else if let itemDuration = player.currentItem?.duration,
+                  itemDuration.isNumeric {
+            let seconds = CMTimeGetSeconds(itemDuration)
+            maxTime = seconds.isFinite && seconds > 0 ? seconds : time
+        } else {
+            maxTime = time
+        }
+
+        let clampedTime = min(max(time, 0), maxTime)
         let target = CMTime(seconds: clampedTime, preferredTimescale: 600)
 
         player.seek(to: target, toleranceBefore: .zero, toleranceAfter: .zero)
         currentTime = clampedTime
+
+        if clampedTime.isFinite && clampedTime >= 0 {
+            currentFile?.lastPlaybackTime = clampedTime
+            lastPersistedTime = clampedTime
+        }
     }
 
     func setPointA() {
@@ -136,12 +162,25 @@ final class AudioPlayerManager {
         currentScopedURL = url
 
         let asset = AVURLAsset(url: url)
-        let assetDuration = CMTimeGetSeconds(asset.duration)
 
-        if assetDuration.isFinite && assetDuration > 0 {
-            duration = assetDuration
-        } else {
-            duration = 0
+        Task { @MainActor [weak self] in
+            guard let self else {
+                return
+            }
+
+            do {
+                let time = try await asset.load(.duration)
+                let assetDuration = CMTimeGetSeconds(time)
+
+                if assetDuration.isFinite && assetDuration > 0 {
+                    self.duration = assetDuration
+                } else {
+                    self.duration = 0
+                }
+            } catch {
+                assertionFailure("Failed to load asset duration: \(error)")
+                self.duration = 0
+            }
         }
 
         let item = AVPlayerItem(asset: asset)
@@ -169,20 +208,32 @@ final class AudioPlayerManager {
 
             let seconds = CMTimeGetSeconds(time)
 
-            if seconds.isFinite && seconds >= 0 {
-                currentTime = seconds
-            }
+            Task { @MainActor [weak self] in
+                guard let self else {
+                    return
+                }
 
-            guard isLooping,
-                  let pointA,
-                  let pointB else {
-                return
-            }
+                if seconds.isFinite && seconds >= 0 {
+                    currentTime = seconds
 
-            if seconds >= pointB {
-                let target = CMTime(seconds: pointA, preferredTimescale: 600)
+                    if abs(seconds - lastPersistedTime) >= 1 {
+                        currentFile?.lastPlaybackTime = seconds
+                        lastPersistedTime = seconds
+                    }
+                }
 
-                player.seek(to: target, toleranceBefore: .zero, toleranceAfter: .zero)
+                guard isLooping,
+                    let pointA,
+                    let pointB
+                else {
+                    return
+                }
+
+                if seconds >= pointB {
+                    let target = CMTime(seconds: pointA, preferredTimescale: 600)
+
+                    player.seek(to: target, toleranceBefore: .zero, toleranceAfter: .zero)
+                }
             }
         }
     }
@@ -203,6 +254,7 @@ final class AudioPlayerManager {
         isPlaying = false
         currentTime = 0
         duration = 0
+        lastPersistedTime = 0
         clearLoop()
     }
 }

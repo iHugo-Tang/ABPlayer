@@ -40,6 +40,17 @@ struct PlayerView: View {
             Spacer()
 
             Button {
+                let targetTime = playerManager.currentTime - 5
+                playerManager.seek(to: targetTime)
+            } label: {
+                Image(systemName: "gobackward.5")
+                    .resizable()
+                    .frame(width: 28, height: 28)
+            }
+            .buttonStyle(.plain)
+            .keyboardShortcut("f", modifiers: [])
+
+            Button {
                 playerManager.togglePlayPause()
             } label: {
                 Image(systemName: playerManager.isPlaying ? "pause.circle.fill" : "play.circle.fill")
@@ -48,6 +59,17 @@ struct PlayerView: View {
             }
             .buttonStyle(.plain)
             .keyboardShortcut(.space, modifiers: [])
+
+            Button {
+                let targetTime = playerManager.currentTime + 10
+                playerManager.seek(to: targetTime)
+            } label: {
+                Image(systemName: "goforward.10")
+                    .resizable()
+                    .frame(width: 28, height: 28)
+            }
+            .buttonStyle(.plain)
+            .keyboardShortcut("g", modifiers: [])
         }
     }
 
