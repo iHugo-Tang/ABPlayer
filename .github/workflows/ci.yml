@@ -114,4 +114,4 @@ jobs:
       uses: actions/upload-artifact@v4
       with:
         name: ABPlayer-Release
-        path: DerivedData/Build/Products/Release/ABPlayer.app
+        path: DerivedData/Build/Products/Release
