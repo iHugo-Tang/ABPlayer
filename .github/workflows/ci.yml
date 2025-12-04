@@ -44,14 +44,14 @@ jobs:
           -enableCodeCoverage YES \
           -derivedDataPath DerivedData
 
-    - name: Upload Coverage Reports
-      uses: codecov/codecov-action@v4
-      if: success()
-      with:
-        token: ${{ secrets.CODECOV_TOKEN }}
-        files: ./DerivedData/Logs/*.xcresult
-        fail_ci_if_error: false
-        verbose: true
+    # - name: Upload Coverage Reports
+    #   uses: codecov/codecov-action@v4
+    #   if: success()
+    #   with:
+    #     token: ${{ secrets.CODECOV_TOKEN }}
+    #     files: ./DerivedData/Logs/*.xcresult
+    #     fail_ci_if_error: false
+    #     verbose: true
 
   build-only:
     name: Build Only
