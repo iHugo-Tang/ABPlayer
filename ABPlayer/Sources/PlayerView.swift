@@ -4,6 +4,7 @@ import Observation
 
 struct PlayerView: View {
     @Environment(AudioPlayerManager.self) private var playerManager
+    @Environment(SessionTracker.self) private var sessionTracker
     @Environment(\.modelContext) private var modelContext
 
     @Bindable var audioFile: AudioFile
@@ -39,6 +40,16 @@ struct PlayerView: View {
             }
 
             Spacer()
+
+            VStack(alignment: .trailing, spacing: 4) {
+                Text("Session duration")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+
+                Text(timeString(from: sessionTracker.totalSeconds))
+                    .font(.headline)
+                    .monospacedDigit()
+            }
 
             Button {
                 let targetTime = playerManager.currentTime - 5

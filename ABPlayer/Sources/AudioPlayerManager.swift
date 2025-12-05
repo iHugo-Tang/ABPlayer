@@ -9,8 +9,10 @@ final class AudioPlayerManager {
     private var timeObserverToken: Any?
     private var currentScopedURL: URL?
     private var lastPersistedTime: Double = 0
+    private var lastPlaybackTick: Double?
 
     var currentFile: AudioFile?
+    var sessionTracker: SessionTracker?
 
     var isPlaying: Bool = false
     var currentTime: Double = 0
@@ -38,6 +40,7 @@ final class AudioPlayerManager {
             let url = try resolveBookmark(from: audioFile)
             preparePlayer(with: url)
             currentFile = audioFile
+            lastPlaybackTick = nil
 
             let resumeTime = audioFile.lastPlaybackTime
 
@@ -59,9 +62,13 @@ final class AudioPlayerManager {
         if isPlaying {
             player.pause()
             isPlaying = false
+            sessionTracker?.persistProgress()
+            lastPlaybackTick = nil
         } else {
             player.play()
             isPlaying = true
+            sessionTracker?.startSessionIfNeeded()
+            lastPlaybackTick = currentTime
         }
     }
 
@@ -91,6 +98,9 @@ final class AudioPlayerManager {
         if clampedTime.isFinite && clampedTime >= 0 {
             currentFile?.lastPlaybackTime = clampedTime
             lastPersistedTime = clampedTime
+            if isPlaying {
+                lastPlaybackTick = clampedTime
+            }
         }
     }
 
@@ -219,6 +229,17 @@ final class AudioPlayerManager {
                     if abs(seconds - lastPersistedTime) >= 1 {
                         currentFile?.lastPlaybackTime = seconds
                         lastPersistedTime = seconds
+                    }
+
+                    if isPlaying {
+                        let previousTick = lastPlaybackTick ?? seconds
+                        let delta = seconds - previousTick
+
+                        if delta > 0 {
+                            sessionTracker?.addListeningTime(delta)
+                        }
+
+                        lastPlaybackTick = seconds
                     }
                 }
 

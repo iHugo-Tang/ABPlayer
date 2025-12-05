@@ -1,9 +1,14 @@
 import SwiftUI
 import SwiftData
 import UniformTypeIdentifiers
+import Combine
+#if os(macOS)
+import AppKit
+#endif
 
 public struct ContentView: View {
     @Environment(AudioPlayerManager.self) private var playerManager
+    @Environment(SessionTracker.self) private var sessionTracker
     @Environment(\.modelContext) private var modelContext
 
     @Query(sort: \AudioFile.createdAt, order: .forward)
@@ -37,6 +42,16 @@ public struct ContentView: View {
             allowsMultipleSelection: false,
             onCompletion: handleImportResult
         )
+        .onAppear {
+            sessionTracker.attachModelContext(modelContext)
+            playerManager.sessionTracker = sessionTracker
+        }
+        #if os(macOS)
+        .onReceive(NotificationCenter.default.publisher(for: NSApplication.willTerminateNotification)) { _ in
+            sessionTracker.persistProgress()
+            sessionTracker.endSessionIfIdle()
+        }
+        #endif
         .alert(
             "Import Failed",
             isPresented: .constant(importErrorMessage != nil),
