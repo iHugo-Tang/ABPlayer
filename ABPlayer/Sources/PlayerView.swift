@@ -117,6 +117,22 @@ struct PlayerView: View {
             if let pointB = playerManager.pointB {
                 Text("B: \(timeString(from: pointB))")
             }
+            
+            Button {
+                jumpToPreviousSegment()
+            } label: {
+                Label("Previous Segment", systemImage: "backward.fill")
+            }
+            .disabled(segments.isEmpty)
+            .keyboardShortcut(.leftArrow, modifiers: [])
+
+            Button {
+                jumpToNextSegment()
+            } label: {
+                Label("Next Segment", systemImage: "forward.fill")
+            }
+            .disabled(segments.isEmpty)
+            .keyboardShortcut(.rightArrow, modifiers: [])
         }
         .font(.caption)
     }
@@ -177,26 +193,7 @@ struct PlayerView: View {
                         }
                     }
                 }
-                .frame(minHeight: 120, maxHeight: 200)
-
-                HStack {
-                    Button {
-                        jumpToPreviousSegment()
-                    } label: {
-                        Label("Previous Segment", systemImage: "backward.fill")
-                    }
-                    .disabled(segments.isEmpty)
-                    .keyboardShortcut(.leftArrow, modifiers: [])
-
-                    Button {
-                        jumpToNextSegment()
-                    } label: {
-                        Label("Next Segment", systemImage: "forward.fill")
-                    }
-                    .disabled(segments.isEmpty)
-                    .keyboardShortcut(.rightArrow, modifiers: [])
-                }
-                .font(.caption)
+                .frame(minHeight: 120, maxHeight: .infinity)
             }
         }
     }
