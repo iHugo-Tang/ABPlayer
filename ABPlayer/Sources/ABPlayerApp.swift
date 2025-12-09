@@ -21,6 +21,7 @@ struct ABPlayerApp: App {
                 LoopSegment.self,
                 ListeningSession.self
             )
+            modelContainer.mainContext.autosaveEnabled = true
         } catch {
             fatalError("Failed to create model container: \(error)")
         }

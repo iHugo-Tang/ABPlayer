@@ -176,7 +176,7 @@ public struct ContentView: View {
             )
 
             modelContext.insert(audioFile)
-        selectFile(audioFile)
+            selectFile(audioFile)
         } catch {
             importErrorMessage = "Failed to import file: \(error.localizedDescription)"
         }
