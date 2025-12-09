@@ -92,12 +92,13 @@ jobs:
       run: |
         mise install tuist@4.95.0
         mise use -g tuist@4.95.0
-
     - name: Generate Xcode Project
       env:
         TUIST_CONFIG_TOKEN: ${{ secrets.TUIST_CONFIG_TOKEN }}
         CI: 1
       run: |
+        tuist clean
+        tuist install
         tuist generate
         echo "Generated Xcode project"
 
