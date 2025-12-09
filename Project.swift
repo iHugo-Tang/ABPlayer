@@ -20,13 +20,16 @@ let project = Project(
             deploymentTargets: .macOS("15.7.2"),
             infoPlist: .extendingDefault(with: [
                 "CFBundleVersion": "nightly-202512050245",
-                "CFBundleShortVersionString": "0.0.1"
+                "CFBundleShortVersionString": "0.0.1",
+                "NSMainStoryboardFile": ""
             ]),
             buildableFolders: [
                 "ABPlayer/Sources",
                 "ABPlayer/Resources",
             ],
-            dependencies: []
+            dependencies: [
+                .external(name: "Sentry-Dynamic"),
+            ],
         ),
         .target(
             name: "ABPlayerTests",
