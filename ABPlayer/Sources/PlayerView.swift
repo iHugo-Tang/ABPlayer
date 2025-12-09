@@ -123,10 +123,8 @@ struct PlayerView: View {
             Button("Set B (c)", action: playerManager.setPointB)
                 .keyboardShortcut("c", modifiers: [])
 
-            Button("Clear A/B (v)", action: {
-                fatalError("test sentry")
-            })
-            .keyboardShortcut("v", modifiers: [])
+            Button("Clear A/B (v)", action: playerManager.clearLoop)
+                .keyboardShortcut("v", modifiers: [])
 
             if let pointA = playerManager.pointA {
                 Text("A: \(timeString(from: pointA))")
