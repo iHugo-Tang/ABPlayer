@@ -8,7 +8,9 @@ import PackageDescription
         // Customize the product types for specific package product
         // Default is .staticFramework
         // productTypes: ["Alamofire": .framework,]
-        productTypes: [:]
+        productTypes: [
+            "Sentry-Dynamic": .framework
+        ]
     )
 #endif
 
@@ -18,5 +20,6 @@ let package = Package(
         // Add your own dependencies here:
         // .package(url: "https://github.com/Alamofire/Alamofire", from: "5.0.0"),
         // You can read more about dependencies here: https://docs.tuist.io/documentation/tuist/dependencies
+        .package(url: "https://github.com/getsentry/sentry-cocoa", from: "9.0.0"),
     ]
 )

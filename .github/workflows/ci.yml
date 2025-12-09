@@ -109,7 +109,20 @@ jobs:
           -configuration Release \
           -destination 'platform=macOS' \
           -derivedDataPath DerivedData
-          
+    
+    - name: Upload dSYM to Sentry
+      env:
+        SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
+        SENTRY_ORG: ${{ secrets.SENTRY_ORG }}
+        SENTRY_PROJECT: ${{ secrets.SENTRY_PROJECT }}
+      run: |
+        curl -sL https://sentry.io/get-cli/ | sh
+        sentry-cli debug-files upload \
+          --auth-token "$SENTRY_AUTH_TOKEN" \
+          --org "$SENTRY_ORG" \
+          --project "$SENTRY_PROJECT" \
+          DerivedData/Build/Products/Release/ABPlayer.app.dSYM
+
     - name: Upload Release App
       uses: actions/upload-artifact@v4
       with:
