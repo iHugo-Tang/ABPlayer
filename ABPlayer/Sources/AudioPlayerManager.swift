@@ -21,12 +21,21 @@ final class AudioPlayerManager {
     var pointA: Double?
     var pointB: Double?
 
-    var isLooping: Bool {
+    /// Whether A-B looping should be active when a valid range is set.
+    var isLoopEnabled: Bool = true
+
+    /// Whether A and B define a valid loop range.
+    var hasValidLoopRange: Bool {
         guard let pointA, let pointB else {
             return false
         }
 
         return pointB > pointA
+    }
+
+    /// Whether the player is currently configured to loop (valid range + enabled).
+    var isLooping: Bool {
+        isLoopEnabled && hasValidLoopRange
     }
 
     deinit {

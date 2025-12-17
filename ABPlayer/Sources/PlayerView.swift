@@ -39,9 +39,16 @@ struct PlayerView: View {
                     .font(.title2)
                     .lineLimit(1)
 
-                Text("A-B loop practice")
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
+                Button {
+                    playerManager.isLoopEnabled.toggle()
+                } label: {
+                    Image(systemName: playerManager.isLoopEnabled ? "repeat.circle.fill" : "repeat.circle")
+                    .font(.title)
+                    .foregroundStyle(.primary)
+                }
+                .buttonStyle(.plain)
+                .help("Toggle A-B infinite loop on/off")
+                .keyboardShortcut("l", modifiers: [])
             }
 
             Spacer()
@@ -176,7 +183,7 @@ struct PlayerView: View {
                     saveCurrentSegment()
                 }
                 .keyboardShortcut("b", modifiers: [])
-                .disabled(!playerManager.isLooping)
+                .disabled(!playerManager.hasValidLoopRange)
             }
 
             if segments.isEmpty {
