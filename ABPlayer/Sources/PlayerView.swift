@@ -173,7 +173,6 @@ struct PlayerView: View {
           }
         ),
         in: 0...(playerManager.duration > 0 ? playerManager.duration : 1),
-        step: 0.01,
         onEditingChanged: { editing in
           if editing {
             // 开始拖拽
