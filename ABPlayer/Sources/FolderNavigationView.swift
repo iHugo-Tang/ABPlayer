@@ -36,10 +36,16 @@ struct FolderNavigationView: View {
     .onChange(of: selection) { _, newValue in
       handleSelectionChange(newValue)
     }
-    .onChange(of: selectedFile) { oldValue, newValue in
-      if nil == oldValue && nil != newValue {
-        selection = .audioFile(newValue!)
+    .onChange(of: selectedFile) { _, newValue in
+      guard let newValue else {
+        selection = nil
+        return
       }
+      // Only update if the selection doesn't already match
+      if case .audioFile(let current) = selection, current.id == newValue.id {
+        return
+      }
+      selection = .audioFile(newValue)
     }
   }
 
@@ -207,7 +213,7 @@ struct FolderNavigationView: View {
 
   private var currentAudioFiles: [AudioFile] {
     if let folder = currentFolder {
-      return folder.audioFiles.sorted { $0.createdAt < $1.createdAt }
+      return folder.sortedAudioFiles
     }
     return rootAudioFiles
   }

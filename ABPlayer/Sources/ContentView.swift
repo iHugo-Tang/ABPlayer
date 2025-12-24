@@ -298,7 +298,7 @@ public struct ContentView: View {
         let folder = currentFile.folder
       else { return }
 
-      let files = folder.audioFiles.sorted { $0.displayName < $1.displayName }
+      let files = folder.sortedAudioFiles
       guard !files.isEmpty else { return }
 
       let nextFile: AudioFile?
