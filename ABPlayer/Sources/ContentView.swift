@@ -105,6 +105,7 @@ public struct ContentView: View {
       selectedFile: $selectedFile,
       currentFolder: $currentFolder,
       navigationPath: $navigationPath,
+      onSelectFile: selectFile,
       onPlayFile: playFile
     )
     .navigationTitle("ABPlayer")
