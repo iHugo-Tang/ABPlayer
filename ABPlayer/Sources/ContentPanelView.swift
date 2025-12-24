@@ -70,13 +70,16 @@ struct ContentPanelView: View {
 
   @ViewBuilder
   private var tabContent: some View {
-    switch selectedTab {
-    case .subtitles:
-      subtitlesContent
+    ZStack {
+      switch selectedTab {
+      case .subtitles:
+        subtitlesContent
 
-    case .pdf:
-      pdfContent
+      case .pdf:
+        pdfContent
+      }
     }
+    .frame(maxHeight: .infinity)
   }
 
   @ViewBuilder

@@ -18,8 +18,7 @@ struct PlayerView: View {
     HSplitView {
       // Left: Player controls + Segments
       playerSection
-        .frame(minWidth: 400)
-        .frame(maxHeight: .infinity)
+        .frame(minWidth: 360, idealWidth: 420, maxWidth: 420)
 
       // Right: Content panel (PDF, Subtitles only)
       if showContentPanel {
@@ -64,6 +63,7 @@ struct PlayerView: View {
       segmentsSection
     }
     .padding()
+    .frame(maxHeight: .infinity)
   }
 
   // MARK: - Header
@@ -169,41 +169,45 @@ struct PlayerView: View {
   // MARK: - Loop Controls
 
   private var loopControls: some View {
-    HStack(spacing: 12) {
-      Button("Set A (x)", action: playerManager.setPointA)
-        .keyboardShortcut("x", modifiers: [])
+    VStack(alignment: .leading) {
+      HStack {
+        Button("Set A", action: playerManager.setPointA)
+          .keyboardShortcut("x", modifiers: [])
 
-      Button("Set B (c)", action: playerManager.setPointB)
-        .keyboardShortcut("c", modifiers: [])
+        Button("Set B", action: playerManager.setPointB)
+          .keyboardShortcut("c", modifiers: [])
 
-      Button("Clear A/B (v)", action: playerManager.clearLoop)
-        .keyboardShortcut("v", modifiers: [])
+        Button("Clear", action: playerManager.clearLoop)
+          .keyboardShortcut("v", modifiers: [])
 
-      if let pointA = playerManager.pointA {
-        Text("A: \(timeString(from: pointA))")
+        if let pointA = playerManager.pointA {
+          Text("A: \(timeString(from: pointA))")
+        }
+
+        if let pointB = playerManager.pointB {
+          Text("B: \(timeString(from: pointB))")
+        }
+
+        Spacer()
       }
 
-      if let pointB = playerManager.pointB {
-        Text("B: \(timeString(from: pointB))")
-      }
+      HStack {
+        Button {
+          jumpToPreviousSegment()
+        } label: {
+          Image(systemName: "backward.fill")
+        }
+        .disabled(audioFile.segments.isEmpty)
+        .keyboardShortcut(.leftArrow, modifiers: [])
 
-      Spacer()
-
-      Button {
-        jumpToPreviousSegment()
-      } label: {
-        Label("Previous Segment", systemImage: "backward.fill")
+        Button {
+          jumpToNextSegment()
+        } label: {
+          Image(systemName: "forward.fill")
+        }
+        .disabled(audioFile.segments.isEmpty)
+        .keyboardShortcut(.rightArrow, modifiers: [])
       }
-      .disabled(audioFile.segments.isEmpty)
-      .keyboardShortcut(.leftArrow, modifiers: [])
-
-      Button {
-        jumpToNextSegment()
-      } label: {
-        Label("Next Segment", systemImage: "forward.fill")
-      }
-      .disabled(audioFile.segments.isEmpty)
-      .keyboardShortcut(.rightArrow, modifiers: [])
     }
     .font(.caption)
   }
@@ -239,9 +243,12 @@ struct PlayerView: View {
       }
 
       if segments.isEmpty {
-        Text("No segments saved yet. Set A and B, then tap \"Save Current A-B\".")
-          .font(.caption)
-          .foregroundStyle(.secondary)
+        ContentUnavailableView(
+          "No segments saved",
+          systemImage: "lines.measurement.horizontal",
+          description: Text("Set A and B, then tap \"Save Current A-B\".")
+        )
+        .frame(maxHeight: .infinity)
       } else {
         List(selection: $selectedSegmentID) {
           ForEach(segments) { segment in
