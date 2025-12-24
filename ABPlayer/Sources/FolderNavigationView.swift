@@ -25,6 +25,7 @@ struct FolderNavigationView: View {
 
   @State private var selection: SelectionItem?
 
+  let onSelectFile: (AudioFile) -> Void
   let onPlayFile: (AudioFile) -> Void
 
   var body: some View {
@@ -120,7 +121,7 @@ struct FolderNavigationView: View {
       self.selection = nil
 
     case .audioFile(let file):
-      selectedFile = file
+      onSelectFile(file)
 
     case .empty:
       break
