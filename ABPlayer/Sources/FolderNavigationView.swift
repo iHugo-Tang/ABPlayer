@@ -1,6 +1,14 @@
 import SwiftData
 import SwiftUI
 
+// MARK: - Selection Item
+
+enum SelectionItem: Hashable {
+  case folder(Folder)
+  case audioFile(AudioFile)
+  case empty
+}
+
 /// Hierarchical folder navigation view for the sidebar
 struct FolderNavigationView: View {
   @Environment(\.modelContext) private var modelContext
@@ -15,37 +23,48 @@ struct FolderNavigationView: View {
   @Binding var currentFolder: Folder?
   @Binding var navigationPath: [Folder]
 
-  let onSelectFile: (AudioFile) -> Void
+  @State private var selection: SelectionItem?
+
+  let onPlayFile: (AudioFile) -> Void
 
   var body: some View {
     VStack(spacing: 0) {
       navigationHeader
       fileList
     }
+    .onChange(of: selection) { _, newValue in
+      handleSelectionChange(newValue)
+    }
+    .onChange(of: selectedFile) { oldValue, newValue in
+      if nil == oldValue && nil != newValue {
+        selection = .audioFile(newValue!)
+      }
+    }
   }
 
   // MARK: - Navigation Header
 
   private var navigationHeader: some View {
-    HStack {
-      if !navigationPath.isEmpty {
-        Button {
-          withAnimation(.easeInOut(duration: 0.2)) {
-            navigateBack()
-          }
-        } label: {
+    Button {
+      withAnimation(.easeInOut(duration: 0.2)) {
+        navigateBack()
+      }
+    } label: {
+      HStack {
+        if !navigationPath.isEmpty {
           Label("Back", systemImage: "chevron.left")
             .labelStyle(.iconOnly)
         }
-        .buttonStyle(.plain)
+
+        Text(currentFolder?.name ?? "Library")
+          .font(.headline)
+          .lineLimit(1)
+
+        Spacer()
       }
-
-      Text(currentFolder?.name ?? "Library")
-        .font(.headline)
-        .lineLimit(1)
-
-      Spacer()
+      .contentShape(Rectangle())
     }
+    .buttonStyle(.plain)
     .padding(.horizontal, 12)
     .padding(.vertical, 8)
     .background(.bar)
@@ -54,17 +73,13 @@ struct FolderNavigationView: View {
   // MARK: - File List
 
   private var fileList: some View {
-    List(
-      selection: Binding(
-        get: { selectedFile?.id },
-        set: { _ in }
-      )
-    ) {
+    List(selection: $selection) {
       // Folders section
       if !currentFolders.isEmpty {
         Section("Folders") {
           ForEach(currentFolders) { folder in
             folderRow(for: folder)
+              .tag(SelectionItem.folder(folder))
           }
         }
       }
@@ -74,6 +89,7 @@ struct FolderNavigationView: View {
         Section("Audio Files") {
           ForEach(currentAudioFiles) { file in
             audioFileRow(for: file)
+              .tag(SelectionItem.audioFile(file))
           }
         }
       }
@@ -85,40 +101,56 @@ struct FolderNavigationView: View {
           systemImage: "folder",
           description: Text("Import a folder to get started")
         )
+        .tag(SelectionItem.empty)
       }
+    }
+  }
+
+  // MARK: - Selection Handling
+
+  private func handleSelectionChange(_ newSelection: SelectionItem?) {
+    guard let newSelection else { return }
+
+    switch newSelection {
+    case .folder(let folder):
+      withAnimation(.easeInOut(duration: 0.2)) {
+        navigateInto(folder)
+      }
+      // Clear selection after navigation to allow re-selection
+      self.selection = nil
+
+    case .audioFile(let file):
+      selectedFile = file
+
+    case .empty:
+      break
     }
   }
 
   // MARK: - Folder Row
 
   private func folderRow(for folder: Folder) -> some View {
-    Button {
-      withAnimation(.easeInOut(duration: 0.2)) {
-        navigateInto(folder)
-      }
-    } label: {
-      HStack {
-        Image(systemName: "folder.fill")
-          .foregroundStyle(.secondary)
+    HStack {
+      Image(systemName: "folder.fill")
+        .foregroundStyle(.secondary)
 
-        VStack(alignment: .leading) {
-          Text(folder.name)
-            .lineLimit(1)
+      VStack(alignment: .leading) {
+        Text(folder.name)
+          .lineLimit(1)
 
-          let count = folder.audioFiles.count + folder.subfolders.count
-          Text("\(count) items")
-            .font(.caption2)
-            .foregroundStyle(.tertiary)
-        }
-
-        Spacer()
-
-        Image(systemName: "chevron.right")
+        let count = folder.audioFiles.count + folder.subfolders.count
+        Text("\(count) items")
+          .font(.caption2)
           .foregroundStyle(.tertiary)
-          .font(.caption)
       }
+
+      Spacer()
+
+      Image(systemName: "chevron.right")
+        .foregroundStyle(.tertiary)
+        .font(.caption)
     }
-    .buttonStyle(.plain)
+    .contentShape(Rectangle())
   }
 
   // MARK: - Audio File Row
@@ -126,45 +158,41 @@ struct FolderNavigationView: View {
   private func audioFileRow(for file: AudioFile) -> some View {
     let isSelected = selectedFile?.id == file.id
 
-    return Button {
-      onSelectFile(file)
-    } label: {
-      HStack {
-        Image(systemName: "music.note")
-          .foregroundStyle(file.subtitleFile != nil ? .blue : .secondary)
+    return HStack {
+      Image(systemName: "music.note")
+        .foregroundStyle(file.subtitleFile != nil ? .blue : .secondary)
 
-        VStack(alignment: .leading) {
-          Text(file.displayName)
-            .lineLimit(1)
+      VStack(alignment: .leading) {
+        Text(file.displayName)
+          .lineLimit(1)
 
-          HStack(spacing: 4) {
-            Text(file.createdAt, style: .date)
+        HStack(spacing: 4) {
+          Text(file.createdAt, style: .date)
 
-            if file.subtitleFile != nil {
-              Text("•")
-              Image(systemName: "text.bubble")
-                .font(.caption2)
-            }
-
-            if file.pdfBookmarkData != nil {
-              Text("•")
-              Image(systemName: "doc.text")
-                .font(.caption2)
-            }
+          if file.subtitleFile != nil {
+            Text("•")
+            Image(systemName: "text.bubble")
+              .font(.caption2)
           }
-          .font(.caption2)
-          .foregroundStyle(.secondary)
-        }
 
-        Spacer()
-
-        if isSelected {
-          Image(systemName: "checkmark.circle.fill")
-            .foregroundStyle(.tint)
+          if file.pdfBookmarkData != nil {
+            Text("•")
+            Image(systemName: "doc.text")
+              .font(.caption2)
+          }
         }
+        .font(.caption2)
+        .foregroundStyle(.secondary)
+      }
+
+      Spacer()
+
+      if isSelected {
+        Image(systemName: "checkmark.circle.fill")
+          .foregroundStyle(.tint)
       }
     }
-    .buttonStyle(.plain)
+    .contentShape(Rectangle())
   }
 
   // MARK: - Computed Properties

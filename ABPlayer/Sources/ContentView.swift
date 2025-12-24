@@ -15,6 +15,9 @@ public struct ContentView: View {
   @Query(sort: \AudioFile.createdAt, order: .forward)
   private var allAudioFiles: [AudioFile]
 
+  @Query(sort: \Folder.name)
+  private var allFolders: [Folder]
+
   @State private var selectedFile: AudioFile?
   @State private var currentFolder: Folder?
   @State private var navigationPath: [Folder] = []
@@ -22,6 +25,7 @@ public struct ContentView: View {
   @State private var isImportingFolder: Bool = false
   @State private var importErrorMessage: String?
   @AppStorage("lastSelectedAudioFileID") private var lastSelectedAudioFileID: String?
+  @AppStorage("lastFolderID") private var lastFolderID: String?
 
   public init() {}
 
@@ -101,7 +105,7 @@ public struct ContentView: View {
       selectedFile: $selectedFile,
       currentFolder: $currentFolder,
       navigationPath: $navigationPath,
-      onSelectFile: selectFile
+      onPlayFile: playFile
     )
     .navigationTitle("ABPlayer")
     .toolbar {
@@ -220,6 +224,7 @@ public struct ContentView: View {
   private func selectFile(_ file: AudioFile) {
     selectedFile = file
     lastSelectedAudioFileID = file.id.uuidString
+    lastFolderID = file.folder?.id.uuidString
 
     if playerManager.currentFile?.id == file.id,
       playerManager.currentFile != nil
@@ -231,7 +236,29 @@ public struct ContentView: View {
     playerManager.load(audioFile: file)
   }
 
+  private func playFile(_ file: AudioFile) {
+    selectFile(file)
+    playerManager.play()
+  }
+
   private func restoreLastSelectionIfNeeded() {
+    // Restore folder navigation
+    if currentFolder == nil, navigationPath.isEmpty,
+      let lastFolderID,
+      let folderUUID = UUID(uuidString: lastFolderID),
+      let folder = allFolders.first(where: { $0.id == folderUUID })
+    {
+      // Build navigation path from root to folder
+      var path: [Folder] = []
+      var current: Folder? = folder
+      while let f = current {
+        path.insert(f, at: 0)
+        current = f.parent
+      }
+      navigationPath = path
+      currentFolder = folder
+    }
+
     guard selectedFile == nil else {
       if let currentFile = playerManager.currentFile,
         let matchedFile = allAudioFiles.first(where: { $0.id == currentFile.id })

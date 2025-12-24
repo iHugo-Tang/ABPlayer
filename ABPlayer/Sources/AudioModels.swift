@@ -28,6 +28,9 @@ final class AudioFile {
   @Attribute(.externalStorage)
   var pdfBookmarkData: Data?
 
+  /// 缓存的音频时长（秒），避免每次加载时读取
+  var cachedDuration: Double?
+
   init(
     id: UUID = UUID(),
     displayName: String,
@@ -37,7 +40,8 @@ final class AudioFile {
     lastPlaybackTime: Double = 0,
     folder: Folder? = nil,
     subtitleFile: SubtitleFile? = nil,
-    pdfBookmarkData: Data? = nil
+    pdfBookmarkData: Data? = nil,
+    cachedDuration: Double? = nil
   ) {
     self.id = id
     self.displayName = displayName
@@ -48,6 +52,7 @@ final class AudioFile {
     self.folder = folder
     self.subtitleFile = subtitleFile
     self.pdfBookmarkData = pdfBookmarkData
+    self.cachedDuration = cachedDuration
   }
 }
 

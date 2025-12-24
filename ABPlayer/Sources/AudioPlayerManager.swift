@@ -1,292 +1,331 @@
-import Foundation
 import AVFoundation
+import Foundation
 import Observation
+
+// MARK: - Observable UI State (MainActor)
 
 @MainActor
 @Observable
 final class AudioPlayerManager {
-    private var player: AVPlayer?
-    private var timeObserverToken: Any?
-    private var currentScopedURL: URL?
-    private var lastPersistedTime: Double = 0
-    private var lastPlaybackTick: Double?
+  private let _engine = AudioPlayerEngine()
 
-    var currentFile: AudioFile?
-    var sessionTracker: SessionTracker?
+  var currentFile: AudioFile?
+  var sessionTracker: SessionTracker?
 
-    var isPlaying: Bool = false
-    var currentTime: Double = 0
-    var duration: Double = 0
+  var isPlaying: Bool = false
+  var currentTime: Double = 0
+  var duration: Double = 0
 
-    var pointA: Double?
-    var pointB: Double?
+  var pointA: Double?
+  var pointB: Double?
 
-    /// Whether A-B looping should be active when a valid range is set.
-    var isLoopEnabled: Bool = true
+  /// Whether A-B looping should be active when a valid range is set.
+  var isLoopEnabled: Bool = true
 
-    /// Whether A and B define a valid loop range.
-    var hasValidLoopRange: Bool {
-        guard let pointA, let pointB else {
-            return false
-        }
+  private var lastPersistedTime: Double = 0
 
-        return pointB > pointA
+  /// Whether A and B define a valid loop range.
+  var hasValidLoopRange: Bool {
+    guard let pointA, let pointB else {
+      return false
     }
 
-    /// Whether the player is currently configured to loop (valid range + enabled).
-    var isLooping: Bool {
-        isLoopEnabled && hasValidLoopRange
+    return pointB > pointA
+  }
+
+  /// Whether the player is currently configured to loop (valid range + enabled).
+  var isLooping: Bool {
+    isLoopEnabled && hasValidLoopRange
+  }
+
+  deinit {
+    _engine.teardownSync()
+  }
+
+  // MARK: - Public API
+
+  func load(audioFile: AudioFile) {
+    // 使用缓存的时长立即显示 UI
+    if let cached = audioFile.cachedDuration, cached > 0 {
+      duration = cached
     }
 
-    deinit {
-        Task { [weak self] in
-            await self?.teardownPlayer()
-        }
-    }
+    currentFile = audioFile
+    currentTime = 0
+    isPlaying = false
+    clearLoop()
+    lastPersistedTime = 0
 
-    func load(audioFile: AudioFile) {
-        do {
-            let url = try resolveBookmark(from: audioFile)
-            preparePlayer(with: url)
-            currentFile = audioFile
-            lastPlaybackTick = nil
+    let bookmarkData = audioFile.bookmarkData
+    let resumeTime = audioFile.lastPlaybackTime
 
-            let resumeTime = audioFile.lastPlaybackTime
+    Task { [weak self] in
+      guard let self else { return }
 
-            if resumeTime > 0 {
-                seek(to: resumeTime)
-            } else {
-                lastPersistedTime = 0
-            }
-        } catch {
-            assertionFailure("Failed to load audio file: \(error)")
-        }
-    }
-
-    func togglePlayPause() {
-        guard let player else {
-            return
-        }
-
-        if isPlaying {
-            player.pause()
-            isPlaying = false
-            sessionTracker?.persistProgress()
-            lastPlaybackTick = nil
-        } else {
-            player.play()
-            isPlaying = true
-            sessionTracker?.startSessionIfNeeded()
-            lastPlaybackTick = currentTime
-        }
-    }
-
-    func seek(to time: Double) {
-        guard let player else {
-            return
-        }
-
-        let maxTime: Double
-
-        if duration > 0 {
-            maxTime = duration
-        } else if let itemDuration = player.currentItem?.duration,
-                  itemDuration.isNumeric {
-            let seconds = CMTimeGetSeconds(itemDuration)
-            maxTime = seconds.isFinite && seconds > 0 ? seconds : time
-        } else {
-            maxTime = time
-        }
-
-        let clampedTime = min(max(time, 0), maxTime)
-        let target = CMTime(seconds: clampedTime, preferredTimescale: 600)
-
-        player.seek(to: target, toleranceBefore: .zero, toleranceAfter: .zero)
-        currentTime = clampedTime
-
-        if clampedTime.isFinite && clampedTime >= 0 {
-            currentFile?.lastPlaybackTime = clampedTime
-            lastPersistedTime = clampedTime
-            if isPlaying {
-                lastPlaybackTick = clampedTime
-            }
-        }
-    }
-
-    func setPointA() {
-        pointA = currentTime
-
-        if let pointB, pointB <= currentTime {
-            self.pointB = nil
-        }
-    }
-
-    func setPointB() {
-        if pointA == nil {
-            pointA = currentTime
-        }
-
-        guard let pointA else {
-            return
-        }
-
-        if currentTime <= pointA {
-            return
-        }
-
-        pointB = currentTime
-    }
-
-    func clearLoop() {
-        pointA = nil
-        pointB = nil
-    }
-
-    func apply(segment: LoopSegment, autoPlay: Bool = true) {
-        pointA = segment.startTime
-        pointB = segment.endTime
-        seek(to: segment.startTime)
-
-        if autoPlay && !isPlaying {
-            togglePlayPause()
-        }
-    }
-
-    private func resolveBookmark(from audioFile: AudioFile) throws -> URL {
-        var isStale = false
-
-        let url = try URL(
-            resolvingBookmarkData: audioFile.bookmarkData,
-            options: [.withSecurityScope],
-            relativeTo: nil,
-            bookmarkDataIsStale: &isStale
+      do {
+        try await _engine.load(
+          bookmarkData: bookmarkData,
+          resumeTime: resumeTime,
+          onDurationLoaded: { [weak self] loadedDuration in
+            guard let self else { return }
+            self.duration = loadedDuration
+            audioFile.cachedDuration = loadedDuration
+          },
+          onTimeUpdate: { [weak self] seconds in
+            guard let self else { return }
+            self.handleTimeUpdate(seconds)
+          },
+          onLoopCheck: { [weak self] seconds in
+            guard let self else { return }
+            self.handleLoopCheck(seconds)
+          }
         )
 
-        if isStale {
-            // For now we rely on the stale bookmark still being resolvable.
-            // Callers can choose to recreate the bookmark if needed.
+        // Restore position after load
+        if resumeTime > 0 {
+          currentTime = resumeTime
+          lastPersistedTime = resumeTime
         }
+      } catch {
+        assertionFailure("Failed to load audio file: \(error)")
+      }
+    }
+  }
 
-        return url
+  func play() {
+    guard !isPlaying else { return }
+
+    Task { [weak self] in
+      guard let self else { return }
+      let success = await _engine.play()
+      if success {
+        self.isPlaying = true
+        self.sessionTracker?.startSessionIfNeeded()
+      }
+    }
+  }
+
+  func togglePlayPause() {
+    if isPlaying {
+      Task { [weak self] in
+        guard let self else { return }
+        await _engine.pause()
+        self.isPlaying = false
+        self.sessionTracker?.persistProgress()
+      }
+    } else {
+      Task { [weak self] in
+        guard let self else { return }
+        let success = await _engine.play()
+        if success {
+          self.isPlaying = true
+          self.sessionTracker?.startSessionIfNeeded()
+        }
+      }
+    }
+  }
+
+  func seek(to time: Double) {
+    let maxTime: Double
+    if duration > 0 {
+      maxTime = duration
+    } else {
+      maxTime = time
     }
 
-    private func preparePlayer(with url: URL) {
-        teardownPlayer()
+    let clampedTime = min(max(time, 0), maxTime)
+    currentTime = clampedTime
 
-        guard url.startAccessingSecurityScopedResource() else {
-            assertionFailure("Unable to access security scoped resource")
-            return
-        }
-
-        currentScopedURL = url
-
-        let asset = AVURLAsset(url: url)
-
-        Task { @MainActor [weak self] in
-            guard let self else {
-                return
-            }
-
-            do {
-                let time = try await asset.load(.duration)
-                let assetDuration = CMTimeGetSeconds(time)
-
-                if assetDuration.isFinite && assetDuration > 0 {
-                    self.duration = assetDuration
-                } else {
-                    self.duration = 0
-                }
-            } catch {
-                assertionFailure("Failed to load asset duration: \(error)")
-                self.duration = 0
-            }
-        }
-
-        let item = AVPlayerItem(asset: asset)
-        let player = AVPlayer(playerItem: item)
-
-        self.player = player
-        currentTime = 0
-        isPlaying = false
-        clearLoop()
-
-        addTimeObserver()
+    if clampedTime.isFinite && clampedTime >= 0 {
+      currentFile?.lastPlaybackTime = clampedTime
+      lastPersistedTime = clampedTime
     }
 
-    private func addTimeObserver() {
-        guard let player else {
-            return
-        }
+    Task { [weak self] in
+      guard let self else { return }
+      await _engine.seek(to: clampedTime)
+    }
+  }
 
-        let interval = CMTime(seconds: 0.03, preferredTimescale: 600)
+  func setPointA() {
+    pointA = currentTime
 
-        timeObserverToken = player.addPeriodicTimeObserver(forInterval: interval, queue: .main) { [weak self] time in
-            guard let self else {
-                return
-            }
+    if let pointB, pointB <= currentTime {
+      self.pointB = nil
+    }
+  }
 
-            let seconds = CMTimeGetSeconds(time)
-
-            Task { @MainActor [weak self] in
-                guard let self else {
-                    return
-                }
-
-                if seconds.isFinite && seconds >= 0 {
-                    currentTime = seconds
-
-                    if abs(seconds - lastPersistedTime) >= 1 {
-                        currentFile?.lastPlaybackTime = seconds
-                        lastPersistedTime = seconds
-                    }
-
-                    if isPlaying {
-                        let previousTick = lastPlaybackTick ?? seconds
-                        let delta = seconds - previousTick
-
-                        if delta > 0 {
-                            sessionTracker?.addListeningTime(delta)
-                        }
-
-                        lastPlaybackTick = seconds
-                    }
-                }
-
-                guard isLooping,
-                    let pointA,
-                    let pointB
-                else {
-                    return
-                }
-
-                if seconds >= pointB {
-                    let target = CMTime(seconds: pointA, preferredTimescale: 600)
-
-                    player.seek(to: target, toleranceBefore: .zero, toleranceAfter: .zero)
-                }
-            }
-        }
+  func setPointB() {
+    if pointA == nil {
+      pointA = currentTime
     }
 
-    private func teardownPlayer() {
-        if let player, let timeObserverToken {
-            player.removeTimeObserver(timeObserverToken)
-        }
+    guard let pointA else { return }
 
-        timeObserverToken = nil
+    if currentTime <= pointA { return }
 
-        if let currentScopedURL {
-            currentScopedURL.stopAccessingSecurityScopedResource()
-        }
+    pointB = currentTime
+  }
 
-        currentScopedURL = nil
-        player = nil
-        isPlaying = false
-        currentTime = 0
-        duration = 0
-        lastPersistedTime = 0
-        clearLoop()
+  func clearLoop() {
+    pointA = nil
+    pointB = nil
+  }
+
+  func apply(segment: LoopSegment, autoPlay: Bool = true) {
+    pointA = segment.startTime
+    pointB = segment.endTime
+    seek(to: segment.startTime)
+
+    if autoPlay && !isPlaying {
+      togglePlayPause()
     }
+  }
+
+  // MARK: - Private Handlers
+
+  private func handleTimeUpdate(_ seconds: Double) {
+    currentTime = seconds
+
+    // Persist playback time periodically (every 1 second)
+    if abs(seconds - lastPersistedTime) >= 1 {
+      currentFile?.lastPlaybackTime = seconds
+      lastPersistedTime = seconds
+    }
+
+    // Track listening time
+    if isPlaying {
+      sessionTracker?.addListeningTime(0.03)
+    }
+  }
+
+  private func handleLoopCheck(_ seconds: Double) {
+    guard isLooping,
+      let pointA,
+      let pointB
+    else { return }
+
+    if seconds >= pointB {
+      seek(to: pointA)
+    }
+  }
 }
 
+// MARK: - Audio Engine Actor (Background)
 
+actor AudioPlayerEngine {
+  private var player: AVPlayer?
+  private var timeObserverToken: Any?
+  private var currentScopedURL: URL?
+  private var lastPersistedTime: Double = 0
+  private var lastPlaybackTick: Double?
+
+  func load(
+    bookmarkData: Data,
+    resumeTime: Double,
+    onDurationLoaded: @MainActor @Sendable @escaping (Double) -> Void,
+    onTimeUpdate: @MainActor @Sendable @escaping (Double) -> Void,
+    onLoopCheck: @MainActor @Sendable @escaping (Double) -> Void
+  ) async throws {
+    teardownPlayerInternal()
+
+    var isStale = false
+    let url = try URL(
+      resolvingBookmarkData: bookmarkData,
+      options: [.withSecurityScope],
+      relativeTo: nil,
+      bookmarkDataIsStale: &isStale
+    )
+
+    guard url.startAccessingSecurityScopedResource() else {
+      assertionFailure("Unable to access security scoped resource")
+      return
+    }
+
+    currentScopedURL = url
+
+    let asset = AVURLAsset(url: url)
+
+    // Load duration asynchronously (non-blocking)
+    let time = try await asset.load(.duration)
+    let assetDuration = CMTimeGetSeconds(time)
+    let finalDuration = (assetDuration.isFinite && assetDuration > 0) ? assetDuration : 0
+
+    await onDurationLoaded(finalDuration)
+
+    let item = AVPlayerItem(asset: asset)
+    let player = AVPlayer(playerItem: item)
+    self.player = player
+
+    lastPlaybackTick = nil
+    lastPersistedTime = 0
+
+    // Resume playback position
+    if resumeTime > 0 {
+      let target = CMTime(seconds: resumeTime, preferredTimescale: 600)
+      await player.seek(to: target, toleranceBefore: .zero, toleranceAfter: .zero)
+      lastPersistedTime = resumeTime
+    }
+
+    addTimeObserver(onTimeUpdate: onTimeUpdate, onLoopCheck: onLoopCheck)
+  }
+
+  func play() -> Bool {
+    guard let player else { return false }
+    player.play()
+    lastPlaybackTick = CMTimeGetSeconds(player.currentTime())
+    return true
+  }
+
+  func pause() {
+    player?.pause()
+    lastPlaybackTick = nil
+  }
+
+  func seek(to time: Double) {
+    guard let player else { return }
+    let target = CMTime(seconds: time, preferredTimescale: 600)
+    player.seek(to: target, toleranceBefore: .zero, toleranceAfter: .zero)
+    lastPersistedTime = time
+  }
+
+  nonisolated func teardownSync() {
+    Task { await self.teardownPlayerInternal() }
+  }
+
+  private func teardownPlayerInternal() {
+    if let player, let timeObserverToken {
+      player.removeTimeObserver(timeObserverToken)
+    }
+    timeObserverToken = nil
+
+    if let currentScopedURL {
+      currentScopedURL.stopAccessingSecurityScopedResource()
+    }
+    currentScopedURL = nil
+    player = nil
+    lastPersistedTime = 0
+    lastPlaybackTick = nil
+  }
+
+  private func addTimeObserver(
+    onTimeUpdate: @MainActor @Sendable @escaping (Double) -> Void,
+    onLoopCheck: @MainActor @Sendable @escaping (Double) -> Void
+  ) {
+    guard let player else { return }
+
+    let interval = CMTime(seconds: 0.03, preferredTimescale: 600)
+
+    timeObserverToken = player.addPeriodicTimeObserver(forInterval: interval, queue: .main) {
+      time in
+
+      let seconds = CMTimeGetSeconds(time)
+
+      Task { @MainActor in
+        guard seconds.isFinite && seconds >= 0 else { return }
+        onTimeUpdate(seconds)
+        onLoopCheck(seconds)
+      }
+    }
+  }
+}
