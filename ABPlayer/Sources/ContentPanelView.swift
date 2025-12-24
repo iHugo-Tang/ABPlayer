@@ -51,10 +51,9 @@ struct ContentPanelView: View {
     } label: {
       HStack(spacing: 4) {
         Image(systemName: tab.icon)
-          .font(.caption)
         Text(tab.rawValue)
-          .font(.caption)
       }
+      .font(.title3)
       .padding(.horizontal, 12)
       .padding(.vertical, 6)
       .background(
