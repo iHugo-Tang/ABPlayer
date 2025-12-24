@@ -7,6 +7,8 @@ struct ABPlayerApp: App {
   private let modelContainer: ModelContainer
   private let playerManager = AudioPlayerManager()
   private let sessionTracker = SessionTracker()
+  private let transcriptionManager = TranscriptionManager()
+  private let transcriptionSettings = TranscriptionSettings()
 
   init() {
     do {
@@ -22,7 +24,8 @@ struct ABPlayerApp: App {
         LoopSegment.self,
         ListeningSession.self,
         Folder.self,
-        SubtitleFile.self
+        SubtitleFile.self,
+        Transcription.self
       )
       modelContainer.mainContext.autosaveEnabled = true
     } catch {
@@ -35,7 +38,16 @@ struct ABPlayerApp: App {
       ContentView()
         .environment(playerManager)
         .environment(sessionTracker)
+        .environment(transcriptionManager)
+        .environment(transcriptionSettings)
     }
     .modelContainer(modelContainer)
+
+    #if os(macOS)
+      Settings {
+        SettingsView()
+          .environment(transcriptionSettings)
+      }
+    #endif
   }
 }

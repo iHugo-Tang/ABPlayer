@@ -1,15 +1,15 @@
 import SwiftUI
 
-/// Represents the different content panels available (subtitles and PDF only)
+/// Represents the different content panels available (transcription and PDF)
 enum ContentPanelTab: String, CaseIterable, Identifiable {
-  case subtitles = "Subtitles"
+  case transcription = "Transcription"
   case pdf = "PDF"
 
   var id: String { rawValue }
 
   var icon: String {
     switch self {
-    case .subtitles: return "text.bubble"
+    case .transcription: return "text.bubble"
     case .pdf: return "doc.text"
     }
   }
@@ -19,7 +19,7 @@ enum ContentPanelTab: String, CaseIterable, Identifiable {
 struct ContentPanelView: View {
   let audioFile: AudioFile
 
-  @State private var selectedTab: ContentPanelTab = .subtitles
+  @State private var selectedTab: ContentPanelTab = .transcription
 
   var body: some View {
     VStack(spacing: 0) {
@@ -71,23 +71,14 @@ struct ContentPanelView: View {
   private var tabContent: some View {
     ZStack {
       switch selectedTab {
-      case .subtitles:
-        subtitlesContent
+      case .transcription:
+        TranscriptionView(audioFile: audioFile)
 
       case .pdf:
         pdfContent
       }
     }
     .frame(maxHeight: .infinity)
-  }
-
-  @ViewBuilder
-  private var subtitlesContent: some View {
-    if let subtitleFile = audioFile.subtitleFile {
-      SubtitleView(cues: subtitleFile.cues)
-    } else {
-      SubtitleEmptyView()
-    }
   }
 
   @ViewBuilder

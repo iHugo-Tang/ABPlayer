@@ -28,7 +28,8 @@ let project = Project(
         "ABPlayer/Resources",
       ],
       dependencies: [
-        .external(name: "Sentry-Dynamic")
+        .external(name: "Sentry-Dynamic"),
+        .external(name: "WhisperKit"),
       ],
     ),
     .target(
