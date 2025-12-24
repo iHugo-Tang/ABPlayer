@@ -1,224 +1,282 @@
-import SwiftUI
-import SwiftData
-import UniformTypeIdentifiers
 import Combine
+import SwiftData
+import SwiftUI
+import UniformTypeIdentifiers
+
 #if os(macOS)
-import AppKit
+  import AppKit
 #endif
 
 public struct ContentView: View {
-    @Environment(AudioPlayerManager.self) private var playerManager
-    @Environment(SessionTracker.self) private var sessionTracker
-    @Environment(\.modelContext) private var modelContext
+  @Environment(AudioPlayerManager.self) private var playerManager
+  @Environment(SessionTracker.self) private var sessionTracker
+  @Environment(\.modelContext) private var modelContext
 
-    @Query(sort: \AudioFile.createdAt, order: .forward)
-    private var audioFiles: [AudioFile]
+  @Query(sort: \AudioFile.createdAt, order: .forward)
+  private var allAudioFiles: [AudioFile]
 
-    @State private var selectedFile: AudioFile?
-    @State private var isImportingFile: Bool = false
-    @State private var importErrorMessage: String?
-    @AppStorage("lastSelectedAudioFileID") private var lastSelectedAudioFileID: String?
+  @State private var selectedFile: AudioFile?
+  @State private var currentFolder: Folder?
+  @State private var navigationPath: [Folder] = []
+  @State private var isImportingFile: Bool = false
+  @State private var isImportingFolder: Bool = false
+  @State private var importErrorMessage: String?
+  @AppStorage("lastSelectedAudioFileID") private var lastSelectedAudioFileID: String?
 
-    public init() {}
+  public init() {}
 
-    public var body: some View {
-        NavigationSplitView {
-            sidebar
-        } detail: {
-            if let selectedFile {
-                PlayerView(audioFile: selectedFile)
-            } else {
-                VStack {
-                    Text("No file selected")
-                        .font(.title2)
-                    Text("Use the + button to import an MP3 file and start creating A-B loops.")
-                        .font(.subheadline)
-                        .foregroundStyle(.secondary)
-                }
-            }
-        }
-        .fileImporter(
-            isPresented: $isImportingFile,
-            allowedContentTypes: [UTType.mp3],
-            allowsMultipleSelection: false,
-            onCompletion: handleImportResult
-        )
-        .onAppear {
-            sessionTracker.attachModelContext(modelContext)
-            playerManager.sessionTracker = sessionTracker
-            restoreLastSelectionIfNeeded()
-        }
-        .task(id: audioFiles.map(\.id)) {
-            restoreLastSelectionIfNeeded()
-        }
-        #if os(macOS)
-        .onReceive(NotificationCenter.default.publisher(for: NSApplication.willTerminateNotification)) { _ in
-            sessionTracker.persistProgress()
-            sessionTracker.endSessionIfIdle()
-        }
-        #endif
-        .alert(
-            "Import Failed",
-            isPresented: .constant(importErrorMessage != nil),
-            presenting: importErrorMessage
-        ) { _ in
-            Button("OK", role: .cancel) {
-                importErrorMessage = nil
-            }
-        } message: { message in
-            Text(message)
-        }
+  public var body: some View {
+    NavigationSplitView {
+      sidebar
+    } detail: {
+      if let selectedFile {
+        PlayerView(audioFile: selectedFile)
+      } else {
+        emptyStateView
+      }
     }
-
-    private var sidebar: some View {
-        let list = List {
-            mp3Section
-        }
-
-        return list
-            .navigationTitle("ABPlayer")
-            .toolbar {
-                ToolbarItem(placement: .primaryAction) {
-                    Button {
-                        isImportingFile = true
-                    } label: {
-                        Label("Add MP3", systemImage: "plus")
-                    }
-                }
-            }
-            .safeAreaInset(edge: .bottom) {
-                versionFooter
-            }
+    .fileImporter(
+      isPresented: $isImportingFile,
+      allowedContentTypes: [UTType.mp3, UTType.audio],
+      allowsMultipleSelection: false,
+      onCompletion: handleFileImportResult
+    )
+    .fileImporter(
+      isPresented: $isImportingFolder,
+      allowedContentTypes: [UTType.folder],
+      allowsMultipleSelection: false,
+      onCompletion: handleFolderImportResult
+    )
+    .onAppear {
+      sessionTracker.attachModelContext(modelContext)
+      playerManager.sessionTracker = sessionTracker
+      restoreLastSelectionIfNeeded()
     }
-
-    private var mp3Section: some View {
-        Section("MP3 Files") {
-            if audioFiles.isEmpty {
-                Text("No files yet")
-                    .foregroundStyle(.secondary)
-            } else {
-                ForEach(audioFiles, id: \.id) { file in
-                    fileRow(for: file)
-                }
-            }
-        }
+    .task(id: allAudioFiles.map(\.id)) {
+      restoreLastSelectionIfNeeded()
     }
+    #if os(macOS)
+      .onReceive(NotificationCenter.default.publisher(for: NSApplication.willTerminateNotification))
+      { _ in
+        sessionTracker.persistProgress()
+        sessionTracker.endSessionIfIdle()
+      }
+    #endif
+    .alert(
+      "Import Failed",
+      isPresented: .constant(importErrorMessage != nil),
+      presenting: importErrorMessage
+    ) { _ in
+      Button("OK", role: .cancel) {
+        importErrorMessage = nil
+      }
+    } message: { message in
+      Text(message)
+    }
+  }
 
-    @ViewBuilder
-    private func fileRow(for file: AudioFile) -> some View {
-        let isSelected = selectedFile?.id == file.id
+  // MARK: - Empty State
 
-        Button {
-            selectFile(file)
+  private var emptyStateView: some View {
+    VStack(spacing: 16) {
+      Image(systemName: "waveform.circle")
+        .font(.system(size: 64))
+        .foregroundStyle(.tertiary)
+
+      Text("No file selected")
+        .font(.title2)
+
+      Text("Import a folder or MP3 file to start creating A-B loops.")
+        .font(.subheadline)
+        .foregroundStyle(.secondary)
+        .multilineTextAlignment(.center)
+    }
+    .padding()
+  }
+
+  // MARK: - Sidebar
+
+  private var sidebar: some View {
+    FolderNavigationView(
+      selectedFile: $selectedFile,
+      currentFolder: $currentFolder,
+      navigationPath: $navigationPath,
+      onSelectFile: selectFile
+    )
+    .navigationTitle("ABPlayer")
+    .toolbar {
+      ToolbarItemGroup(placement: .primaryAction) {
+        Menu {
+          Button {
+            isImportingFile = true
+          } label: {
+            Label("Import Audio File", systemImage: "music.note")
+          }
+
+          Button {
+            isImportingFolder = true
+          } label: {
+            Label("Import Folder", systemImage: "folder.badge.plus")
+          }
         } label: {
-            HStack {
-                VStack(alignment: .leading) {
-                    Text(file.displayName)
-                        .lineLimit(1)
-                    Text(file.createdAt, style: .date)
-                        .font(.caption2)
-                        .foregroundStyle(.secondary)
-                }
-
-                Spacer()
-
-                if isSelected {
-                    Image(systemName: "checkmark.circle.fill")
-                        .foregroundStyle(.tint)
-                }
-            }
-        }
-        .buttonStyle(.plain)
-    }
-
-    private var versionFooter: some View {
-        Text("Version \(bundleShortVersion) • Build \(bundleVersion)")
-            .font(.caption2)
-            .foregroundStyle(.secondary)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .padding(.horizontal, 12)
-            .padding(.bottom, 8)
-    }
-
-    private var bundleShortVersion: String {
-        Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "—"
-    }
-
-    private var bundleVersion: String {
-        Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? "—"
-    }
-
-    private func handleImportResult(_ result: Result<[URL], Error>) {
-        switch result {
-        case .failure(let error):
-            importErrorMessage = error.localizedDescription
-        case .success(let urls):
-            guard let url = urls.first else {
-                return
-            }
-
-            addAudioFile(from: url)
-        }
-    }
-
-    private func addAudioFile(from url: URL) {
-        do {
-            let bookmarkData = try url.bookmarkData(
-                options: [.withSecurityScope],
-                includingResourceValuesForKeys: nil,
-                relativeTo: nil
-            )
-
-            let displayName = url.lastPathComponent
-            let audioFile = AudioFile(
-                displayName: displayName,
-                bookmarkData: bookmarkData
-            )
-
-            modelContext.insert(audioFile)
-            selectFile(audioFile)
-        } catch {
-            importErrorMessage = "Failed to import file: \(error.localizedDescription)"
-        }
-    }
-
-    private func selectFile(_ file: AudioFile) {
-        selectedFile = file
-        lastSelectedAudioFileID = file.id.uuidString
-
-        if playerManager.currentFile?.id == file.id,
-           playerManager.currentFile != nil {
-            playerManager.currentFile = file
-            return
+          Label("Add", systemImage: "plus")
         }
 
-        playerManager.load(audioFile: file)
+        Menu {
+          Button(role: .destructive) {
+            clearAllData()
+          } label: {
+            Label("Clear All Data", systemImage: "trash")
+          }
+        } label: {
+          Label("More", systemImage: "ellipsis.circle")
+        }
+      }
+    }
+    .safeAreaInset(edge: .bottom) {
+      versionFooter
+    }
+  }
+
+  private var versionFooter: some View {
+    Text("Version \(bundleShortVersion) • Build \(bundleVersion)")
+      .font(.caption2)
+      .foregroundStyle(.secondary)
+      .frame(maxWidth: .infinity, alignment: .leading)
+      .padding(.horizontal, 12)
+      .padding(.bottom, 8)
+  }
+
+  private var bundleShortVersion: String {
+    Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "—"
+  }
+
+  private var bundleVersion: String {
+    Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? "—"
+  }
+
+  // MARK: - Import Handlers
+
+  private func handleFileImportResult(_ result: Result<[URL], Error>) {
+    switch result {
+    case .failure(let error):
+      importErrorMessage = error.localizedDescription
+    case .success(let urls):
+      guard let url = urls.first else { return }
+      addAudioFile(from: url)
+    }
+  }
+
+  private func handleFolderImportResult(_ result: Result<[URL], Error>) {
+    switch result {
+    case .failure(let error):
+      importErrorMessage = error.localizedDescription
+    case .success(let urls):
+      guard let url = urls.first else { return }
+      importFolder(from: url)
+    }
+  }
+
+  private func addAudioFile(from url: URL) {
+    do {
+      let bookmarkData = try url.bookmarkData(
+        options: [.withSecurityScope],
+        includingResourceValuesForKeys: nil,
+        relativeTo: nil
+      )
+
+      let displayName = url.lastPathComponent
+      let audioFile = AudioFile(
+        displayName: displayName,
+        bookmarkData: bookmarkData,
+        folder: currentFolder
+      )
+
+      modelContext.insert(audioFile)
+      currentFolder?.audioFiles.append(audioFile)
+      selectFile(audioFile)
+    } catch {
+      importErrorMessage = "Failed to import file: \(error.localizedDescription)"
+    }
+  }
+
+  private func importFolder(from url: URL) {
+    let importer = FolderImporter(modelContext: modelContext)
+
+    do {
+      if let folder = try importer.importFolder(at: url) {
+        // Select first audio file if available
+        if let firstFile = folder.audioFiles.first {
+          selectFile(firstFile)
+        }
+      }
+    } catch {
+      importErrorMessage = "Failed to import folder: \(error.localizedDescription)"
+    }
+  }
+
+  // MARK: - Selection
+
+  private func selectFile(_ file: AudioFile) {
+    selectedFile = file
+    lastSelectedAudioFileID = file.id.uuidString
+
+    if playerManager.currentFile?.id == file.id,
+      playerManager.currentFile != nil
+    {
+      playerManager.currentFile = file
+      return
     }
 
-    private func restoreLastSelectionIfNeeded() {
-        guard selectedFile == nil else {
-            if let currentFile = playerManager.currentFile,
-               let matchedFile = audioFiles.first(where: { $0.id == currentFile.id }) {
-                selectedFile = matchedFile
-                playerManager.currentFile = matchedFile
-            }
-            return
-        }
+    playerManager.load(audioFile: file)
+  }
 
-        if let currentFile = playerManager.currentFile,
-           let matchedFile = audioFiles.first(where: { $0.id == currentFile.id }) {
-            selectedFile = matchedFile
-            playerManager.currentFile = matchedFile
-            return
-        }
-
-        guard let lastSelectedAudioFileID,
-              let lastID = UUID(uuidString: lastSelectedAudioFileID),
-              let file = audioFiles.first(where: { $0.id == lastID }) else {
-            return
-        }
-
-        selectFile(file)
+  private func restoreLastSelectionIfNeeded() {
+    guard selectedFile == nil else {
+      if let currentFile = playerManager.currentFile,
+        let matchedFile = allAudioFiles.first(where: { $0.id == currentFile.id })
+      {
+        selectedFile = matchedFile
+        playerManager.currentFile = matchedFile
+      }
+      return
     }
+
+    if let currentFile = playerManager.currentFile,
+      let matchedFile = allAudioFiles.first(where: { $0.id == currentFile.id })
+    {
+      selectedFile = matchedFile
+      playerManager.currentFile = matchedFile
+      return
+    }
+
+    guard let lastSelectedAudioFileID,
+      let lastID = UUID(uuidString: lastSelectedAudioFileID),
+      let file = allAudioFiles.first(where: { $0.id == lastID })
+    else {
+      return
+    }
+
+    selectFile(file)
+  }
+
+  // MARK: - Data Management
+
+  private func clearAllData() {
+    // Clear all data from SwiftData
+    do {
+      try modelContext.delete(model: AudioFile.self)
+      try modelContext.delete(model: LoopSegment.self)
+      try modelContext.delete(model: Folder.self)
+      try modelContext.delete(model: SubtitleFile.self)
+      try modelContext.save()
+
+      selectedFile = nil
+      currentFolder = nil
+      navigationPath = []
+      playerManager.currentFile = nil
+    } catch {
+      importErrorMessage = "Failed to clear data: \(error.localizedDescription)"
+    }
+  }
 }
-
