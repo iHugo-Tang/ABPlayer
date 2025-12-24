@@ -19,7 +19,7 @@ let project = Project(
       bundleId: "cc.ihugo.app.ABPlayer",
       deploymentTargets: .macOS("15.7.2"),
       infoPlist: .extendingDefault(with: [
-        "CFBundleVersion": "nightly-d965071",
+        "CFBundleVersion": "nightly-08adc5c",
         "CFBundleShortVersionString": "0.0.3",
         "NSMainStoryboardFile": "",
       ]),
