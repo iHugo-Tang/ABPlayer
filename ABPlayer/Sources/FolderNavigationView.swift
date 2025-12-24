@@ -36,16 +36,14 @@ struct FolderNavigationView: View {
     .onChange(of: selection) { _, newValue in
       handleSelectionChange(newValue)
     }
-    .onChange(of: selectedFile) { _, newValue in
-      guard let newValue else {
-        selection = nil
-        return
-      }
-      // Only update if the selection doesn't already match
-      if case .audioFile(let current) = selection, current.id == newValue.id {
-        return
-      }
-      selection = .audioFile(newValue)
+    .onChange(of: selectedFile) { _, _ in
+      syncSelectionWithSelectedFile()
+    }
+    .onChange(of: currentFolder) { _, _ in
+      syncSelectionWithSelectedFile()
+    }
+    .onAppear {
+      syncSelectionWithSelectedFile()
     }
   }
 
@@ -123,14 +121,37 @@ struct FolderNavigationView: View {
       withAnimation(.easeInOut(duration: 0.2)) {
         navigateInto(folder)
       }
-      // Clear selection after navigation to allow re-selection
-      self.selection = nil
+    // selection will be synced by onChange(of: currentFolder)
 
     case .audioFile(let file):
       Task { await onSelectFile(file) }
 
     case .empty:
       break
+    }
+  }
+
+  /// Syncs the List selection state with selectedFile
+  /// - If selectedFile is in current folder, select corresponding row
+  /// - Otherwise clear List selection (but keep selectedFile for player)
+  private func syncSelectionWithSelectedFile() {
+    guard let selectedFile else {
+      selection = nil
+      return
+    }
+
+    // Check if selectedFile is in current folder
+    let isInCurrentFolder = currentAudioFiles.contains { $0.id == selectedFile.id }
+
+    if isInCurrentFolder {
+      // Only update if needed to avoid unnecessary state changes
+      if case .audioFile(let current) = selection, current.id == selectedFile.id {
+        return
+      }
+      selection = .audioFile(selectedFile)
+    } else {
+      // File not in current folder - clear List selection
+      selection = nil
     }
   }
 
