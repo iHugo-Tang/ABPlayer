@@ -63,6 +63,8 @@ jobs:
     name: Build and Release
     runs-on: macos-latest
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    permissions:
+      contents: write
 
     steps:
     - name: Checkout
