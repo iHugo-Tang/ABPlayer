@@ -58,11 +58,11 @@ jobs:
           -enableCodeCoverage YES \
           -derivedDataPath DerivedData
 
-  # Build job - runs only on push to main (merge)
-  build-only:
-    name: Build Only
+  # Build and Release job - runs only on push to main (merge)
+  build-and-release:
+    name: Build and Release
     runs-on: macos-latest
-    if: github.event_name == 'push'
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
 
     steps:
     - name: Checkout
@@ -70,25 +70,71 @@ jobs:
       with:
         fetch-depth: 0
 
+    - name: Get Current Version
+      id: get_version
+      run: |
+        VERSION=$(grep '"CFBundleShortVersionString":' Project.swift | sed -E 's/.*"CFBundleShortVersionString": "([^"]+)".*/\1/')
+        echo "version=$VERSION" >> $GITHUB_OUTPUT
+        echo "Current Version: $VERSION"
+
+    - name: Get Latest Release Version
+      id: get_latest_release
+      env:
+        GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      run: |
+        LATEST_TAG=$(gh release view --json tagName --jq .tagName 2>/dev/null || echo "0.0.0")
+        echo "latest_tag=$LATEST_TAG" >> $GITHUB_OUTPUT
+        echo "Latest Release Tag: $LATEST_TAG"
+
+    - name: Compare Versions
+      id: compare_versions
+      run: |
+        CURRENT="${{ steps.get_version.outputs.version }}"
+        LATEST="${{ steps.get_latest_release.outputs.latest_tag }}"
+        
+        # Remove 'v' prefix if exists for comparison
+        CURRENT_CLEAN=$(echo $CURRENT | sed 's/^v//')
+        LATEST_CLEAN=$(echo $LATEST | sed 's/^v//')
+        
+        if [ "$CURRENT_CLEAN" = "$LATEST_CLEAN" ]; then
+          echo "Versions are the same. Skipping release."
+          echo "should_release=false" >> $GITHUB_OUTPUT
+        else
+          HIGHER=$(printf "$CURRENT_CLEAN\n$LATEST_CLEAN" | sort -V | tail -n1)
+          if [ "$HIGHER" = "$CURRENT_CLEAN" ] && [ "$CURRENT_CLEAN" != "$LATEST_CLEAN" ]; then
+            echo "Current version $CURRENT is higher than latest $LATEST. Proceeding with release."
+            echo "should_release=true" >> $GITHUB_OUTPUT
+          else
+            echo "Current version $CURRENT is NOT higher than latest $LATEST. Skipping release."
+            echo "should_release=false" >> $GITHUB_OUTPUT
+          fi
+        fi
+
     - uses: maxim-lobanov/setup-xcode@v1
+      if: steps.compare_versions.outputs.should_release == 'true'
       with:
         xcode-version: latest
 
     - name: Setup Swift
+      if: steps.compare_versions.outputs.should_release == 'true'
       uses: swift-actions/setup-swift@v2
       with:
         swift-version: '6.2'
 
     - name: Install mise
+      if: steps.compare_versions.outputs.should_release == 'true'
       uses: jdx/mise-action@v3
       with:
-        github_token: ${{ secrets.GITHUB_TOKEN }} # Recommended for higher API rate limits
+        github_token: ${{ secrets.GITHUB_TOKEN }}
 
     - name: Install Tuist via mise
+      if: steps.compare_versions.outputs.should_release == 'true'
       run: |
         mise install tuist@4.95.0
         mise use -g tuist@4.95.0
+
     - name: Generate Xcode Project
+      if: steps.compare_versions.outputs.should_release == 'true'
       env:
         TUIST_CONFIG_TOKEN: ${{ secrets.TUIST_CONFIG_TOKEN }}
         CI: 1
@@ -99,6 +145,7 @@ jobs:
         echo "Generated Xcode project"
 
     - name: Build App
+      if: steps.compare_versions.outputs.should_release == 'true'
       run: |
         xcodebuild build \
           -workspace ABPlayer.xcworkspace \
@@ -106,8 +153,25 @@ jobs:
           -configuration Release \
           -destination 'platform=macOS' \
           -derivedDataPath DerivedData
-    
+
+    - name: Prepare Release Artifact
+      if: steps.compare_versions.outputs.should_release == 'true'
+      run: |
+        cd DerivedData/Build/Products/Release
+        zip -r ABPlayer.zip ABPlayer.app
+        mv ABPlayer.zip ../../../../
+        cd ../../../../
+
+    - name: Create GitHub Release
+      if: steps.compare_versions.outputs.should_release == 'true'
+      env:
+        GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      run: |
+        VERSION="${{ steps.get_version.outputs.version }}"
+        gh release create "$VERSION" ABPlayer.zip --title "$VERSION" --notes "Automated release for version $VERSION"
+
     - name: Upload dSYM to Sentry
+      if: steps.compare_versions.outputs.should_release == 'true'
       env:
         SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
         SENTRY_ORG: ${{ secrets.SENTRY_ORG }}
@@ -119,9 +183,3 @@ jobs:
           --org "$SENTRY_ORG" \
           --project "$SENTRY_PROJECT" \
           DerivedData/Build/Products/Release/ABPlayer.app.dSYM
-
-    - name: Upload Release App
-      uses: actions/upload-artifact@v4
-      with:
-        name: ABPlayer-Release
-        path: DerivedData/Build/Products/Release
