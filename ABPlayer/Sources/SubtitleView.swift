@@ -23,11 +23,12 @@ struct SubtitleView: View {
             .id(cue.id)
           }
         }
-        .padding()
+        .padding(.horizontal, 12)
+        .padding(.vertical, 8)
       }
       .onChange(of: currentCueID) { _, newValue in
         if let id = newValue {
-          withAnimation(.easeInOut(duration: 0.2)) {
+          withAnimation(.easeInOut(duration: 0.25)) {
             proxy.scrollTo(id, anchor: .center)
           }
         }
@@ -63,34 +64,51 @@ private struct SubtitleCueRow: View {
   let isActive: Bool
   let onTap: () -> Void
 
+  @State private var isHovered = false
+
   var body: some View {
     Button(action: onTap) {
-      HStack(alignment: .top, spacing: 12) {
+      HStack(alignment: .firstTextBaseline, spacing: 12) {
         Text(timeString(from: cue.startTime))
-          .font(.caption)
-          .foregroundStyle(.secondary)
-          .monospacedDigit()
-          .frame(width: 48, alignment: .trailing)
+          .font(.system(.subheadline, design: .monospaced))
+          .foregroundStyle(isActive ? .primary : .tertiary)
+          .frame(width: 52, alignment: .trailing)
 
         Text(cue.text)
-          .font(.body)
+          .font(.system(.title3))
           .foregroundStyle(isActive ? .primary : .secondary)
           .multilineTextAlignment(.leading)
           .frame(maxWidth: .infinity, alignment: .leading)
+          .fixedSize(horizontal: false, vertical: true)
       }
-      .padding(.vertical, 8)
+      .padding(.vertical, 14)
       .padding(.horizontal, 12)
       .background(
-        RoundedRectangle(cornerRadius: 8)
-          .fill(isActive ? Color.accentColor.opacity(0.15) : Color.clear)
+        RoundedRectangle(cornerRadius: 8, style: .continuous)
+          .fill(backgroundColor)
       )
       .overlay(
-        RoundedRectangle(cornerRadius: 8)
-          .stroke(isActive ? Color.accentColor : Color.clear, lineWidth: 1)
+        RoundedRectangle(cornerRadius: 8, style: .continuous)
+          .strokeBorder(isActive ? Color.accentColor.opacity(0.5) : Color.clear, lineWidth: 1)
       )
     }
     .buttonStyle(.plain)
-    .animation(.easeInOut(duration: 0.15), value: isActive)
+    .onHover { hovering in
+      withAnimation(.easeInOut(duration: 0.15)) {
+        isHovered = hovering
+      }
+    }
+    .animation(.easeInOut(duration: 0.2), value: isActive)
+  }
+
+  private var backgroundColor: Color {
+    if isActive {
+      return Color.accentColor.opacity(0.12)
+    } else if isHovered {
+      return Color.primary.opacity(0.04)
+    } else {
+      return Color.clear
+    }
   }
 
   private func timeString(from value: Double) -> String {
