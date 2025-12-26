@@ -1,3 +1,12 @@
+## [0.1.3] - 2025-12-26
+
+### Features
+- Implement a draggable and resizable content panel using a custom divider instead of HSplitView.
+- Replace HSplitView with NavigationSplitView for dynamic content panel visibility.
+- add session timer to toolbar and refine various text styles.
+- Enhance release script to categorize changelog entries and bump version to 0.1.2.
+
+
 ## [0.1.2] - 2025-12-26
 
 ### Features
