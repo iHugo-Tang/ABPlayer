@@ -170,7 +170,18 @@ jobs:
         GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       run: |
         VERSION="${{ steps.get_version.outputs.version }}"
-        gh release create "$VERSION" ABPlayer.zip --title "$VERSION" --notes "Automated release for version $VERSION"
+        NOTES_FILE="release_notes.txt"
+        
+        if [ -f "CHANGELOG.md" ]; then
+          # Extract release notes for the current version
+          awk "/^## \[$VERSION\]/{p=1; print; next} /^## \[/{p=0} p" CHANGELOG.md > "$NOTES_FILE"
+        fi
+        
+        if [ ! -s "$NOTES_FILE" ]; then
+          echo "Automated release for version $VERSION" > "$NOTES_FILE"
+        fi
+        
+        gh release create "$VERSION" ABPlayer.zip --title "$VERSION" --notes-file "$NOTES_FILE"
 
     - name: Upload dSYM to Sentry
       if: steps.compare_versions.outputs.should_release == 'true'
