@@ -30,13 +30,31 @@ public struct MainSplitView: View {
   public init() {}
 
   public var body: some View {
-    NavigationSplitView {
-      sidebar
-    } detail: {
-      if let selectedFile {
-        PlayerView(audioFile: selectedFile)
-      } else {
-        EmptyStateView()
+    GeometryReader { windowGeometry in
+      NavigationSplitView {
+        GeometryReader { sidebarGeometry in
+          sidebar
+            .onAppear {
+              print(
+                "[Debug] Sidebar size: \(sidebarGeometry.size.width) x \(sidebarGeometry.size.height)"
+              )
+            }
+            .onChange(of: sidebarGeometry.size) { _, newSize in
+              print("[Debug] Sidebar size changed: \(newSize.width) x \(newSize.height)")
+            }
+        }
+      } detail: {
+        if let selectedFile {
+          PlayerView(audioFile: selectedFile)
+        } else {
+          EmptyStateView()
+        }
+      }
+      .onAppear {
+        print("[Debug] Window size: \(windowGeometry.size.width) x \(windowGeometry.size.height)")
+      }
+      .onChange(of: windowGeometry.size) { _, newSize in
+        print("[Debug] Window size changed: \(newSize.width) x \(newSize.height)")
       }
     }
     .fileImporter(
