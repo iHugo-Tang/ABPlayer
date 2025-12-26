@@ -225,6 +225,12 @@ struct PlayerView: View {
         Button("Set B", action: playerManager.setPointB)
           .keyboardShortcut("c", modifiers: [])
 
+        Button("Save") {
+          saveCurrentSegment()
+        }
+        .keyboardShortcut("b", modifiers: [])
+        .disabled(!playerManager.hasValidLoopRange)
+
         Button("Clear", action: playerManager.clearLoop)
           .keyboardShortcut("v", modifiers: [])
 
@@ -239,23 +245,6 @@ struct PlayerView: View {
         Spacer()
       }
 
-      HStack {
-        Button {
-          jumpToPreviousSegment()
-        } label: {
-          Image(systemName: "backward.fill")
-        }
-        .disabled(audioFile.segments.isEmpty)
-        .keyboardShortcut(.leftArrow, modifiers: [])
-
-        Button {
-          jumpToNextSegment()
-        } label: {
-          Image(systemName: "forward.fill")
-        }
-        .disabled(audioFile.segments.isEmpty)
-        .keyboardShortcut(.rightArrow, modifiers: [])
-      }
     }
     .captionStyle()
   }
@@ -267,6 +256,24 @@ struct PlayerView: View {
       HStack {
         Text("Saved Segments")
           .font(.headline)
+
+        HStack {
+          Button {
+            jumpToPreviousSegment()
+          } label: {
+            Image(systemName: "backward.fill")
+          }
+          .disabled(audioFile.segments.isEmpty)
+          .keyboardShortcut(.leftArrow, modifiers: [])
+
+          Button {
+            jumpToNextSegment()
+          } label: {
+            Image(systemName: "forward.fill")
+          }
+          .disabled(audioFile.segments.isEmpty)
+          .keyboardShortcut(.rightArrow, modifiers: [])
+        }
 
         Spacer()
 
@@ -283,11 +290,6 @@ struct PlayerView: View {
           "Sort segments by start time \(isSegmentSortDescendingByStartTime ? "descending" : "ascending")"
         )
 
-        Button("Save Current A-B") {
-          saveCurrentSegment()
-        }
-        .keyboardShortcut("b", modifiers: [])
-        .disabled(!playerManager.hasValidLoopRange)
       }
 
       if segments.isEmpty {
