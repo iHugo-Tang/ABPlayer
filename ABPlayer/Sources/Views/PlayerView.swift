@@ -279,7 +279,7 @@ struct PlayerView: View {
           Button {
             jumpToPreviousSegment()
           } label: {
-            Image(systemName: "backward.fill")
+            Image(systemName: "backward.end")
           }
           .disabled(audioFile.segments.isEmpty)
           .keyboardShortcut(.leftArrow, modifiers: [])
@@ -287,7 +287,7 @@ struct PlayerView: View {
           Button {
             jumpToNextSegment()
           } label: {
-            Image(systemName: "forward.fill")
+            Image(systemName: "forward.end")
           }
           .disabled(audioFile.segments.isEmpty)
           .keyboardShortcut(.rightArrow, modifiers: [])
