@@ -70,6 +70,7 @@ struct FolderNavigationView: View {
       .contentShape(Rectangle())
     }
     .buttonStyle(.plain)
+    .focusable(false)
     .padding(.horizontal, 12)
     .padding(.vertical, 8)
     .background(.bar)
@@ -98,7 +99,9 @@ struct FolderNavigationView: View {
           }
         }
       }
-
+    }
+    // 将 Empty State 放在这里
+    .overlay {
       // Empty state
       if currentFolders.isEmpty && currentAudioFiles.isEmpty {
         ContentUnavailableView(
