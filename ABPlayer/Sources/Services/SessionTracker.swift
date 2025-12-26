@@ -56,6 +56,13 @@ final class SessionTracker {
       return
     }
 
+    // Verify the session is still valid (not deleted)
+    if session.modelContext == nil {
+      currentSession = nil
+      lastSavedSeconds = 0
+      return
+    }
+
     session.durationSeconds += delta
     totalSeconds = session.durationSeconds
 
@@ -67,6 +74,22 @@ final class SessionTracker {
 
   private func saveContext() {
     guard let context = modelContext else { return }
+
+    // Verify the current session is still valid before saving
+    // This prevents crashes when the session is deleted while playback is active
+    guard let session = currentSession else { return }
+
+    // Check if the session is still in this context
+    // If it's been deleted, we shouldn't try to save
+    if session.modelContext == nil {
+      // Session was deleted, clear our reference
+      currentSession = nil
+      lastSavedSeconds = 0
+      return
+    }
+
+    // Only save if there are pending changes
+    guard context.hasChanges else { return }
 
     do {
       try context.save()
@@ -89,6 +112,13 @@ final class SessionTracker {
 
   func endSessionIfIdle() {
     guard let session = currentSession else {
+      return
+    }
+
+    // Verify the session is still valid (not deleted)
+    guard session.modelContext != nil else {
+      currentSession = nil
+      lastSavedSeconds = 0
       return
     }
 
