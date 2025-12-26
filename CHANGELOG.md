@@ -1,3 +1,18 @@
+## [0.1.6] - 2025-12-26
+
+### Features
+- Add architecture documentation and update app icon assets, including a new 1024x1024 icon and cleanup of old versions.
+- bump version to 0.1.5, improve session tracker resilience, and update segment navigation button icons.
+- Improve session tracker resilience to deleted sessions and ensure all sessions are deleted when clearing user data.
+- update segment navigation button icons
+
+### Chores
+- Add architecture documentation and demo video, and overhaul README with comprehensive project details.
+
+### Other
+- Add MIT License to the project
+
+
 ## [0.1.5] - 2025-12-26
 
 ### Features
