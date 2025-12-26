@@ -1,3 +1,12 @@
+## [0.1.4] - 2025-12-26
+
+### Features
+- Release version 0.1.3, introducing UI improvements and an enhanced release script.
+- Implement a draggable and resizable content panel using a custom divider instead of HSplitView.
+- Replace HSplitView with NavigationSplitView for dynamic content panel visibility.
+- add session timer to toolbar and refine various text styles.
+
+
 ## [0.1.3] - 2025-12-26
 
 ### Features
