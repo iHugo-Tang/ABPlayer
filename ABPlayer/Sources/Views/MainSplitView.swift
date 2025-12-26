@@ -384,6 +384,15 @@ public struct MainSplitView: View {
         modelContext.delete(folder)
       }
 
+      // End the current session tracker session before deleting sessions
+      sessionTracker.endSessionIfIdle()
+
+      // Fetch and delete all ListeningSessions
+      let sessions = try modelContext.fetch(FetchDescriptor<ListeningSession>())
+      for session in sessions {
+        modelContext.delete(session)
+      }
+
       // Step 4: Save all deletions
       try modelContext.save()
     } catch {
