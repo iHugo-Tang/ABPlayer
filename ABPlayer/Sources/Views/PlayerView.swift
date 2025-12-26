@@ -21,13 +21,33 @@ struct PlayerView: View {
   var body: some View {
     HSplitView {
       // Left: Player controls + Segments
-      playerSection
-        .frame(minWidth: 360, idealWidth: 420, maxWidth: 420)
+      GeometryReader { playerGeometry in
+        playerSection
+          .onAppear {
+            print(
+              "[Debug] PlayerSection size: \(playerGeometry.size.width) x \(playerGeometry.size.height)"
+            )
+          }
+          .onChange(of: playerGeometry.size) { _, newSize in
+            print("[Debug] PlayerSection size changed: \(newSize.width) x \(newSize.height)")
+          }
+      }
+      .frame(minWidth: 360, idealWidth: 420, maxWidth: 420)
 
       // Right: Content panel (PDF, Subtitles only)
       if showContentPanel {
-        ContentPanelView(audioFile: audioFile)
-          .frame(minWidth: 300, idealWidth: 400)
+        GeometryReader { contentGeometry in
+          ContentPanelView(audioFile: audioFile)
+            .onAppear {
+              print(
+                "[Debug] ContentPanel size: \(contentGeometry.size.width) x \(contentGeometry.size.height)"
+              )
+            }
+            .onChange(of: contentGeometry.size) { _, newSize in
+              print("[Debug] ContentPanel size changed: \(newSize.width) x \(newSize.height)")
+            }
+        }
+        .frame(minWidth: 300, idealWidth: 400)
       }
     }
     .toolbar {
