@@ -19,6 +19,9 @@ struct SettingsView: View {
   @State private var previousDirectory: String = ""
   @State private var isDownloading = false
 
+  // Shortcuts states
+  @State private var showResetConfirmation = false
+
   var body: some View {
     NavigationSplitView(columnVisibility: .constant(.doubleColumn)) {
       EmptyView()
@@ -80,6 +83,19 @@ struct SettingsView: View {
         Text(error)
       }
     }
+    .confirmationDialog(
+      "Reset Keyboard Shortcuts",
+      isPresented: $showResetConfirmation
+    ) {
+      Button("Reset to Defaults", role: .destructive) {
+        resetAllShortcuts()
+      }
+      Button("Cancel", role: .cancel) {
+        showResetConfirmation = false
+      }
+    } message: {
+      Text("Are you sure you want to reset all keyboard shortcuts to their default values?")
+    }
     .onAppear {
       if selectedTab == .transcription {
         refreshModels()
@@ -113,12 +129,39 @@ struct SettingsView: View {
         shortcutRow(title: "Previous Segment:", name: .previousSegment)
         shortcutRow(title: "Next Segment:", name: .nextSegment)
       }
+
+      Section {
+        HStack {
+          Spacer()
+          Button("Reset to Defaults") {
+            showResetConfirmation = true
+          }
+          .buttonStyle(.borderedProminent)
+          Spacer()
+        }
+      } footer: {
+        Text("Reset all keyboard shortcuts to their default values")
+          .captionStyle()
+      }
     }
     .formStyle(.grouped)
   }
 
   private func shortcutRow(title: String, name: KeyboardShortcuts.Name) -> some View {
     KeyboardShortcuts.Recorder(title, name: name)
+  }
+
+  private func resetAllShortcuts() {
+    // Reset all shortcuts to their default values
+    KeyboardShortcuts.reset(.playPause)
+    KeyboardShortcuts.reset(.rewind5s)
+    KeyboardShortcuts.reset(.forward10s)
+    KeyboardShortcuts.reset(.setPointA)
+    KeyboardShortcuts.reset(.setPointB)
+    KeyboardShortcuts.reset(.clearLoop)
+    KeyboardShortcuts.reset(.saveSegment)
+    KeyboardShortcuts.reset(.previousSegment)
+    KeyboardShortcuts.reset(.nextSegment)
   }
 
   // MARK: - Transcription Settings View
@@ -414,26 +457,6 @@ enum SettingsTab: String, CaseIterable, Identifiable {
     case .shortcuts: return "keyboard"
     case .transcription: return "text.bubble"
     }
-  }
-}
-
-struct KeyboardKeyView: View {
-  let key: String
-
-  var body: some View {
-    Text(key)
-      .font(.system(.subheadline, design: .monospaced))
-      .padding(.horizontal, 8)
-      .padding(.vertical, 4)
-      .background {
-        RoundedRectangle(cornerRadius: 6)
-          .fill(Color(nsColor: .controlBackgroundColor))
-          .shadow(color: .black.opacity(0.1), radius: 1, y: 1)
-      }
-      .overlay {
-        RoundedRectangle(cornerRadius: 6)
-          .stroke(Color(nsColor: .separatorColor), lineWidth: 1)
-      }
   }
 }
 

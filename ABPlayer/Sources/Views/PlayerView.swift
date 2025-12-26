@@ -31,7 +31,7 @@ struct PlayerView: View {
             print("[Debug] PlayerSection size changed: \(newSize.width) x \(newSize.height)")
           }
       }
-      .frame(minWidth: 360, idealWidth: 420, maxWidth: 420)
+      .frame(minWidth: 360, idealWidth: 420)
 
       // Right: Content panel (PDF, Subtitles only)
       if showContentPanel {
