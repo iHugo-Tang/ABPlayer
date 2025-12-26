@@ -343,17 +343,49 @@ public struct MainSplitView: View {
 
   private func clearAllData() {
     // Clear all data from SwiftData
+    // IMPORTANT: Clear UI state and player references FIRST to prevent
+    // accessing detached/faulted entities during deletion
     do {
-      try modelContext.delete(model: AudioFile.self)
-      try modelContext.delete(model: LoopSegment.self)
-      try modelContext.delete(model: Folder.self)
-      try modelContext.delete(model: SubtitleFile.self)
-      try modelContext.save()
+      // Step 1: Stop playback if currently playing
+      if playerManager.isPlaying {
+        playerManager.togglePlayPause()
+      }
 
+      // Step 2: Clear UI state and player references immediately
       selectedFile = nil
       currentFolder = nil
       navigationPath = []
       playerManager.currentFile = nil
+
+      // Step 3: Delete entities in correct order to handle relationship constraints
+      // Delete child entities first, then parent entities
+
+      // Fetch and delete all LoopSegments
+      let loopSegments = try modelContext.fetch(FetchDescriptor<LoopSegment>())
+      for segment in loopSegments {
+        modelContext.delete(segment)
+      }
+
+      // Fetch and delete all SubtitleFiles
+      let subtitleFiles = try modelContext.fetch(FetchDescriptor<SubtitleFile>())
+      for subtitle in subtitleFiles {
+        modelContext.delete(subtitle)
+      }
+
+      // Fetch and delete all AudioFiles
+      let audioFiles = try modelContext.fetch(FetchDescriptor<AudioFile>())
+      for audioFile in audioFiles {
+        modelContext.delete(audioFile)
+      }
+
+      // Fetch and delete all Folders
+      let folders = try modelContext.fetch(FetchDescriptor<Folder>())
+      for folder in folders {
+        modelContext.delete(folder)
+      }
+
+      // Step 4: Save all deletions
+      try modelContext.save()
     } catch {
       importErrorMessage = "Failed to clear data: \(error.localizedDescription)"
     }
