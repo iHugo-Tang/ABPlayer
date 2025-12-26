@@ -1,6 +1,15 @@
 {
-  "originHash" : "96f5256310fcbb1889751dde21d6e8ac23668dcb974416ae99f6a6b00cc7f148",
+  "originHash" : "0cb0488b7d8f575390f0198693514a4a75dfe6fb536631778a9167152c90a250",
   "pins" : [
+    {
+      "identity" : "keyboardshortcuts",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/iHugo-Tang/KeyboardShortcuts",
+      "state" : {
+        "branch" : "main",
+        "revision" : "5e032342eeab15832bc7ae177e80042d4a05edfb"
+      }
+    },
     {
       "identity" : "sentry-cocoa",
       "kind" : "remoteSourceControl",

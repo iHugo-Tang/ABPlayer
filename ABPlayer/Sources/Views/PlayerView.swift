@@ -9,7 +9,6 @@ struct PlayerView: View {
 
   @Bindable var audioFile: AudioFile
 
-  @State private var selectedSegmentID: UUID?
   @State private var showContentPanel: Bool = true
   @AppStorage("segmentSortDescendingByStartTime") private var isSegmentSortDescendingByStartTime:
     Bool = true
@@ -299,7 +298,19 @@ struct PlayerView: View {
         )
         .frame(maxHeight: .infinity)
       } else {
-        List(selection: $selectedSegmentID) {
+        List(
+          selection: Binding(
+            get: { playerManager.currentSegmentID },
+            set: { newID in
+              playerManager.currentSegmentID = newID
+              if let segmentID = newID,
+                let segment = audioFile.segments.first(where: { $0.id == segmentID })
+              {
+                playerManager.apply(segment: segment)
+              }
+            }
+          )
+        ) {
           ForEach(segments) { segment in
             HStack {
               VStack(alignment: .leading) {
@@ -346,33 +357,8 @@ struct PlayerView: View {
   }
 
   private func saveCurrentSegment() {
-    guard let pointA = playerManager.pointA,
-      let pointB = playerManager.pointB,
-      pointB > pointA
-    else {
-      return
-    }
-
-    if let existingSegment = audioFile.segments.first(
-      where: { $0.startTime == pointA && $0.endTime == pointB }
-    ) {
-      selectedSegmentID = existingSegment.id
-      return
-    }
-
-    let nextIndex = (audioFile.segments.map(\.index).max() ?? -1) + 1
-    let label = "Segment \(nextIndex + 1)"
-
-    let segment = LoopSegment(
-      label: label,
-      startTime: pointA,
-      endTime: pointB,
-      index: nextIndex,
-      audioFile: audioFile
-    )
-
-    audioFile.segments.append(segment)
-    selectedSegmentID = segment.id
+    // Delegate to playerManager which handles all the logic
+    _ = playerManager.saveCurrentSegment()
   }
 
   private func deleteSegment(_ segment: LoopSegment) {
@@ -389,20 +375,20 @@ struct PlayerView: View {
       segment.index -= 1
     }
 
-    if selectedSegmentID == segment.id {
-      selectedSegmentID = audioFile.segments.first?.id
+    if playerManager.currentSegmentID == segment.id {
+      playerManager.currentSegmentID = audioFile.segments.first?.id
       playerManager.clearLoop()
     }
   }
 
   private func selectSegment(_ segment: LoopSegment) {
-    selectedSegmentID = segment.id
+    // apply() sets currentSegmentID internally
     playerManager.apply(segment: segment)
   }
 
   private func currentSegmentIndex() -> Int {
-    if let selectedSegmentID,
-      let index = segments.firstIndex(where: { $0.id == selectedSegmentID })
+    if let currentSegmentID = playerManager.currentSegmentID,
+      let index = segments.firstIndex(where: { $0.id == currentSegmentID })
     {
       return index
     }

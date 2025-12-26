@@ -9,7 +9,9 @@ import PackageDescription
     // Default is .staticFramework
     // productTypes: ["Alamofire": .framework,]
     productTypes: [
-      "Sentry-Dynamic": .framework
+      "Sentry-Dynamic": .framework,
+      "WhisperKit-Dynamic": .framework,
+      "KeyboardShortcuts-Dynamic": .framework,
     ]
   )
 #endif
@@ -21,6 +23,7 @@ let package = Package(
     // .package(url: "https://github.com/Alamofire/Alamofire", from: "5.0.0"),
     // You can read more about dependencies here: https://docs.tuist.io/documentation/tuist/dependencies
     .package(url: "https://github.com/getsentry/sentry-cocoa", from: "9.0.0"),
-    .package(url: "https://github.com/argmaxinc/WhisperKit.git", from: "0.9.0"),
+    .package(url: "https://github.com/argmaxinc/WhisperKit.git", from: "0.15.0"),
+    .package(url: "https://github.com/iHugo-Tang/KeyboardShortcuts", branch: "main"),
   ]
 )

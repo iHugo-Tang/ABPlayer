@@ -52,6 +52,12 @@ final class AudioPlayerManager {
   /// Current loop mode for playback behavior
   var loopMode: LoopMode = .none
 
+  /// Currently selected segment ID
+  var currentSegmentID: UUID?
+
+  /// Callback when a segment is saved (provides the saved segment)
+  var onSegmentSaved: ((LoopSegment) -> Void)?
+
   /// Callback when playback ends (used for repeat all / shuffle)
   var onPlaybackEnded: ((AudioFile?) -> Void)?
 
@@ -251,6 +257,7 @@ final class AudioPlayerManager {
   }
 
   func apply(segment: LoopSegment, autoPlay: Bool = true) {
+    currentSegmentID = segment.id
     pointA = segment.startTime
     pointB = segment.endTime
     seek(to: segment.startTime)
@@ -258,6 +265,87 @@ final class AudioPlayerManager {
     if autoPlay && !isPlaying {
       togglePlayPause()
     }
+  }
+
+  // MARK: - Segment Management
+
+  /// Save the current A-B loop as a new segment
+  /// Returns the newly created segment, or nil if no valid loop range exists
+  @discardableResult
+  func saveCurrentSegment() -> LoopSegment? {
+    guard let pointA, let pointB, pointB > pointA else {
+      return nil
+    }
+
+    guard let audioFile = currentFile else {
+      return nil
+    }
+
+    // Check if segment already exists
+    if let existingSegment = audioFile.segments.first(
+      where: { $0.startTime == pointA && $0.endTime == pointB }
+    ) {
+      currentSegmentID = existingSegment.id
+      return existingSegment
+    }
+
+    let nextIndex = (audioFile.segments.map(\.index).max() ?? -1) + 1
+    let label = "Segment \(nextIndex + 1)"
+
+    let segment = LoopSegment(
+      label: label,
+      startTime: pointA,
+      endTime: pointB,
+      index: nextIndex,
+      audioFile: audioFile
+    )
+
+    audioFile.segments.append(segment)
+    currentSegmentID = segment.id
+    onSegmentSaved?(segment)
+    return segment
+  }
+
+  /// Get sorted segments for current file
+  private func sortedSegments(descending: Bool = true) -> [LoopSegment] {
+    guard let audioFile = currentFile else {
+      return []
+    }
+    return audioFile.segments.sorted { first, second in
+      descending ? first.startTime > second.startTime : first.startTime < second.startTime
+    }
+  }
+
+  /// Find the current segment index in the sorted list
+  private func currentSegmentIndex(in segments: [LoopSegment]) -> Int {
+    if let currentSegmentID,
+      let index = segments.firstIndex(where: { $0.id == currentSegmentID })
+    {
+      return index
+    }
+    return 0
+  }
+
+  /// Select the previous segment in the list
+  func selectPreviousSegment() {
+    let segments = sortedSegments()
+    guard !segments.isEmpty else { return }
+
+    let currentIndex = currentSegmentIndex(in: segments)
+    let newIndex = max(0, currentIndex - 1)
+    let segment = segments[newIndex]
+    apply(segment: segment)
+  }
+
+  /// Select the next segment in the list
+  func selectNextSegment() {
+    let segments = sortedSegments()
+    guard !segments.isEmpty else { return }
+
+    let currentIndex = currentSegmentIndex(in: segments)
+    let newIndex = min(segments.count - 1, currentIndex + 1)
+    let segment = segments[newIndex]
+    apply(segment: segment)
   }
 
   // MARK: - Private Handlers

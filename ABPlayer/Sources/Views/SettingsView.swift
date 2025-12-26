@@ -1,9 +1,15 @@
+import KeyboardShortcuts
 import SwiftUI
 
-/// Settings view for configuring transcription options
+/// Settings view for configuring application options
 struct SettingsView: View {
   @Environment(TranscriptionSettings.self) private var settings
   @Environment(TranscriptionManager.self) private var transcriptionManager
+
+  // Navigation selection
+  @State private var selectedTab: SettingsTab? = .transcription
+
+  // Transcription states
   @State private var isSelectingDirectory = false
   @State private var downloadedModels: [(name: String, size: Int64)] = []
   @State private var modelToDelete: String?
@@ -14,12 +20,38 @@ struct SettingsView: View {
   @State private var isDownloading = false
 
   var body: some View {
-    Form {
-      transcriptionSection
-      downloadedModelsSection
+    NavigationSplitView(columnVisibility: .constant(.doubleColumn)) {
+      EmptyView()
+        .toolbar(removing: .sidebarToggle)
+    } content: {
+      List(selection: $selectedTab) {
+        ForEach(SettingsTab.allCases) { tab in
+          NavigationLink(value: tab) {
+            Label(tab.rawValue, systemImage: tab.icon)
+          }
+        }
+      }
+      .listStyle(.sidebar)
+      .scrollContentBackground(.hidden)
+      .navigationSplitViewColumnWidth(min: 200, ideal: 200, max: 200)
+      .navigationTitle("ssss")
+      .toolbar(.hidden)
+    } detail: {
+      if let selectedTab {
+        switch selectedTab {
+        case .shortcuts:
+          shortcutsView
+        case .transcription:
+          transcriptionSettingsView
+        }
+      } else {
+        ContentUnavailableView("Select a setting", systemImage: "gear")
+      }
     }
-    .formStyle(.grouped)
-    .navigationTitle("Settings")
+    .navigationSplitViewStyle(.balanced)
+    .frame(minWidth: 600, idealWidth: 800)
+    .frame(minHeight: 600, idealHeight: 600)
+    // Common modifiers
     .fileImporter(
       isPresented: $isSelectingDirectory,
       allowedContentTypes: [.folder],
@@ -49,8 +81,54 @@ struct SettingsView: View {
       }
     }
     .onAppear {
-      refreshModels()
+      if selectedTab == .transcription {
+        refreshModels()
+      }
     }
+    .onChange(of: selectedTab) { _, newValue in
+      if newValue == .transcription {
+        refreshModels()
+      }
+    }
+  }
+
+  // MARK: - Shortcuts View
+
+  private var shortcutsView: some View {
+    Form {
+      Section("Playback") {
+        shortcutRow(title: "Play/Pause:", name: .playPause)
+        shortcutRow(title: "Rewind 5s:", name: .rewind5s)
+        shortcutRow(title: "Forward 10s:", name: .forward10s)
+      }
+
+      Section("Loop Controls") {
+        shortcutRow(title: "Set Point A:", name: .setPointA)
+        shortcutRow(title: "Set Point B:", name: .setPointB)
+        shortcutRow(title: "Clear Loop:", name: .clearLoop)
+        shortcutRow(title: "Save Segment:", name: .saveSegment)
+      }
+
+      Section("Navigation") {
+        shortcutRow(title: "Previous Segment:", name: .previousSegment)
+        shortcutRow(title: "Next Segment:", name: .nextSegment)
+      }
+    }
+    .formStyle(.grouped)
+  }
+
+  private func shortcutRow(title: String, name: KeyboardShortcuts.Name) -> some View {
+    KeyboardShortcuts.Recorder(title, name: name)
+  }
+
+  // MARK: - Transcription Settings View
+
+  private var transcriptionSettingsView: some View {
+    Form {
+      transcriptionSection
+      downloadedModelsSection
+    }
+    .formStyle(.grouped)
   }
 
   // MARK: - Transcription Section
@@ -127,17 +205,6 @@ struct SettingsView: View {
             previousDirectory = settings.modelDirectory
             isSelectingDirectory = true
           }
-
-          if !settings.modelDirectory.isEmpty {
-            Button {
-              settings.modelDirectory = ""
-              refreshModels()
-            } label: {
-              Image(systemName: "xmark.circle.fill")
-                .foregroundStyle(.secondary)
-            }
-            .buttonStyle(.plain)
-          }
         }
       }
 
@@ -157,13 +224,33 @@ struct SettingsView: View {
           "WhisperKit uses on-device speech recognition. Larger models are more accurate but require more storage and memory."
         )
 
-        if !settings.modelDirectory.isEmpty {
-          Text("Models will be saved to: \(settings.modelDirectory)")
-            .captionStyle()
-        } else {
-          Text("Models will be saved to: \(TranscriptionSettings.defaultModelDirectory.path)")
-            .captionStyle()
+        HStack(spacing: 4) {
+          Text("Models will be saved to:")
+          Button {
+            let url =
+              settings.modelDirectory.isEmpty
+              ? TranscriptionSettings.defaultModelDirectory
+              : URL(fileURLWithPath: settings.modelDirectory)
+            NSWorkspace.shared.open(url)
+          } label: {
+            Text(
+              settings.modelDirectory.isEmpty
+                ? TranscriptionSettings.defaultModelDirectory.path
+                : settings.modelDirectory
+            )
+            .underline()
+            .foregroundStyle(.primary)
+          }
+          .buttonStyle(.plain)
+          .onHover { inside in
+            if inside {
+              NSCursor.pointingHand.push()
+            } else {
+              NSCursor.pop()
+            }
+          }
         }
+        .captionStyle()
       }
     }
   }
@@ -314,11 +401,47 @@ struct SettingsView: View {
   }
 }
 
+// MARK: - Supporting Views
+
+enum SettingsTab: String, CaseIterable, Identifiable {
+  case shortcuts = "Shortcuts"
+  case transcription = "Transcription"
+
+  var id: Self { self }
+
+  var icon: String {
+    switch self {
+    case .shortcuts: return "keyboard"
+    case .transcription: return "text.bubble"
+    }
+  }
+}
+
+struct KeyboardKeyView: View {
+  let key: String
+
+  var body: some View {
+    Text(key)
+      .font(.system(.subheadline, design: .monospaced))
+      .padding(.horizontal, 8)
+      .padding(.vertical, 4)
+      .background {
+        RoundedRectangle(cornerRadius: 6)
+          .fill(Color(nsColor: .controlBackgroundColor))
+          .shadow(color: .black.opacity(0.1), radius: 1, y: 1)
+      }
+      .overlay {
+        RoundedRectangle(cornerRadius: 6)
+          .stroke(Color(nsColor: .separatorColor), lineWidth: 1)
+      }
+  }
+}
+
 // MARK: - Preview
 
 #Preview {
   SettingsView()
     .environment(TranscriptionSettings())
     .environment(TranscriptionManager())
-    .frame(width: 500, height: 500)
+    .frame(width: 800, height: 600)
 }

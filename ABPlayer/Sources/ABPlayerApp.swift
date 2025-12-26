@@ -1,3 +1,4 @@
+import KeyboardShortcuts
 import Sentry
 import SwiftData
 import SwiftUI
@@ -28,6 +29,62 @@ struct ABPlayerApp: App {
         Transcription.self
       )
       modelContainer.mainContext.autosaveEnabled = true
+
+      // Register Shortcut Listeners
+      KeyboardShortcuts.onKeyUp(for: .playPause) { [playerManager] in
+        Task { @MainActor in
+          playerManager.togglePlayPause()
+        }
+      }
+
+      KeyboardShortcuts.onKeyUp(for: .rewind5s) { [playerManager] in
+        Task { @MainActor in
+          playerManager.seek(to: -5)
+        }
+      }
+
+      KeyboardShortcuts.onKeyUp(for: .forward10s) { [playerManager] in
+        Task { @MainActor in
+          playerManager.seek(to: 10)
+        }
+      }
+
+      KeyboardShortcuts.onKeyUp(for: .setPointA) { [playerManager] in
+        Task { @MainActor in
+          playerManager.setPointA()
+        }
+      }
+
+      KeyboardShortcuts.onKeyUp(for: .setPointB) { [playerManager] in
+        Task { @MainActor in
+          playerManager.setPointB()
+        }
+      }
+
+      KeyboardShortcuts.onKeyUp(for: .clearLoop) { [playerManager] in
+        Task { @MainActor in
+          playerManager.clearLoop()
+        }
+      }
+
+      KeyboardShortcuts.onKeyUp(for: .saveSegment) { [playerManager] in
+        Task { @MainActor in
+          _ = playerManager.saveCurrentSegment()
+        }
+      }
+
+      KeyboardShortcuts.onKeyUp(for: .previousSegment) { [playerManager] in
+        Task { @MainActor in
+          playerManager.selectPreviousSegment()
+        }
+      }
+
+      KeyboardShortcuts.onKeyUp(for: .nextSegment) { [playerManager] in
+        Task { @MainActor in
+          playerManager.selectNextSegment()
+        }
+      }
+
     } catch {
       fatalError("Failed to create model container: \(error)")
     }
@@ -49,6 +106,7 @@ struct ABPlayerApp: App {
           .environment(transcriptionSettings)
           .environment(transcriptionManager)
       }
+      .windowToolbarStyle(.unified(showsTitle: false))
     #endif
   }
 }
