@@ -1,3 +1,19 @@
+## [0.1.1] - 2025-12-26
+
+- feat: Relocate segment navigation buttons to the saved segments header and move the 'Save' button to the main player controls.
+- chore: stop tracking build_output.log
+- feat: Introduce automated release script, changelog, and update CI to use changelog for release notes.
+- feat: Add folder and audio file deletion with context menus and enhance session save error handling.
+- refactor: Improve `clearAllData` to stop playback, reset UI state, and delete SwiftData entities individually in a dependency-aware order.
+- feat: bump app version to 0.1.0
+- feat: Implement macOS Settings window with command shortcut and refine its layout and sizing.
+- feat: Add data cleaning script, implement shortcut reset with updated default modifiers, and refine view frame constraints.
+- feat: Implement keyboard shortcut customization and refactor segment management to AudioPlayerManager
+- feat: Display loading state for empty transcription cues, reset transcription manager after caching, and add manager reset tests.
+- feat: add debug logging for view geometry changes in PlayerView and MainSplitView
+- feat: Add EmptyStateView, introduce typography system, and switch app's root view to MainSplitView.
+
+
 # Changelog
 
 ## [0.1.0] - 2025-12-26

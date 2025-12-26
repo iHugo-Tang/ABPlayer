@@ -20,7 +20,7 @@ let project = Project(
       deploymentTargets: .macOS("15.7.2"),
       infoPlist: .extendingDefault(with: [
         "CFBundleVersion": "nightly-f1e431b",
-        "CFBundleShortVersionString": "0.1.0",
+        "CFBundleShortVersionString": "0.1.1",
         "NSMainStoryboardFile": "",
       ]),
       buildableFolders: [
