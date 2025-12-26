@@ -1,3 +1,11 @@
+## [0.1.5] - 2025-12-26
+
+### Features
+- Improve session tracker resilience to deleted sessions and ensure all sessions are deleted when clearing user data.
+- update segment navigation button icons
+- bump version to 0.1.4, adding a draggable content panel, NavigationSplitView, and a session timer to the toolbar.
+
+
 ## [0.1.4] - 2025-12-26
 
 ### Features
