@@ -30,6 +30,7 @@ let project = Project(
       dependencies: [
         .external(name: "Sentry-Dynamic"),
         .external(name: "WhisperKit"),
+        .external(name: "KeyboardShortcuts"),
       ],
     ),
     .target(

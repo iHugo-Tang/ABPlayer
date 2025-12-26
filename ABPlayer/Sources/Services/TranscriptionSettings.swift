@@ -114,8 +114,12 @@ final class TranscriptionSettings {
 
   /// Delete a specific model from disk
   func deleteModel(named name: String) throws {
-    let dir = modelDirectoryURL
-    let modelDir = dir.appendingPathComponent(name)
+    let whisperKitDir =
+      modelDirectoryURL
+      .appendingPathComponent("models", isDirectory: true)
+      .appendingPathComponent("argmaxinc", isDirectory: true)
+      .appendingPathComponent("whisperkit-coreml", isDirectory: true)
+    let modelDir = whisperKitDir.appendingPathComponent(name)
     try FileManager.default.removeItem(at: modelDir)
   }
 
