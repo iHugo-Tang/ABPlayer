@@ -159,10 +159,10 @@ struct SettingsView: View {
 
         if !settings.modelDirectory.isEmpty {
           Text("Models will be saved to: \(settings.modelDirectory)")
-            .font(.caption)
+            .captionStyle()
         } else {
           Text("Models will be saved to: \(TranscriptionSettings.defaultModelDirectory.path)")
-            .font(.caption)
+            .captionStyle()
         }
       }
     }
@@ -187,9 +187,9 @@ struct SettingsView: View {
           HStack {
             VStack(alignment: .leading, spacing: 2) {
               Text(model.name)
-                .font(.body)
+                .bodyStyle()
               Text(TranscriptionSettings.formatSize(model.size))
-                .font(.caption)
+                .captionStyle()
                 .foregroundStyle(.secondary)
             }
 

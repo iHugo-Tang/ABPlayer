@@ -76,7 +76,8 @@ struct PlayerView: View {
     HStack {
       VStack(alignment: .leading) {
         Text(audioFile.displayName)
-          .font(.title2)
+          .font(.title)
+          .fontWeight(.semibold)
           .lineLimit(1)
 
         Menu {
@@ -113,8 +114,7 @@ struct PlayerView: View {
           .foregroundStyle(.secondary)
 
         Text(timeString(from: sessionTracker.totalSeconds))
-          .font(.headline)
-          .monospacedDigit()
+          .font(.monospacedTime)
       }
 
       playbackControls
@@ -190,7 +190,7 @@ struct PlayerView: View {
         Spacer()
         Text(timeString(from: playerManager.duration))
       }
-      .font(.caption)
+      .captionStyle()
       .foregroundStyle(.secondary)
     }
   }
@@ -238,7 +238,7 @@ struct PlayerView: View {
         .keyboardShortcut(.rightArrow, modifiers: [])
       }
     }
-    .font(.caption)
+    .captionStyle()
   }
 
   // MARK: - Segments Section

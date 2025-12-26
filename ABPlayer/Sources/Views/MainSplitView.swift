@@ -7,7 +7,7 @@ import UniformTypeIdentifiers
   import AppKit
 #endif
 
-public struct ContentView: View {
+public struct MainSplitView: View {
   @Environment(AudioPlayerManager.self) private var playerManager
   @Environment(SessionTracker.self) private var sessionTracker
   @Environment(\.modelContext) private var modelContext
@@ -36,7 +36,7 @@ public struct ContentView: View {
       if let selectedFile {
         PlayerView(audioFile: selectedFile)
       } else {
-        emptyStateView
+        EmptyStateView()
       }
     }
     .fileImporter(
@@ -78,25 +78,6 @@ public struct ContentView: View {
     } message: { message in
       Text(message)
     }
-  }
-
-  // MARK: - Empty State
-
-  private var emptyStateView: some View {
-    VStack(spacing: 16) {
-      Image(systemName: "waveform.circle")
-        .font(.system(size: 64))
-        .foregroundStyle(.tertiary)
-
-      Text("No file selected")
-        .font(.title2)
-
-      Text("Import a folder or MP3 file to start creating A-B loops.")
-        .font(.subheadline)
-        .foregroundStyle(.secondary)
-        .multilineTextAlignment(.center)
-    }
-    .padding()
   }
 
   // MARK: - Sidebar

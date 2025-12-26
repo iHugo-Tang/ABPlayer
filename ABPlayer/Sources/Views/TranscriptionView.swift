@@ -199,7 +199,7 @@ struct TranscriptionView: View {
 
           if showPercentage {
             Text("\(Int(progress * 100))%")
-              .font(.caption)
+              .captionStyle()
               .foregroundStyle(.secondary)
               .monospacedDigit()
           }

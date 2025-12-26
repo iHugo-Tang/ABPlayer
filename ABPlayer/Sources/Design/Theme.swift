@@ -149,9 +149,3 @@ extension Animation {
   static let smoothSpring = Animation.spring(response: 0.3, dampingFraction: 0.7)
   static let quickFade = Animation.easeOut(duration: 0.15)
 }
-
-// MARK: - Typography
-
-extension Font {
-  static let monospacedTime = Font.system(.caption, design: .monospaced).weight(.medium)
-}

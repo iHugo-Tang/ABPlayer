@@ -171,8 +171,7 @@ struct FolderNavigationView: View {
 
         let count = folder.audioFiles.count + folder.subfolders.count
         Text("\(count) items")
-          .font(.caption2)
-          .foregroundStyle(.tertiary)
+          .captionStyle()
       }
 
       Spacer()
@@ -212,7 +211,7 @@ struct FolderNavigationView: View {
               .font(.caption2)
           }
         }
-        .font(.caption2)
+        .captionStyle()
         .foregroundStyle(.secondary)
       }
 
