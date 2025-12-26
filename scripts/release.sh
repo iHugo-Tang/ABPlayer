@@ -40,22 +40,84 @@ if [ -f "$STATE_FILE" ]; then
     echo "Found last release commit: $LAST_COMMIT"
     # Check if the commit actually exists
     if git cat-file -e "$LAST_COMMIT" 2>/dev/null; then
-        LOGS=$(git log --pretty=format:"- %s" "$LAST_COMMIT..HEAD")
+        COMMITS=$(git log --pretty=format:"%s" "$LAST_COMMIT..HEAD")
     else
         echo -e "${RED}Warning: Last commit $LAST_COMMIT not found. Defaulting to last 10 commits.${NC}"
-        LOGS=$(git log -n 10 --pretty=format:"- %s")
+        COMMITS=$(git log -n 10 --pretty=format:"%s")
     fi
 else
     echo "No previous release state found. Defaulting to last 10 commits."
-    LOGS=$(git log -n 10 --pretty=format:"- %s")
+    COMMITS=$(git log -n 10 --pretty=format:"%s")
 fi
 
-if [ -z "$LOGS" ]; then
-    LOGS="- No significant changes."
+# Initialize category arrays
+FEATURES=""
+FIXES=""
+IMPROVEMENTS=""
+CHORES=""
+OTHER=""
+
+# Categorize commits
+while IFS= read -r commit; do
+    if [ -z "$commit" ]; then
+        continue
+    fi
+    
+    # Extract prefix (everything before the first colon)
+    prefix=$(echo "$commit" | grep -oE "^[a-zA-Z]+:" | tr -d ':' | tr '[:upper:]' '[:lower:]')
+    
+    # Remove prefix from message for cleaner output
+    message=$(echo "$commit" | sed 's/^[a-zA-Z]*: *//')
+    
+    case "$prefix" in
+        feat|feature)
+            FEATURES="${FEATURES}- ${message}"$'\n'
+            ;;
+        fix|bugfix|bug)
+            FIXES="${FIXES}- ${message}"$'\n'
+            ;;
+        refactor|perf|improve|enhancement)
+            IMPROVEMENTS="${IMPROVEMENTS}- ${message}"$'\n'
+            ;;
+        chore|build|ci|style|docs|test)
+            CHORES="${CHORES}- ${message}"$'\n'
+            ;;
+        *)
+            # If no recognized prefix, include the full commit message
+            OTHER="${OTHER}- ${commit}"$'\n'
+            ;;
+    esac
+done <<< "$COMMITS"
+
+# Build changelog entry
+NEW_ENTRY="$HEADER"$'\n'
+
+if [ -n "$FEATURES" ]; then
+    NEW_ENTRY="${NEW_ENTRY}"$'\n'"### Features"$'\n'"${FEATURES}"
 fi
 
-# Prepare new entry
-NEW_ENTRY="$HEADER"$'\n'$'\n'"$LOGS"$'\n'$'\n'
+if [ -n "$FIXES" ]; then
+    NEW_ENTRY="${NEW_ENTRY}"$'\n'"### Bug Fixes"$'\n'"${FIXES}"
+fi
+
+if [ -n "$IMPROVEMENTS" ]; then
+    NEW_ENTRY="${NEW_ENTRY}"$'\n'"### Improvements"$'\n'"${IMPROVEMENTS}"
+fi
+
+if [ -n "$CHORES" ]; then
+    NEW_ENTRY="${NEW_ENTRY}"$'\n'"### Chores"$'\n'"${CHORES}"
+fi
+
+if [ -n "$OTHER" ]; then
+    NEW_ENTRY="${NEW_ENTRY}"$'\n'"### Other"$'\n'"${OTHER}"
+fi
+
+# Handle case where there are no commits
+if [ -z "$FEATURES" ] && [ -z "$FIXES" ] && [ -z "$IMPROVEMENTS" ] && [ -z "$CHORES" ] && [ -z "$OTHER" ]; then
+    NEW_ENTRY="${NEW_ENTRY}"$'\n'"- No significant changes."$'\n'
+fi
+
+NEW_ENTRY="${NEW_ENTRY}"$'\n'
 
 # Prepend to CHANGELOG.md
 if [ -f "$CHANGELOG_FILE" ]; then

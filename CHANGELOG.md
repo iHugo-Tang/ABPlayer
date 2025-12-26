@@ -1,3 +1,10 @@
+## [0.1.2] - 2025-12-26
+
+### Features
+- Add application update script, `.env.example`, and bump version to 0.1.1 with various new features and UI improvements.
+- Relocate segment navigation buttons to the saved segments header and move the 'Save' button to the main player controls.
+
+
 ## [0.1.1] - 2025-12-26
 
 - feat: Relocate segment navigation buttons to the saved segments header and move the 'Save' button to the main player controls.
