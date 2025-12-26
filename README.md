@@ -4,7 +4,7 @@ ABPlayer is a macOS local audio player designed specifically for language learne
 
 The project deeply integrates [WhisperKit](https://github.com/argmaxinc/WhisperKit), supporting completely offline on-device AI speech-to-text, automatically generating timestamped subtitles to turn any audio material into listening study material.
 
-<video src="Docs/videos/demo.mp4" controls="controls" style="max-width: 100%;">
+<video src="Docs/videos/demo.mp4" controls="controls" style="max-width: 100%;"></video>
 
 ## ✨ Core Features
 
