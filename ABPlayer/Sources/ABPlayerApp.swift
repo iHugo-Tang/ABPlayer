@@ -35,7 +35,7 @@ struct ABPlayerApp: App {
 
   var body: some Scene {
     WindowGroup {
-      ContentView()
+      MainSplitView()
         .environment(playerManager)
         .environment(sessionTracker)
         .environment(transcriptionManager)
