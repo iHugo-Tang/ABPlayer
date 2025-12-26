@@ -35,7 +35,11 @@ struct TranscriptionView: View {
         transcribingView(progress: progress, fileName: fileName)
 
       case .completed:
-        transcriptionContentView
+        if !cachedCues.isEmpty {
+          transcriptionContentView
+        } else {
+          loadingCacheView
+        }
 
       case .failed(let error):
         failedView(error: error)
@@ -81,6 +85,7 @@ struct TranscriptionView: View {
       Divider()
 
       SubtitleView(cues: cachedCues)
+        .id(cachedCues.count)
     }
   }
 
@@ -277,6 +282,7 @@ struct TranscriptionView: View {
         settings: settings
       )
       cachedCues = cues
+      transcriptionManager.reset()
 
       // Cache the result
       let audioFileId = audioFile.id.uuidString

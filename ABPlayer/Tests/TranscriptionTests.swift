@@ -222,3 +222,27 @@ struct TranscriptionSettingsTests {
     #expect(gbFormatted.contains("GB") || gbFormatted.contains("2"))
   }
 }
+
+// MARK: - Transcription Manager Tests
+
+@MainActor
+struct TranscriptionManagerTests {
+  @Test
+  func testResetSetsStateToIdle() {
+    let manager = TranscriptionManager()
+
+    // Set state to something other than idle
+    manager.state = .failed("Test Error")
+    #expect(manager.state != .idle)
+
+    // Reset and verify
+    manager.reset()
+    #expect(manager.state == .idle)
+  }
+
+  @Test
+  func testIsModelLoadedReturnsFalseInitially() {
+    let manager = TranscriptionManager()
+    #expect(!manager.isModelLoaded)
+  }
+}
