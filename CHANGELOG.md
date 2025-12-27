@@ -1,3 +1,17 @@
+## [0.1.7] - 2025-12-26
+
+### Features
+- Introduce asynchronous transcription model listing and update tests and settings view to use it.
+- Introduce Git LFS for media files, add architecture documentation, and implement comprehensive business logic tests.
+- Bump version to 0.1.6, add architecture documentation, update app icons, improve session tracker resilience, and add MIT License.
+- Add architecture documentation and update app icon assets, including a new 1024x1024 icon and cleanup of old versions.
+
+### Other
+- Add demo video link to README
+- Fix HTML entities in README.md
+- Fix video tag in README.md
+
+
 ## [0.1.6] - 2025-12-26
 
 ### Features

@@ -7,13 +7,46 @@ GREEN='\033[0;32m'
 RED='\033[0;31m'
 NC='\033[0m' # No Color
 
+# GitHub repository info
+REPO_OWNER="sunset-valley"
+REPO_NAME="ABPlayer"
+
+# Function to increment patch version
+increment_version() {
+    local version=$1
+    # Remove 'v' prefix if present
+    version=${version#v}
+    
+    # Split version into parts
+    IFS='.' read -ra parts <<< "$version"
+    local major=${parts[0]:-0}
+    local minor=${parts[1]:-0}
+    local patch=${parts[2]:-0}
+    
+    # Increment patch version
+    patch=$((patch + 1))
+    
+    echo "$major.$minor.$patch"
+}
+
 # Check if version argument is provided
 if [ -z "$1" ]; then
-    echo -e "${RED}Error: Please provide a version number (e.g., ./scripts/release.sh 1.0.0)${NC}"
-    exit 1
+    echo "No version specified. Fetching latest version from GitHub releases..."
+    
+    # Get latest release version from GitHub API
+    LATEST_VERSION=$(curl -s "https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/releases/latest" | grep '"tag_name":' | sed -E 's/.*"([^"]+)".*/\1/')
+    
+    if [ -z "$LATEST_VERSION" ]; then
+        echo -e "${RED}Error: Could not fetch latest version from GitHub. Please provide a version manually.${NC}"
+        exit 1
+    fi
+    
+    echo "Latest version: $LATEST_VERSION"
+    NEW_VERSION=$(increment_version "$LATEST_VERSION")
+    echo "New version: $NEW_VERSION"
+else
+    NEW_VERSION="$1"
 fi
-
-NEW_VERSION="$1"
 PROJECT_FILE="Project.swift"
 CHANGELOG_FILE="CHANGELOG.md"
 STATE_FILE=".release_state"
