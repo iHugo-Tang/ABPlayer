@@ -24,9 +24,9 @@ struct SettingsView: View {
 
   var body: some View {
     NavigationSplitView {
-//      EmptyView()
-//        .toolbar(removing: .sidebarToggle)
-//    } content: {
+      //      EmptyView()
+      //        .toolbar(removing: .sidebarToggle)
+      //    } content: {
       List(selection: $selectedTab) {
         ForEach(SettingsTab.allCases) { tab in
           NavigationLink(value: tab) {
@@ -41,10 +41,10 @@ struct SettingsView: View {
       Group {
         if let selectedTab {
           switch selectedTab {
-            case .shortcuts:
-              shortcutsView
-            case .transcription:
-              transcriptionSettingsView
+          case .shortcuts:
+            shortcutsView
+          case .transcription:
+            transcriptionSettingsView
           }
         } else {
           ContentUnavailableView("Select a setting", systemImage: "gear")
@@ -367,7 +367,9 @@ struct SettingsView: View {
   }
 
   private func refreshModels() {
-    downloadedModels = settings.listDownloadedModels()
+    Task {
+      downloadedModels = await settings.listDownloadedModelsAsync()
+    }
   }
 
   private func downloadCurrentModel() async {

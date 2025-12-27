@@ -2,6 +2,7 @@ import Foundation
 import SwiftUI
 
 /// User configurable transcription settings
+@MainActor
 @Observable
 final class TranscriptionSettings {
   /// Whether transcription feature is enabled
@@ -68,7 +69,19 @@ final class TranscriptionSettings {
   /// Returns list of downloaded models in the current model directory
   /// WhisperKit stores models at: models/argmaxinc/whisperkit-coreml/<model-name>/
   func listDownloadedModels() -> [(name: String, size: Int64)] {
-    let baseDir = modelDirectoryURL
+    Self.listModelsSync(in: modelDirectoryURL)
+  }
+
+  /// Returns list of downloaded models asynchronously (non-blocking)
+  func listDownloadedModelsAsync() async -> [(name: String, size: Int64)] {
+    let url = modelDirectoryURL
+    return await Task.detached(priority: .utility) {
+      Self.listModelsSync(in: url)
+    }.value
+  }
+
+  /// Synchronous helper for listing models (can run on background thread)
+  nonisolated private static func listModelsSync(in baseDir: URL) -> [(name: String, size: Int64)] {
     let fileManager = FileManager.default
 
     // WhisperKit stores models in a nested structure
@@ -154,7 +167,7 @@ final class TranscriptionSettings {
   }
 
   /// Calculate total size of a directory
-  private static func directorySize(at url: URL) -> Int64 {
+  nonisolated private static func directorySize(at url: URL) -> Int64 {
     let fileManager = FileManager.default
     var totalSize: Int64 = 0
 

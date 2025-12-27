@@ -113,6 +113,7 @@ struct TranscriptionStateTests {
 
 // MARK: - Transcription Settings Tests
 
+@MainActor
 struct TranscriptionSettingsTests {
 
   @Test
@@ -143,18 +144,18 @@ struct TranscriptionSettingsTests {
   }
 
   @Test
-  func testListDownloadedModelsReturnsEmptyForNonexistentDirectory() {
+  func testListDownloadedModelsReturnsEmptyForNonexistentDirectory() async {
     let settings = TranscriptionSettings()
     // Set to a non-existent directory
     settings.modelDirectory = "/nonexistent/path/that/does/not/exist"
 
-    let models = settings.listDownloadedModels()
+    let models = await settings.listDownloadedModelsAsync()
 
     #expect(models.isEmpty, "Should return empty array for non-existent directory")
   }
 
   @Test
-  func testListDownloadedModelsReturnsEmptyForEmptyDirectory() throws {
+  func testListDownloadedModelsReturnsEmptyForEmptyDirectory() async throws {
     let settings = TranscriptionSettings()
     let tempDir = FileManager.default.temporaryDirectory.appendingPathComponent(
       UUID().uuidString)
@@ -165,13 +166,13 @@ struct TranscriptionSettingsTests {
     }
 
     settings.modelDirectory = tempDir.path
-    let models = settings.listDownloadedModels()
+    let models = await settings.listDownloadedModelsAsync()
 
     #expect(models.isEmpty, "Should return empty array for empty directory")
   }
 
   @Test(.enabled(if: ProcessInfo.processInfo.environment["CI"] == nil))
-  func testListDownloadedModelsDetectsModelDirectory() throws {
+  func testListDownloadedModelsDetectsModelDirectory() async throws {
     let settings = TranscriptionSettings()
     let tempDir = FileManager.default.temporaryDirectory.appendingPathComponent(
       UUID().uuidString)
@@ -194,7 +195,7 @@ struct TranscriptionSettingsTests {
     }
 
     settings.modelDirectory = tempDir.path
-    let models = settings.listDownloadedModels()
+    let models = await settings.listDownloadedModelsAsync()
 
     #expect(models.count == 1, "Should detect one model directory")
     #expect(models.first?.name == "openai_whisper-tiny", "Model name should match directory name")
