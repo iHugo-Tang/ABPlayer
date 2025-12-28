@@ -10,6 +10,7 @@ struct ABPlayerApp: App {
   private let sessionTracker = SessionTracker()
   private let transcriptionManager = TranscriptionManager()
   private let transcriptionSettings = TranscriptionSettings()
+  private let queueManager: TranscriptionQueueManager
 
   init() {
     do {
@@ -29,6 +30,13 @@ struct ABPlayerApp: App {
         Transcription.self
       )
       modelContainer.mainContext.autosaveEnabled = true
+
+      // Initialize queue manager with dependencies
+      queueManager = TranscriptionQueueManager(
+        transcriptionManager: transcriptionManager,
+        settings: transcriptionSettings
+      )
+      queueManager.modelContext = modelContainer.mainContext
 
       // Register Shortcut Listeners
       KeyboardShortcuts.onKeyUp(for: .playPause) { [playerManager] in
@@ -97,6 +105,7 @@ struct ABPlayerApp: App {
         .environment(sessionTracker)
         .environment(transcriptionManager)
         .environment(transcriptionSettings)
+        .environment(queueManager)
     }
     .defaultSize(width: 1600, height: 900)
     .modelContainer(modelContainer)

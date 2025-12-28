@@ -6,6 +6,7 @@ struct TranscriptionView: View {
   let audioFile: AudioFile
 
   @Environment(TranscriptionManager.self) private var transcriptionManager
+  @Environment(TranscriptionQueueManager.self) private var queueManager
   @Environment(TranscriptionSettings.self) private var settings
   @Environment(AudioPlayerManager.self) private var playerManager
   @Environment(\.modelContext) private var modelContext
@@ -13,39 +14,51 @@ struct TranscriptionView: View {
   @State private var cachedCues: [SubtitleCue] = []
   @State private var hasCheckedCache = false
 
+  /// Current file's task from the queue
+  private var currentTask: TranscriptionTask? {
+    queueManager.getTask(for: audioFile.id)
+  }
+
   var body: some View {
+    let _ = Self._printChanges()
     Group {
-      switch transcriptionManager.state {
-      case .idle:
-        if cachedCues.isEmpty && hasCheckedCache {
+      // Check if current file has a task in the queue
+      if let task = currentTask {
+        taskProgressView(task: task)
+      } else {
+        // Original logic for non-queued state
+        switch transcriptionManager.state {
+        case .idle:
+          if cachedCues.isEmpty && hasCheckedCache {
+            noTranscriptionView
+          } else if !cachedCues.isEmpty {
+            transcriptionContentView
+          } else {
+            loadingCacheView
+          }
+
+        case .downloading(let progress, let modelName):
+          downloadingView(progress: progress, modelName: modelName)
+
+        case .loading(let modelName):
+          loadingModelView(modelName: modelName)
+
+        case .transcribing(let progress, let fileName):
+          transcribingView(progress: progress, fileName: fileName)
+
+        case .completed:
+          if !cachedCues.isEmpty {
+            transcriptionContentView
+          } else {
+            loadingCacheView
+          }
+
+        case .failed(let error):
+          failedView(error: error)
+
+        case .cancelled:
           noTranscriptionView
-        } else if !cachedCues.isEmpty {
-          transcriptionContentView
-        } else {
-          loadingCacheView
         }
-
-      case .downloading(let progress, let modelName):
-        downloadingView(progress: progress, modelName: modelName)
-
-      case .loading(let modelName):
-        loadingModelView(modelName: modelName)
-
-      case .transcribing(let progress, let fileName):
-        transcribingView(progress: progress, fileName: fileName)
-
-      case .completed:
-        if !cachedCues.isEmpty {
-          transcriptionContentView
-        } else {
-          loadingCacheView
-        }
-
-      case .failed(let error):
-        failedView(error: error)
-
-      case .cancelled:
-        noTranscriptionView
       }
     }
     .task {
@@ -126,7 +139,7 @@ struct TranscriptionView: View {
       }
 
       Button {
-        Task { await startTranscription() }
+        startTranscription()
       } label: {
         HStack(spacing: 6) {
           Image(systemName: "waveform")
@@ -182,6 +195,99 @@ struct TranscriptionView: View {
       progress: progress > 0 ? progress : nil,
       showPercentage: progress > 0
     )
+  }
+
+  /// View for queue task progress
+  private func taskProgressView(task: TranscriptionTask) -> some View {
+    VStack {
+      switch task.status {
+      case .queued:
+        progressView(
+          icon: "clock",
+          title: "Queued",
+          subtitle: task.audioFileName,
+          progress: nil,
+          showPercentage: false,
+          footnote: "Waiting for other transcriptions to complete"
+        )
+
+      case .downloading(let progress):
+        VStack {
+          progressView(
+            icon: "arrow.down.circle",
+            title: "Downloading Model",
+            subtitle: settings.modelName,
+            progress: progress,
+            showPercentage: true
+          )
+          cancelButton(taskId: task.id)
+        }
+
+      case .loading:
+        VStack {
+          progressView(
+            icon: "brain",
+            title: "Loading Model",
+            subtitle: settings.modelName,
+            progress: nil,
+            showPercentage: false,
+            footnote: "This may take a moment on first run"
+          )
+          cancelButton(taskId: task.id)
+        }
+
+      case .transcribing(let progress):
+        VStack {
+          progressView(
+            icon: "waveform",
+            title: "Transcribing",
+            subtitle: task.audioFileName,
+            progress: progress > 0 ? progress : nil,
+            showPercentage: progress > 0
+          )
+          cancelButton(taskId: task.id)
+        }
+
+      case .completed:
+        // Reload cache and show content
+        if !cachedCues.isEmpty {
+          transcriptionContentView
+        } else {
+          loadingCacheView
+            .task {
+              await loadCachedTranscription()
+              // Remove completed task from queue
+              queueManager.removeTask(id: task.id)
+            }
+        }
+
+      case .failed(let error):
+        VStack(spacing: 20) {
+          failedView(error: error)
+          Button("Remove") {
+            queueManager.removeTask(id: task.id)
+          }
+          .buttonStyle(.bordered)
+        }
+
+      case .cancelled:
+        VStack(spacing: 20) {
+          noTranscriptionView
+        }
+        .task {
+          queueManager.removeTask(id: task.id)
+        }
+      }
+    }
+  }
+
+  private func cancelButton(taskId: UUID) -> some View {
+    Button("Cancel") {
+      queueManager.cancelTask(id: taskId)
+    }
+    .buttonStyle(.bordered)
+    .controlSize(.small)
+    .padding(.bottom, 20)
   }
 
   private func progressView(
@@ -319,47 +425,13 @@ struct TranscriptionView: View {
     return try? SubtitleParser.parse(from: srtURL)
   }
 
-  private func startTranscription() async {
-    do {
-      let url = try resolveURL(from: audioFile.bookmarkData)
-      let cues = try await transcriptionManager.transcribe(
-        audioURL: url,
-        settings: settings
-      )
-      cachedCues = cues
-      transcriptionManager.reset()
-
-      // Save as SRT
-      saveSRTFile(cues: cues)
-
-      // Cache the result
-      let audioFileId = audioFile.id.uuidString
-
-      // Check if cache already exists and update it
-      let descriptor = FetchDescriptor<Transcription>(
-        predicate: #Predicate { $0.audioFileId == audioFileId }
-      )
-
-      if let existing = try? modelContext.fetch(descriptor).first {
-        existing.cues = cues
-        existing.createdAt = Date()
-        existing.modelUsed = settings.modelName
-        existing.language = settings.language
-      } else {
-        let cache = Transcription(
-          audioFileId: audioFileId,
-          audioFileName: audioFile.displayName,
-          cues: cues,
-          modelUsed: settings.modelName,
-          language: settings.language == "auto" ? nil : settings.language
-        )
-        modelContext.insert(cache)
-      }
-
-      try? modelContext.save()
-    } catch {
-      // Error is handled by TranscriptionManager state
+  private func startTranscription() {
+    // Set modelContext on queue manager if needed
+    if queueManager.modelContext == nil {
+      queueManager.modelContext = modelContext
     }
+    // Enqueue the transcription task
+    queueManager.enqueue(audioFile: audioFile)
   }
 
   private func saveSRTFile(cues: [SubtitleCue]) {
@@ -403,7 +475,7 @@ struct TranscriptionView: View {
     // Reset state and start fresh transcription
     cachedCues = []
     transcriptionManager.reset()
-    await startTranscription()
+    startTranscription()
   }
 
   private func resolveURL(from bookmarkData: Data) throws -> URL {
