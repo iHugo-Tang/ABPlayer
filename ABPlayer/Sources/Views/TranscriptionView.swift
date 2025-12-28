@@ -43,6 +43,9 @@ struct TranscriptionView: View {
 
       case .failed(let error):
         failedView(error: error)
+
+      case .cancelled:
+        noTranscriptionView
       }
     }
     .task {
@@ -141,13 +144,23 @@ struct TranscriptionView: View {
   // MARK: - Progress Views
 
   private func downloadingView(progress: Double, modelName: String) -> some View {
-    progressView(
-      icon: "arrow.down.circle",
-      title: "Downloading Model",
-      subtitle: modelName,
-      progress: progress,
-      showPercentage: true
-    )
+    VStack {
+      progressView(
+        icon: "arrow.down.circle",
+        title: "Downloading Model",
+        subtitle: modelName,
+        progress: progress,
+        showPercentage: true
+      )
+
+      Button("Cancel") {
+        transcriptionManager.cancelDownload()
+        settings.deleteDownloadCache(modelName: modelName)
+      }
+      .buttonStyle(.bordered)
+      .controlSize(.small)
+      .padding(.bottom, 20)
+    }
   }
 
   private func loadingModelView(modelName: String) -> some View {

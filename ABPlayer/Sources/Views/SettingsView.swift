@@ -17,7 +17,6 @@ struct SettingsView: View {
   @State private var isMigrating = false
   @State private var migrationError: String?
   @State private var previousDirectory: String = ""
-  @State private var isDownloading = false
 
   // Shortcuts states
   @State private var showResetConfirmation = false
@@ -196,12 +195,30 @@ struct SettingsView: View {
       HStack {
         Text("Status")
         Spacer()
-        if isDownloading {
-          HStack(spacing: 6) {
-            ProgressView()
+        if case .downloading(let progress, let modelName) = transcriptionManager.state,
+          modelName == settings.modelName
+        {
+          HStack(spacing: 8) {
+            ProgressView(value: progress)
+              .progressViewStyle(.linear)
+              .frame(width: 60)
               .controlSize(.small)
-            Text("Downloading...")
+
+            Text("\(Int(progress * 100))%")
+              .monospacedDigit()
               .foregroundStyle(.secondary)
+              .font(.caption)
+
+            Button {
+              transcriptionManager.cancelDownload()
+              settings.deleteDownloadCache(modelName: modelName)
+              refreshModels()
+            } label: {
+              Image(systemName: "xmark.circle.fill")
+                .foregroundStyle(.secondary)
+            }
+            .buttonStyle(.plain)
+            .help("Cancel download")
           }
         } else if isCurrentModelDownloaded {
           HStack(spacing: 4) {
@@ -373,17 +390,17 @@ struct SettingsView: View {
   }
 
   private func downloadCurrentModel() async {
-    isDownloading = true
     do {
       try await transcriptionManager.loadModel(
         modelName: settings.modelName,
         downloadBase: settings.modelDirectoryURL
       )
       refreshModels()
+    } catch is CancellationError {
+      // Download cancelled, no need to show error
     } catch {
       migrationError = "Failed to download model: \(error.localizedDescription)"
     }
-    isDownloading = false
   }
 
   private func deleteModel(named name: String) {

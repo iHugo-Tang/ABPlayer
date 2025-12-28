@@ -166,6 +166,47 @@ final class TranscriptionSettings {
     }
   }
 
+  /// Delete download cache for a model
+  func deleteDownloadCache(modelName: String) {
+    let fileManager = FileManager.default
+
+    // WhisperKit downloads to models/argmaxinc/whisperkit-coreml/<model-name>
+    // Model names are prefixed like "openai_whisper-tiny" or "distil-whisper_distil-large-v3"
+    let whisperKitDir =
+      modelDirectoryURL
+      .appendingPathComponent("models", isDirectory: true)
+      .appendingPathComponent("argmaxinc", isDirectory: true)
+      .appendingPathComponent("whisperkit-coreml", isDirectory: true)
+
+    guard fileManager.fileExists(atPath: whisperKitDir.path) else { return }
+
+    do {
+      let contents = try fileManager.contentsOfDirectory(
+        at: whisperKitDir,
+        includingPropertiesForKeys: [.isDirectoryKey],
+        options: [.skipsHiddenFiles]
+      )
+
+      // Find and delete any folder containing the model name
+      for url in contents {
+        if url.lastPathComponent.contains(modelName) {
+          try? fileManager.removeItem(at: url)
+        }
+      }
+
+      // Also delete any temporary/incomplete download files
+      let tempPatterns = [".tmp", ".download", ".partial"]
+      for url in contents {
+        let name = url.lastPathComponent
+        if tempPatterns.contains(where: { name.contains($0) }) && name.contains(modelName) {
+          try? fileManager.removeItem(at: url)
+        }
+      }
+    } catch {
+      // Ignore errors during cleanup
+    }
+  }
+
   /// Calculate total size of a directory
   nonisolated private static func directorySize(at url: URL) -> Int64 {
     let fileManager = FileManager.default

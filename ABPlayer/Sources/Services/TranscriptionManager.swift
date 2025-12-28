@@ -10,6 +10,7 @@ enum TranscriptionState: Equatable {
   case transcribing(progress: Double, fileName: String)
   case completed
   case failed(String)
+  case cancelled
 }
 
 /// Manages audio transcription using WhisperKit
@@ -18,11 +19,74 @@ enum TranscriptionState: Equatable {
 final class TranscriptionManager {
   private var whisperKit: WhisperKit?
   private var loadedModelName: String?
+  private var downloadTask: Task<Void, Error>?
   var state: TranscriptionState = .idle
 
   /// Whether the model is loaded and ready
   var isModelLoaded: Bool {
     whisperKit != nil
+  }
+
+  /// Download model with progress tracking
+  func downloadModel(
+    modelName: String,
+    downloadBase: URL,
+    progressCallback: (@Sendable (Double) -> Void)? = nil
+  ) async throws {
+    // If already downloading (and correct model), return
+    if case .downloading(_, let currentName) = state, currentName == modelName {
+      return
+    }
+
+    state = .downloading(progress: 0, modelName: modelName)
+
+    let task = Task {
+      _ = try await WhisperKit.download(
+        variant: modelName,
+        downloadBase: downloadBase,
+        progressCallback: { @Sendable [weak self] progress in
+          Task { @MainActor [weak self] in
+            guard let self else { return }
+            // Update state
+            if case .downloading(_, let currentName) = self.state, currentName == modelName {
+              self.state = .downloading(progress: progress.fractionCompleted, modelName: modelName)
+            }
+            // Process callback
+            progressCallback?(progress.fractionCompleted)
+          }
+        }
+      )
+    }
+
+    downloadTask = task
+
+    do {
+      try await task.value
+      downloadTask = nil
+
+      if case .cancelled = state {
+        throw CancellationError()
+      }
+    } catch is CancellationError {
+      downloadTask = nil
+      state = .cancelled
+      throw CancellationError()
+    } catch let urlError as URLError where urlError.code == .cancelled {
+      // URLSession throws URLError.cancelled instead of CancellationError
+      downloadTask = nil
+      state = .cancelled
+      throw CancellationError()
+    } catch {
+      downloadTask = nil
+      state = .failed("Failed to download model: \(error.localizedDescription)")
+      throw error
+    }
+  }
+
+  /// Cancel current download
+  func cancelDownload() {
+    downloadTask?.cancel()
+    state = .cancelled
   }
 
   /// Initialize WhisperKit with the specified model and download folder
@@ -33,6 +97,13 @@ final class TranscriptionManager {
     // Reload if model name changed
     if whisperKit != nil && loadedModelName == modelName {
       return
+    }
+
+    // Ensure model is downloaded first (with progress)
+    try await downloadModel(modelName: modelName, downloadBase: downloadBase)
+
+    if case .cancelled = state {
+      throw CancellationError()
     }
 
     state = .loading(modelName: modelName)
@@ -104,6 +175,10 @@ final class TranscriptionManager {
 
       state = .completed
       return cues
+    } catch is CancellationError {
+      audioURL.stopAccessingSecurityScopedResource()
+      // Keep cancelled state, don't override with failed
+      throw CancellationError()
     } catch {
       audioURL.stopAccessingSecurityScopedResource()
       state = .failed(error.localizedDescription)
