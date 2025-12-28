@@ -27,7 +27,7 @@ struct PlayerView: View {
       HStack(spacing: 0) {
         // Left: Player controls + Segments
         playerSection
-          .frame(width: playerSectionWidth)
+          .frame(width: showContentPanel ? playerSectionWidth : nil)
 
         // Right: Content panel (PDF, Subtitles only) - takes remaining space
         if showContentPanel {

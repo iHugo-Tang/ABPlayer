@@ -1,3 +1,13 @@
+## [0.1.10] - 2025-12-28
+
+### Features
+- Allow player section to expand when content panel is not shown.
+- Release version 0.1.9, adding new audio playback, transcription management, and UI enhancements, and fixing navigation split view column width.
+
+### Bug Fixes
+- Apply navigation split view column width modifier directly to the sidebar.
+
+
 ## [0.1.9] - 2025-12-28
 
 ### Features
