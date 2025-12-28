@@ -22,7 +22,7 @@ https://github.com/user-attachments/assets/c82d4f68-081c-4513-97ff-0830b0f4a3c0
 
 
 * **📂 Smart File Management**:
-* Supports folder import, automatically associating audio, subtitles (.srt/.vtt), and PDF documents with the same name.
+* Supports folder import, automatically associating audio, subtitles (.srt), and PDF documents with the same name.
 * Utilizes the Security-Scoped Bookmarks mechanism to automatically restore playback progress and file access permissions upon restart.
 
 

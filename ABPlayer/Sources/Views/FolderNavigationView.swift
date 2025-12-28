@@ -214,6 +214,12 @@ struct FolderNavigationView: View {
               .font(.caption2)
           }
 
+          if file.hasTranscription {
+            Text("•")
+            Image(systemName: "waveform")
+              .font(.caption2)
+          }
+
           if file.pdfBookmarkData != nil {
             Text("•")
             Image(systemName: "doc.text")

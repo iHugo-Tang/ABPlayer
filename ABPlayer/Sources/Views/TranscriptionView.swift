@@ -274,9 +274,29 @@ struct TranscriptionView: View {
   // MARK: - Cache Operations
 
   private func loadCachedTranscription() async {
-    let audioFileId = audioFile.id.uuidString
+    // 1. 优先检查SRT文件 (先检查数据库标志位，如果不一致再尝试文件系统作为容错)
+    if audioFile.hasTranscription
+      || FileManager.default.fileExists(atPath: audioFile.srtFileURL?.path ?? "")
+    {
+      if let srtCues = loadSRTFile() {
+        cachedCues = srtCues
+        hasCheckedCache = true
 
-    // Query cache from SwiftData
+        // 修复不一致的标志位
+        if !audioFile.hasTranscription {
+          audioFile.hasTranscription = true
+        }
+        return
+      } else {
+        // 如果读取失败（例如文件被删），更新标志位
+        if audioFile.hasTranscription {
+          audioFile.hasTranscription = false
+        }
+      }
+    }
+
+    // 2. 回退到数据库缓存
+    let audioFileId = audioFile.id.uuidString
     let descriptor = FetchDescriptor<Transcription>(
       predicate: #Predicate { $0.audioFileId == audioFileId }
     )
@@ -285,6 +305,18 @@ struct TranscriptionView: View {
       cachedCues = cached.cues
     }
     hasCheckedCache = true
+  }
+
+  private func loadSRTFile() -> [SubtitleCue]? {
+    guard let srtURL = audioFile.srtFileURL else { return nil }
+
+    // 需要security-scoped access
+    guard let audioURL = try? resolveURL(from: audioFile.bookmarkData) else { return nil }
+
+    let gotAccess = audioURL.startAccessingSecurityScopedResource()
+    defer { if gotAccess { audioURL.stopAccessingSecurityScopedResource() } }
+
+    return try? SubtitleParser.parse(from: srtURL)
   }
 
   private func startTranscription() async {
@@ -296,6 +328,9 @@ struct TranscriptionView: View {
       )
       cachedCues = cues
       transcriptionManager.reset()
+
+      // Save as SRT
+      saveSRTFile(cues: cues)
 
       // Cache the result
       let audioFileId = audioFile.id.uuidString
@@ -327,6 +362,21 @@ struct TranscriptionView: View {
     }
   }
 
+  private func saveSRTFile(cues: [SubtitleCue]) {
+    guard let audioURL = try? resolveURL(from: audioFile.bookmarkData) else { return }
+
+    let gotAccess = audioURL.startAccessingSecurityScopedResource()
+    defer { if gotAccess { audioURL.stopAccessingSecurityScopedResource() } }
+
+    guard let srtURL = audioFile.srtFileURL else { return }
+    do {
+      try SubtitleParser.writeSRT(cues: cues, to: srtURL)
+      audioFile.hasTranscription = true
+    } catch {
+      print("Failed to save SRT: \(error)")
+    }
+  }
+
   private func clearAndRetranscribe() async {
     // Delete existing cache
     let audioFileId = audioFile.id.uuidString
@@ -338,6 +388,17 @@ struct TranscriptionView: View {
       modelContext.delete(existing)
       try? modelContext.save()
     }
+
+    // Delete SRT file
+    if let srtURL = audioFile.srtFileURL {
+      if let audioURL = try? resolveURL(from: audioFile.bookmarkData),
+        audioURL.startAccessingSecurityScopedResource()
+      {
+        try? FileManager.default.removeItem(at: srtURL)
+        audioURL.stopAccessingSecurityScopedResource()
+      }
+    }
+    audioFile.hasTranscription = false
 
     // Reset state and start fresh transcription
     cachedCues = []
