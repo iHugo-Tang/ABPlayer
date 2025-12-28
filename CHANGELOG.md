@@ -1,3 +1,15 @@
+## [0.1.8] - 2025-12-28
+
+### Features
+- Add `isPlaybackComplete` property to audio models and use it for icon styling in folder navigation.
+- Add transcription queue manager to handle transcription tasks and integrate it into the app and transcription view.
+- Store and retrieve audio transcriptions as SRT files, update audio model with transcription status, and show transcription indicator in folder view.
+- Implement cancellable model downloads with progress UI and cache cleanup.
+- Configure default window dimensions, refine split view column sizing, and add persistent, draggable player section width.
+- Release version 0.1.7 with new features and fixes, and enhance the release script for automatic version incrementing.
+- Introduce asynchronous transcription model listing and update tests and settings view to use it.
+
+
 ## [0.1.7] - 2025-12-26
 
 ### Features
