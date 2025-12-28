@@ -199,7 +199,7 @@ struct FolderNavigationView: View {
 
     return HStack {
       Image(systemName: "music.note")
-        .foregroundStyle(file.subtitleFile != nil ? .blue : .secondary)
+        .foregroundStyle(file.isPlaybackComplete ? Color.secondary : Color.blue)
 
       VStack(alignment: .leading) {
         Text(file.displayName)

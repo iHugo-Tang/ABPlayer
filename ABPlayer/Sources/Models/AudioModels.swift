@@ -106,4 +106,11 @@ extension AudioFile {
       bookmarkDataIsStale: &isStale
     )
   }
+
+  /// 是否播放完成（进度100%）
+  /// 使用1秒容差来处理播放器停止位置与总时长的微小差异
+  var isPlaybackComplete: Bool {
+    guard let duration = cachedDuration, duration > 0 else { return false }
+    return lastPlaybackTime >= duration - 2.0
+  }
 }
