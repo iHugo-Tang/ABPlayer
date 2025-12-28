@@ -93,6 +93,26 @@ struct SubtitleParser {
     }
   }
 
+  // MARK: - SRT Writer
+
+  static func writeSRT(cues: [SubtitleCue], to url: URL) throws {
+    var content = ""
+    for (index, cue) in cues.enumerated() {
+      content += "\(index + 1)\n"
+      content += "\(formatSRTTime(cue.startTime)) --> \(formatSRTTime(cue.endTime))\n"
+      content += "\(cue.text)\n\n"
+    }
+    try content.write(to: url, atomically: true, encoding: .utf8)
+  }
+
+  private static func formatSRTTime(_ seconds: Double) -> String {
+    let hours = Int(seconds) / 3600
+    let minutes = (Int(seconds) % 3600) / 60
+    let secs = Int(seconds) % 60
+    let millis = Int((seconds.truncatingRemainder(dividingBy: 1)) * 1000)
+    return String(format: "%02d:%02d:%02d,%03d", hours, minutes, secs, millis)
+  }
+
   // MARK: - SRT Parser
 
   private static func parseSRT(_ content: String) -> [SubtitleCue] {

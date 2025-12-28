@@ -31,6 +31,9 @@ final class AudioFile {
   /// 缓存的音频时长（秒），避免每次加载时读取
   var cachedDuration: Double?
 
+  /// 是否有转录的SRT文件
+  var hasTranscription: Bool = false
+
   init(
     id: UUID = UUID(),
     displayName: String,
@@ -41,7 +44,8 @@ final class AudioFile {
     folder: Folder? = nil,
     subtitleFile: SubtitleFile? = nil,
     pdfBookmarkData: Data? = nil,
-    cachedDuration: Double? = nil
+    cachedDuration: Double? = nil,
+    hasTranscription: Bool = false
   ) {
     self.id = id
     self.displayName = displayName
@@ -53,6 +57,7 @@ final class AudioFile {
     self.subtitleFile = subtitleFile
     self.pdfBookmarkData = pdfBookmarkData
     self.cachedDuration = cachedDuration
+    self.hasTranscription = hasTranscription
   }
 }
 
@@ -82,5 +87,23 @@ final class LoopSegment {
     self.index = index
     self.createdAt = createdAt
     self.audioFile = audioFile
+  }
+}
+
+extension AudioFile {
+  /// 获取对应的SRT字幕文件URL（与音频文件同目录）
+  var srtFileURL: URL? {
+    guard let audioURL = try? resolveURL() else { return nil }
+    return audioURL.deletingPathExtension().appendingPathExtension("srt")
+  }
+
+  private func resolveURL() throws -> URL {
+    var isStale = false
+    return try URL(
+      resolvingBookmarkData: bookmarkData,
+      options: [.withSecurityScope],
+      relativeTo: nil,
+      bookmarkDataIsStale: &isStale
+    )
   }
 }
