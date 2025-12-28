@@ -25,6 +25,8 @@ struct FolderNavigationView: View {
   @Binding var navigationPath: [Folder]
 
   @State private var selection: SelectionItem?
+  @State private var isSyncing = false
+  @State private var syncTask: Task<Void, Never>?
 
   let onSelectFile: (AudioFile) async -> Void
   let onPlayFile: (AudioFile, Bool) async -> Void
@@ -37,14 +39,18 @@ struct FolderNavigationView: View {
     .onChange(of: selection) { _, newValue in
       handleSelectionChange(newValue)
     }
-    .onChange(of: selectedFile) { _, _ in
-      syncSelectionWithSelectedFile()
-    }
     .onChange(of: currentFolder) { _, _ in
-      syncSelectionWithSelectedFile()
+      syncAsync()
     }
-    .onAppear {
-      syncSelectionWithSelectedFile()
+    .task {
+      await syncSelectionWithSelectedFile()
+    }
+  }
+
+  private func syncAsync() {
+    syncTask?.cancel()
+    syncTask = Task {
+      await syncSelectionWithSelectedFile()
     }
   }
 
@@ -66,6 +72,11 @@ struct FolderNavigationView: View {
           .lineLimit(1)
 
         Spacer()
+
+        if isSyncing {
+          ProgressView()
+            .controlSize(.small)
+        }
       }
       .font(.title3)
       .contentShape(Rectangle())
@@ -138,14 +149,26 @@ struct FolderNavigationView: View {
   /// Syncs the List selection state with selectedFile
   /// - If selectedFile is in current folder, select corresponding row
   /// - Otherwise clear List selection (but keep selectedFile for player)
-  private func syncSelectionWithSelectedFile() {
+  @MainActor
+  private func syncSelectionWithSelectedFile() async {
     guard let selectedFile else {
       selection = nil
       return
     }
 
+    isSyncing = true
+    defer { isSyncing = false }
+
+    // Give a small delay to avoid flickering if it's very fast,
+    // and to ensure UI responsiveness if called frequently
+    try? await Task.sleep(nanoseconds: 100_000_000)  // 0.1s
+
+    if Task.isCancelled { return }
+
     // Check if selectedFile is in current folder
     let isInCurrentFolder = currentAudioFiles.contains { $0.id == selectedFile.id }
+
+    if Task.isCancelled { return }
 
     if isInCurrentFolder {
       // Only update if needed to avoid unnecessary state changes
