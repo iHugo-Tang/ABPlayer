@@ -1,3 +1,4 @@
+import CryptoKit
 import Foundation
 import SwiftData
 
@@ -91,6 +92,25 @@ final class LoopSegment {
 }
 
 extension AudioFile {
+  /// Generate a deterministic UUID from bookmark data
+  /// Uses SHA256 hash to ensure the same data always produces the same UUID
+  /// This enables transcription data reuse when the same file is re-imported
+  static func generateDeterministicID(from bookmarkData: Data) -> UUID {
+    // Use SHA256 hash of bookmark data to create deterministic UUID
+    let hash = SHA256.hash(data: bookmarkData)
+    let hashData = Data(hash)
+
+    // Take first 16 bytes for UUID
+    let uuidBytes = Array(hashData.prefix(16))
+    return UUID(
+      uuid: (
+        uuidBytes[0], uuidBytes[1], uuidBytes[2], uuidBytes[3],
+        uuidBytes[4], uuidBytes[5], uuidBytes[6], uuidBytes[7],
+        uuidBytes[8], uuidBytes[9], uuidBytes[10], uuidBytes[11],
+        uuidBytes[12], uuidBytes[13], uuidBytes[14], uuidBytes[15]
+      ))
+  }
+
   /// 获取对应的SRT字幕文件URL（与音频文件同目录）
   var srtFileURL: URL? {
     guard let audioURL = try? resolveURL() else { return nil }

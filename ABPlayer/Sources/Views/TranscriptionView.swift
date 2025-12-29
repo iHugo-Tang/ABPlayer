@@ -402,6 +402,7 @@ struct TranscriptionView: View {
     }
 
     // 2. 回退到数据库缓存
+    // audioFileId  String  "74FB0384-C8CB-4059-B3F9-42B986FF94EB"
     let audioFileId = audioFile.id.uuidString
     let descriptor = FetchDescriptor<Transcription>(
       predicate: #Predicate { $0.audioFileId == audioFileId }
@@ -432,21 +433,6 @@ struct TranscriptionView: View {
     }
     // Enqueue the transcription task
     queueManager.enqueue(audioFile: audioFile)
-  }
-
-  private func saveSRTFile(cues: [SubtitleCue]) {
-    guard let audioURL = try? resolveURL(from: audioFile.bookmarkData) else { return }
-
-    let gotAccess = audioURL.startAccessingSecurityScopedResource()
-    defer { if gotAccess { audioURL.stopAccessingSecurityScopedResource() } }
-
-    guard let srtURL = audioFile.srtFileURL else { return }
-    do {
-      try SubtitleParser.writeSRT(cues: cues, to: srtURL)
-      audioFile.hasTranscription = true
-    } catch {
-      print("Failed to save SRT: \(error)")
-    }
   }
 
   private func clearAndRetranscribe() async {

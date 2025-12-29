@@ -191,7 +191,10 @@ public struct MainSplitView: View {
       )
 
       let displayName = url.lastPathComponent
+      let deterministicID = AudioFile.generateDeterministicID(from: bookmarkData)
+
       let audioFile = AudioFile(
+        id: deterministicID,
         displayName: displayName,
         bookmarkData: bookmarkData,
         folder: currentFolder
@@ -356,21 +359,11 @@ public struct MainSplitView: View {
       playerManager.currentFile = nil
 
       // Step 3: Delete entities in correct order to handle relationship constraints
-      // Delete child entities first, then parent entities
+      // For entities with @Attribute(.externalStorage), delete parent entities FIRST
+      // to prevent SwiftData from trying to resolve attribute faults during cascade deletion
 
-      // Fetch and delete all LoopSegments
-      let loopSegments = try modelContext.fetch(FetchDescriptor<LoopSegment>())
-      for segment in loopSegments {
-        modelContext.delete(segment)
-      }
-
-      // Fetch and delete all SubtitleFiles
-      let subtitleFiles = try modelContext.fetch(FetchDescriptor<SubtitleFile>())
-      for subtitle in subtitleFiles {
-        modelContext.delete(subtitle)
-      }
-
-      // Fetch and delete all AudioFiles
+      // Fetch and delete all AudioFiles FIRST (before child entities)
+      // This prevents attempting to resolve faults on pdfBookmarkData during deletion
       let audioFiles = try modelContext.fetch(FetchDescriptor<AudioFile>())
       for audioFile in audioFiles {
         modelContext.delete(audioFile)
