@@ -99,7 +99,10 @@ final class FolderImporter {
       relativeTo: nil
     )
 
+    let deterministicID = AudioFile.generateDeterministicID(from: bookmarkData)
+
     let audioFile = AudioFile(
+      id: deterministicID,
       displayName: url.lastPathComponent,
       bookmarkData: bookmarkData,
       folder: folder
