@@ -314,7 +314,6 @@ struct SettingsView: View {
         .captionStyle()
       }
     }
-    .focusable(false)
   }
 
   // MARK: - Downloaded Models Section

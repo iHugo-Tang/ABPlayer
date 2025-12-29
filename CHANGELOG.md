@@ -1,3 +1,16 @@
+## [0.1.17] - 2025-12-29
+
+### Features
+- Implement vocabulary tracking with a SwiftData model, integrating word difficulty display and 'forgot/remembered' actions into subtitles.
+- Add scroll pause countdown with UI, tests, VS Code settings, and build instructions.
+
+### Improvements
+- Replace linear search with binary search for active subtitle cue lookup.
+
+### Other
+- feat(subtitle): enable interactive word selection and display using a new flow layout
+
+
 ## [0.1.16] - 2025-12-29
 
 ### Features

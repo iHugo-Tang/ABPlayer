@@ -35,7 +35,6 @@ struct FolderNavigationView: View {
       navigationHeader
       fileList
     }
-    .focusable(false)
     .onChange(of: selection) { _, newValue in
       handleSelectionChange(newValue)
     }

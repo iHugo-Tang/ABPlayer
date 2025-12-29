@@ -114,6 +114,7 @@ struct ABPlayerApp: App {
   var body: some Scene {
     WindowGroup {
       MainSplitView()
+        .focusEffectDisabled()
         .environment(playerManager)
         .environment(sessionTracker)
         .environment(transcriptionManager)
