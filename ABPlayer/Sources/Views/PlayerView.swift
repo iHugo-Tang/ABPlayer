@@ -16,6 +16,7 @@ struct PlayerView: View {
   // Progress bar seeking state
   @State private var isSeeking: Bool = false
   @State private var seekValue: Double = 0
+  @State private var wasPlayingBeforeSeek: Bool = false
 
   // Persisted panel widths
   @AppStorage("playerSectionWidth") private var playerSectionWidth: Double = 360
@@ -256,12 +257,19 @@ struct PlayerView: View {
         in: 0...(playerManager.duration > 0 ? playerManager.duration : 1),
         onEditingChanged: { editing in
           if editing {
-            // 开始拖拽
+            // 开始拖拽/点击：暂停播放以防止时间更新导致闪烁
             isSeeking = true
+            wasPlayingBeforeSeek = playerManager.isPlaying
+            if playerManager.isPlaying {
+              playerManager.togglePlayPause()
+            }
           } else {
-            // 结束拖拽，执行seek
+            // 结束拖拽/点击：跳转到指定时间，然后恢复播放
             playerManager.seek(to: seekValue)
             isSeeking = false
+            if wasPlayingBeforeSeek {
+              playerManager.togglePlayPause()
+            }
           }
         }
       )

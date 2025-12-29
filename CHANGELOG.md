@@ -1,3 +1,13 @@
+## [0.1.15] - 2025-12-29
+
+### Features
+- Pause playback during slider seeking and implement user-scroll detection to disable subtitle auto-scroll.
+- Implement persistent volume control, improve session tracking resilience, and configure ModelContainer for all schema types.
+
+### Other
+- Merge pull request #29 from sunset-valley/fix/crash-delete-sqlite-file
+
+
 ## [0.1.14] - 2025-12-29
 
 ### Features

@@ -7,6 +7,10 @@ struct SubtitleView: View {
   let cues: [SubtitleCue]
 
   @State private var currentCueID: UUID?
+  /// Indicates user is manually scrolling; pauses auto-scroll and highlight tracking
+  @State private var isUserScrolling = false
+  /// Timer to resume tracking after user stops scrolling
+  @State private var scrollResumeTask: Task<Void, Never>?
 
   var body: some View {
     ScrollViewReader { proxy in
@@ -26,11 +30,14 @@ struct SubtitleView: View {
         .padding(.horizontal, 12)
         .padding(.vertical, 8)
       }
+      .onScrollPhaseChange { _, newPhase in
+        handleScrollPhaseChange(newPhase)
+      }
       .onChange(of: currentCueID) { _, newValue in
-        if let id = newValue {
-          withAnimation(.easeInOut(duration: 0.25)) {
-            proxy.scrollTo(id, anchor: .center)
-          }
+        // Only auto-scroll when not user scrolling
+        guard !isUserScrolling, let id = newValue else { return }
+        withAnimation(.easeInOut(duration: 0.25)) {
+          proxy.scrollTo(id, anchor: .center)
         }
       }
     }
@@ -39,16 +46,41 @@ struct SubtitleView: View {
     }
   }
 
-  private func trackCurrentCue() async {
-    while !Task.isCancelled {
-      let currentTime = playerManager.currentTime
-      let activeCue = cues.first { cue in
-        currentTime >= cue.startTime && currentTime < cue.endTime
+  private func handleScrollPhaseChange(_ phase: ScrollPhase) {
+    switch phase {
+    case .interacting:
+      // User started scrolling - pause tracking
+      scrollResumeTask?.cancel()
+      scrollResumeTask = nil
+      isUserScrolling = true
+
+    case .idle:
+      // User stopped scrolling - schedule resume after 3 seconds
+      scrollResumeTask?.cancel()
+      scrollResumeTask = Task {
+        try? await Task.sleep(for: .seconds(3))
+        guard !Task.isCancelled else { return }
+        isUserScrolling = false
       }
 
-      if activeCue?.id != currentCueID {
-        await MainActor.run {
-          currentCueID = activeCue?.id
+    default:
+      break
+    }
+  }
+
+  private func trackCurrentCue() async {
+    while !Task.isCancelled {
+      // Skip tracking when user is manually scrolling
+      if !isUserScrolling {
+        let currentTime = playerManager.currentTime
+        let activeCue = cues.first { cue in
+          currentTime >= cue.startTime && currentTime < cue.endTime
+        }
+
+        if activeCue?.id != currentCueID {
+          await MainActor.run {
+            currentCueID = activeCue?.id
+          }
         }
       }
 
