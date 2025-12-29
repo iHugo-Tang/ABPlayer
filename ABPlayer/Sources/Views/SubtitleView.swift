@@ -5,11 +5,16 @@ struct SubtitleView: View {
   @Environment(AudioPlayerManager.self) private var playerManager
 
   let cues: [SubtitleCue]
+  /// Binding to expose countdown seconds to parent (nil when not paused)
+  @Binding var countdownSeconds: Int?
+
+  /// Duration for resume countdown in seconds
+  private static let pauseDuration = 3
 
   @State private var currentCueID: UUID?
   /// Indicates user is manually scrolling; pauses auto-scroll and highlight tracking
   @State private var isUserScrolling = false
-  /// Timer to resume tracking after user stops scrolling
+  /// Task to handle countdown and resume tracking
   @State private var scrollResumeTask: Task<Void, Never>?
 
   var body: some View {
@@ -40,6 +45,14 @@ struct SubtitleView: View {
           proxy.scrollTo(id, anchor: .center)
         }
       }
+      .onChange(of: cues) { _, _ in
+        // Reset all scrolling states when cues change
+        scrollResumeTask?.cancel()
+        scrollResumeTask = nil
+        isUserScrolling = false
+        currentCueID = nil
+        countdownSeconds = nil
+      }
     }
     .task {
       await trackCurrentCue()
@@ -49,17 +62,18 @@ struct SubtitleView: View {
   private func handleScrollPhaseChange(_ phase: ScrollPhase) {
     switch phase {
     case .interacting:
-      // User started scrolling - pause tracking
+      // User started scrolling - pause tracking and start/restart countdown
       scrollResumeTask?.cancel()
-      scrollResumeTask = nil
       isUserScrolling = true
+      countdownSeconds = Self.pauseDuration
 
-    case .idle:
-      // User stopped scrolling - schedule resume after 3 seconds
-      scrollResumeTask?.cancel()
+      // Start unified countdown and resume task
       scrollResumeTask = Task {
-        try? await Task.sleep(for: .seconds(3))
-        guard !Task.isCancelled else { return }
+        for remaining in (0..<Self.pauseDuration).reversed() {
+          try? await Task.sleep(for: .seconds(1))
+          guard !Task.isCancelled else { return }
+          countdownSeconds = remaining > 0 ? remaining : nil
+        }
         isUserScrolling = false
       }
 

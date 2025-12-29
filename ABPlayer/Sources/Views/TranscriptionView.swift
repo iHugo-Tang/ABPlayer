@@ -13,6 +13,10 @@ struct TranscriptionView: View {
 
   @State private var cachedCues: [SubtitleCue] = []
   @State private var hasCheckedCache = false
+  /// Countdown seconds for pause highlight/scroll (nil when not paused)
+  @State private var pauseCountdown: Int?
+  /// Whether the countdown info popover is shown
+  @State private var showCountdownInfo = false
 
   /// Current file's task from the queue
   private var currentTask: TranscriptionTask? {
@@ -80,8 +84,6 @@ struct TranscriptionView: View {
     VStack(spacing: 0) {
       // Toolbar with cache management
       HStack {
-        Spacer()
-
         Button {
           Task { await clearAndRetranscribe() }
         } label: {
@@ -93,14 +95,50 @@ struct TranscriptionView: View {
         }
         .buttonStyle(.borderless)
         .foregroundStyle(.secondary)
+
+        Spacer()
+
+        // Pause countdown indicator
+        if pauseCountdown != nil || showCountdownInfo {
+          let countdown = pauseCountdown ?? 0
+          HStack(spacing: 8) {
+            HStack(spacing: 4) {
+              Image(systemName: "timer.circle")
+              Text("\(countdown)s")
+                .monospacedDigit()
+            }
+
+            Button {
+              showCountdownInfo.toggle()
+            } label: {
+              Image(systemName: "info.circle")
+            }
+            .buttonStyle(.borderless)
+            .popover(isPresented: $showCountdownInfo) {
+              VStack(alignment: .leading, spacing: 8) {
+                Text("Pause Sync")
+                  .font(.headline)
+                Text(
+                  "When you scroll or click the subtitle, the automatic scrolling and highlighting will pause.\nAfter the countdown ends, it will automatically resume."
+                )
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
+              }
+              .padding()
+              .frame(width: 240)
+            }
+          }
+          .font(.caption)
+          .help("Highlight and scroll paused for \(countdown) seconds")
+        }
+
       }
       .padding(.horizontal, 12)
       .padding(.vertical, 8)
 
       Divider()
 
-      SubtitleView(cues: cachedCues)
-        .id(cachedCues.count)
+      SubtitleView(cues: cachedCues, countdownSeconds: $pauseCountdown)
     }
   }
 

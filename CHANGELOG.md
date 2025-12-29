@@ -1,3 +1,10 @@
+## [0.1.16] - 2025-12-29
+
+### Features
+- Add scroll pause countdown with UI, tests, VS Code settings, and build instructions.
+- Pause playback during slider seeking and implement user-scroll detection to disable subtitle auto-scroll.
+
+
 ## [0.1.15] - 2025-12-29
 
 ### Features

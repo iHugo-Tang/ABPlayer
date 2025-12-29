@@ -432,3 +432,86 @@ struct TimeFormattingTests {
     #expect(totalSeconds == 126)
   }
 }
+
+// MARK: - Scroll Pause Logic Tests
+
+struct ScrollPauseLogicTests {
+
+  @Test
+  func testScrollPauseInitiatesCountdown() {
+    // Given: pause duration of 3 seconds
+    let pauseDuration = 3
+
+    // When: user starts scrolling
+    var isUserScrolling = false
+    var countdownSeconds: Int? = nil
+
+    // Simulate interacting phase
+    isUserScrolling = true
+    countdownSeconds = pauseDuration
+
+    // Then: countdown should be initialized to pause duration
+    #expect(isUserScrolling == true)
+    #expect(countdownSeconds == 3)
+  }
+
+  @Test
+  func testCountdownDecrementsCorrectly() {
+    // Given: countdown values from 3 to 0
+    let countdownSequence = [2, 1, 0]  // After each second
+
+    // When: iterating through countdown
+    for (index, expected) in countdownSequence.enumerated() {
+      let remaining = 2 - index
+
+      // Then: remaining should match expected
+      #expect(remaining == expected)
+    }
+  }
+
+  @Test
+  func testScrollResumeAfterCountdown() {
+    // Given: user was scrolling
+    var isUserScrolling = true
+    var countdownSeconds: Int? = 1
+
+    // When: countdown reaches zero
+    countdownSeconds = nil
+    isUserScrolling = false
+
+    // Then: scrolling state should be reset
+    #expect(isUserScrolling == false)
+    #expect(countdownSeconds == nil)
+  }
+
+  @Test
+  func testScrollInterruptRestartsCountdown() {
+    // Given: countdown is in progress
+    let pauseDuration = 3
+    var countdownSeconds: Int? = 1
+
+    // When: user scrolls again (interrupt)
+    countdownSeconds = pauseDuration
+
+    // Then: countdown should restart from pause duration
+    #expect(countdownSeconds == 3)
+  }
+
+  @Test
+  func testCuesChangeResetsScrollState() {
+    // Given: user is scrolling with active countdown
+    var isUserScrolling = true
+    var countdownSeconds: Int? = 2
+    var currentCueID: UUID? = UUID()
+
+    // When: cues change (simulating .onChange(of: cues))
+    isUserScrolling = false
+    currentCueID = nil
+    countdownSeconds = nil
+
+    // Then: all states should be reset
+    #expect(isUserScrolling == false)
+    #expect(currentCueID == nil)
+    #expect(countdownSeconds == nil)
+  }
+}

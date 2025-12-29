@@ -51,6 +51,9 @@ clarify uncertainty before coding, and align suggestions with the rules linked b
 - Capture lists in closures
 - `deinit` for cleanup
 
+## Build
+xcodebuild -workspace ABPlayer.xcworkspace -scheme ABPlayer -destination 'platform=macOS' build 2>&1 | tail -20
+
 ## Workflow
 - Ask for clarification when requirements are ambiguous; surface 2–3 options when trade-offs matter
 

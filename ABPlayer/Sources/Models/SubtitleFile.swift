@@ -2,7 +2,7 @@ import Foundation
 import SwiftData
 
 /// Represents a subtitle cue with timing information
-struct SubtitleCue: Codable, Identifiable {
+struct SubtitleCue: Codable, Identifiable, Equatable {
   let id: UUID
   let startTime: Double
   let endTime: Double
