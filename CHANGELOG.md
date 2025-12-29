@@ -1,3 +1,17 @@
+## [0.1.18] - 2025-12-29
+
+### Features
+- Implement idempotent folder synchronization using deterministic IDs and separate debug app data storage.
+- Update to version 0.1.17, introducing vocabulary tracking, scroll pause countdown, interactive word selection, and improved subtitle lookup, alongside focusability adjustments.
+- Implement vocabulary tracking with a SwiftData model, integrating word difficulty display and 'forgot/remembered' actions into subtitles.
+
+### Improvements
+- Replace linear search with binary search for active subtitle cue lookup.
+
+### Other
+- feat(subtitle): enable interactive word selection and display using a new flow layout
+
+
 ## [0.1.17] - 2025-12-29
 
 ### Features

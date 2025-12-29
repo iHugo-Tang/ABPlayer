@@ -141,4 +141,10 @@ extension AudioFile {
   var isPlaybackComplete: Bool {
     playbackRecord?.completionCount ?? 0 >= 1
   }
+
+  /// 检查 Bookmark 是否有效（文件是否存在）
+  var isBookmarkValid: Bool {
+    guard let url = try? resolveURL() else { return false }
+    return FileManager.default.fileExists(atPath: url.path)
+  }
 }

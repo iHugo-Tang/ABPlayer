@@ -212,7 +212,7 @@ public struct MainSplitView: View {
     let importer = FolderImporter(modelContext: modelContext)
 
     do {
-      if let folder = try importer.importFolder(at: url) {
+      if let folder = try importer.syncFolder(at: url) {
         // Select first audio file if available
         if let firstFile = folder.audioFiles.first {
           Task { await selectFile(firstFile) }

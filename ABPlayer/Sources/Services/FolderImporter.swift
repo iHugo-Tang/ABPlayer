@@ -3,6 +3,7 @@ import SwiftData
 import UniformTypeIdentifiers
 
 /// Handles recursive folder import with automatic file pairing
+/// Supports idempotent sync operations (safe to call multiple times)
 @MainActor
 final class FolderImporter {
   private let modelContext: ModelContext
@@ -16,10 +17,12 @@ final class FolderImporter {
   static let subtitleExtensions: Set<String> = ["srt", "vtt"]
   static let pdfExtension = "pdf"
 
-  /// Import a folder recursively
-  /// - Parameter url: Root folder URL
-  /// - Returns: The created root Folder, or nil if import failed
-  func importFolder(at url: URL) throws -> Folder? {
+  // MARK: - Public API
+
+  /// 同步文件夹（支持首次导入和重新扫描）
+  /// - Parameter url: 根文件夹 URL
+  /// - Returns: 同步后的根 Folder
+  func syncFolder(at url: URL) throws -> Folder? {
     guard url.startAccessingSecurityScopedResource() else {
       throw ImportError.accessDenied
     }
@@ -28,13 +31,25 @@ final class FolderImporter {
       url.stopAccessingSecurityScopedResource()
     }
 
-    return try processDirectory(at: url, parent: nil)
+    let rootPath = url.lastPathComponent
+    return try processDirectory(at: url, relativePath: rootPath, parent: nil)
   }
 
-  /// Process a directory and its contents recursively
-  private func processDirectory(at url: URL, parent: Folder?) throws -> Folder {
-    let folder = Folder(name: url.lastPathComponent, parent: parent)
-    modelContext.insert(folder)
+  // MARK: - Directory Processing
+
+  /// 处理目录及其内容（递归）
+  private func processDirectory(at url: URL, relativePath: String, parent: Folder?) throws
+    -> Folder
+  {
+    let folder = findOrCreateFolder(at: url, relativePath: relativePath)
+
+    // 设置父子关系（如果需要）
+    if let parent = parent, folder.parent?.id != parent.id {
+      folder.parent = parent
+      if !parent.subfolders.contains(where: { $0.id == folder.id }) {
+        parent.subfolders.append(folder)
+      }
+    }
 
     let fileManager = FileManager.default
     let contents = try fileManager.contentsOfDirectory(
@@ -43,7 +58,7 @@ final class FolderImporter {
       options: [.skipsHiddenFiles]
     )
 
-    // Separate files from directories
+    // 分类文件
     var directories: [URL] = []
     var audioFiles: [URL] = []
     var subtitleFiles: [URL] = []
@@ -67,7 +82,7 @@ final class FolderImporter {
       }
     }
 
-    // Process audio files with auto-pairing
+    // 处理音频文件（Insert-or-Update）
     for audioURL in audioFiles {
       try processAudioFile(
         at: audioURL,
@@ -77,16 +92,43 @@ final class FolderImporter {
       )
     }
 
-    // Process subdirectories recursively
+    // 递归处理子目录
     for dirURL in directories {
-      let subfolder = try processDirectory(at: dirURL, parent: folder)
-      folder.subfolders.append(subfolder)
+      let subPath = "\(relativePath)/\(dirURL.lastPathComponent)"
+      _ = try processDirectory(at: dirURL, relativePath: subPath, parent: folder)
     }
 
     return folder
   }
 
-  /// Process an audio file and pair it with matching subtitle/PDF
+  /// 查找或创建文件夹
+  private func findOrCreateFolder(at url: URL, relativePath: String) -> Folder {
+    let name = url.lastPathComponent
+    let folderId = Folder.generateDeterministicID(from: relativePath)
+
+    // 尝试查找已有记录
+    let descriptor = FetchDescriptor<Folder>(
+      predicate: #Predicate<Folder> { $0.id == folderId }
+    )
+
+    if let existing = try? modelContext.fetch(descriptor).first {
+      return existing
+    }
+
+    // 创建新记录
+    let folder = Folder(
+      id: folderId,
+      name: name,
+      relativePath: relativePath,
+      createdAt: getFileCreationDate(from: url)
+    )
+    modelContext.insert(folder)
+    return folder
+  }
+
+  // MARK: - Audio File Handling
+
+  /// 处理音频文件（Insert-or-Update）
   private func processAudioFile(
     at url: URL,
     folder: Folder,
@@ -101,36 +143,63 @@ final class FolderImporter {
 
     let deterministicID = AudioFile.generateDeterministicID(from: bookmarkData)
 
-    let audioFile = AudioFile(
-      id: deterministicID,
-      displayName: url.lastPathComponent,
-      bookmarkData: bookmarkData,
-      folder: folder
+    // 尝试查找已有记录
+    let descriptor = FetchDescriptor<AudioFile>(
+      predicate: #Predicate<AudioFile> { $0.id == deterministicID }
     )
-    modelContext.insert(audioFile)
-    folder.audioFiles.append(audioFile)
+
+    let audioFile: AudioFile
+    if let existing = try? modelContext.fetch(descriptor).first {
+      audioFile = existing
+      // 更新文件夹关联（如果需要）
+      if audioFile.folder?.id != folder.id {
+        audioFile.folder = folder
+        if !folder.audioFiles.contains(where: { $0.id == audioFile.id }) {
+          folder.audioFiles.append(audioFile)
+        }
+      }
+    } else {
+      // 创建新记录
+      audioFile = AudioFile(
+        id: deterministicID,
+        displayName: url.lastPathComponent,
+        bookmarkData: bookmarkData,
+        createdAt: getFileCreationDate(from: url),
+        folder: folder
+      )
+      modelContext.insert(audioFile)
+      folder.audioFiles.append(audioFile)
+    }
 
     let baseName = url.deletingPathExtension().lastPathComponent
 
-    // Auto-pair subtitle
-    if let subtitleURL = findMatchingFile(baseName: baseName, in: subtitleFiles) {
-      try pairSubtitle(at: subtitleURL, with: audioFile)
+    // 自动关联字幕（如果没有或已失效）
+    if audioFile.subtitleFile == nil {
+      if let subtitleURL = findMatchingFile(baseName: baseName, in: subtitleFiles) {
+        try pairSubtitle(at: subtitleURL, with: audioFile)
+      }
     }
 
-    // Auto-pair PDF
-    if let pdfURL = findMatchingFile(baseName: baseName, in: pdfFiles) {
-      try pairPDF(at: pdfURL, with: audioFile)
+    // 自动关联 PDF（如果没有）
+    if audioFile.pdfBookmarkData == nil {
+      if let pdfURL = findMatchingFile(baseName: baseName, in: pdfFiles) {
+        try pairPDF(at: pdfURL, with: audioFile)
+      }
     }
   }
 
-  /// Find a file with matching base name
+  // MARK: - File Matching
+
+  /// 查找匹配的文件
   private func findMatchingFile(baseName: String, in files: [URL]) -> URL? {
     return files.first { url in
       url.deletingPathExtension().lastPathComponent.lowercased() == baseName.lowercased()
     }
   }
 
-  /// Pair a subtitle file with an audio file
+  // MARK: - Pairing
+
+  /// 关联字幕文件
   private func pairSubtitle(at url: URL, with audioFile: AudioFile) throws {
     let bookmarkData = try url.bookmarkData(
       options: [.withSecurityScope],
@@ -144,7 +213,7 @@ final class FolderImporter {
       audioFile: audioFile
     )
 
-    // Parse and cache subtitle cues
+    // 解析并缓存字幕内容
     if url.startAccessingSecurityScopedResource() {
       defer { url.stopAccessingSecurityScopedResource() }
       subtitleFile.cues = (try? SubtitleParser.parse(from: url)) ?? []
@@ -154,7 +223,7 @@ final class FolderImporter {
     audioFile.subtitleFile = subtitleFile
   }
 
-  /// Pair a PDF file with an audio file
+  /// 关联 PDF 文件
   private func pairPDF(at url: URL, with audioFile: AudioFile) throws {
     let bookmarkData = try url.bookmarkData(
       options: [.withSecurityScope],
@@ -163,6 +232,13 @@ final class FolderImporter {
     )
 
     audioFile.pdfBookmarkData = bookmarkData
+  }
+
+  // MARK: - Helpers
+
+  private func getFileCreationDate(from url: URL) -> Date {
+    let attributes = try? FileManager.default.attributesOfItem(atPath: url.path)
+    return attributes?[.creationDate] as? Date ?? Date()
   }
 }
 

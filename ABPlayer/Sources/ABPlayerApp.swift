@@ -35,8 +35,14 @@ struct ABPlayerApp: App {
       let appSupportDir = FileManager.default.urls(
         for: .applicationSupportDirectory, in: .userDomainMask
       ).first!
+      #if DEBUG
+        let folderName = "cc.ihugo.app.ABPlayer-dev"
+      #else
+        let folderName = "cc.ihugo.app.ABPlayer"
+      #endif
+
       let storeURL = appSupportDir.appendingPathComponent(
-        "cc.ihugo.app.ABPlayer", isDirectory: true
+        folderName, isDirectory: true
       )
       .appendingPathComponent("ABPlayer.sqlite")
 
