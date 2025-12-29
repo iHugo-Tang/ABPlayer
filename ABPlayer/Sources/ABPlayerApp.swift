@@ -29,6 +29,7 @@ struct ABPlayerApp: App {
         Folder.self,
         SubtitleFile.self,
         Transcription.self,
+        Vocabulary.self,
       ])
 
       let appSupportDir = FileManager.default.urls(
