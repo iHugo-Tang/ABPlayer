@@ -25,6 +25,7 @@ struct ABPlayerApp: App {
         for: AudioFile.self,
         LoopSegment.self,
         ListeningSession.self,
+        PlaybackRecord.self,
         Folder.self,
         SubtitleFile.self,
         Transcription.self

@@ -2,129 +2,75 @@ import Foundation
 import Observation
 import SwiftData
 
-@Model
-final class ListeningSession {
-  var id: UUID
-  var startedAt: Date
-  var durationSeconds: Double
-  var endedAt: Date?
-
-  init(
-    id: UUID = UUID(),
-    startedAt: Date = Date(),
-    durationSeconds: Double = 0,
-    endedAt: Date? = nil
-  ) {
-    self.id = id
-    self.startedAt = startedAt
-    self.durationSeconds = durationSeconds
-    self.endedAt = endedAt
-  }
-}
-
+/// Tracks listening sessions and persists playback progress.
+/// This class is @MainActor to ensure safe SwiftData context access.
 @MainActor
 @Observable
 final class SessionTracker {
-  private weak var modelContext: ModelContext?
-  private(set) var currentSession: ListeningSession?
-  private(set) var totalSeconds: Double = 0
+  private var modelContext: ModelContext?
+  private var currentSession: ListeningSession?
+  private var pendingListeningTime: Double = 0
+  private var lastSaveTime: Date = Date()
 
-  private var lastSavedSeconds: Double = 0
+  /// Minimum interval between saves to avoid excessive context operations
+  private let saveInterval: TimeInterval = 5.0
+
+  /// Total seconds of listening time in the current session
+  var totalSeconds: Double {
+    currentSession?.duration ?? 0
+  }
 
   func attachModelContext(_ context: ModelContext) {
-    modelContext = context
+    self.modelContext = context
   }
 
+  /// Start a new listening session if one isn't already active
   func startSessionIfNeeded() {
-    guard currentSession == nil else {
-      return
-    }
+    guard currentSession == nil else { return }
 
     let session = ListeningSession()
-    modelContext?.insert(session)
     currentSession = session
+    modelContext?.insert(session)
+    pendingListeningTime = 0
+    lastSaveTime = Date()
   }
 
+  /// Add listening time (called frequently during playback)
+  /// Note: This does NOT trigger immediate saves - relies on SwiftData autosave
   func addListeningTime(_ delta: Double) {
-    guard delta > 0 else {
-      return
-    }
+    guard delta > 0 else { return }
+    pendingListeningTime += delta
+    currentSession?.duration += delta
 
-    startSessionIfNeeded()
-
-    guard let session = currentSession else {
-      return
-    }
-
-    // Verify the session is still valid (not deleted)
-    if session.modelContext == nil {
-      currentSession = nil
-      lastSavedSeconds = 0
-      return
-    }
-
-    session.durationSeconds += delta
-    totalSeconds = session.durationSeconds
+    // SwiftData autosave handles persistence automatically
+    // No explicit save calls to avoid CoreData context conflicts
   }
 
-  private func saveContext() {
-    guard let context = modelContext else { return }
+  /// Persist current playback progress (called on pause/stop)
+  func persistProgress() {
+    // SwiftData autosave handles this automatically
+    // This method is kept for explicit save points (app termination)
+    do {
+      try modelContext?.save()
+    } catch {
+      // Silently fail - autosave will pick up changes
+      print("[SessionTracker] Failed to save: \(error.localizedDescription)")
+    }
+  }
 
-    // Verify the current session is still valid before saving
-    // This prevents crashes when the session is deleted while playback is active
+  /// End the current session if one is active
+  func endSessionIfIdle() {
     guard let session = currentSession else { return }
 
-    // Check if the session is still in this context
-    // If it's been deleted, we shouldn't try to save
-    if session.modelContext == nil {
-      // Session was deleted, clear our reference
-      currentSession = nil
-      lastSavedSeconds = 0
-      return
-    }
-
-    // Only save if there are pending changes
-    guard context.hasChanges else { return }
-
-    do {
-      try context.save()
-    } catch {
-      // Log the error but don't crash - the data will be saved on next attempt
-      print("⚠️ SessionTracker save failed: \(error.localizedDescription)")
-      if let nsError = error as NSError? {
-        print("   Error domain: \(nsError.domain), code: \(nsError.code)")
-        print("   User info: \(nsError.userInfo)")
-      }
-    }
-  }
-
-  func persistProgress() {
-    saveContext()
-    if let session = currentSession {
-      lastSavedSeconds = session.durationSeconds
-    }
-  }
-
-  func endSessionIfIdle() {
-    guard let session = currentSession else {
-      return
-    }
-
-    // Verify the session is still valid (not deleted)
-    guard session.modelContext != nil else {
-      currentSession = nil
-      lastSavedSeconds = 0
-      return
-    }
-
-    if session.endedAt == nil {
-      session.endedAt = Date()
-    }
-
-    totalSeconds = session.durationSeconds
-    saveContext()
-
+    session.endedAt = Date()
     currentSession = nil
-    lastSavedSeconds = 0
+    pendingListeningTime = 0
+
+    // Save on session end
+    do {
+      try modelContext?.save()
+    } catch {
+      print("[SessionTracker] Failed to save session end: \(error.localizedDescription)")
+    }
   }
 }

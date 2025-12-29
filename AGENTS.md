@@ -1,11 +1,13 @@
 # Swift Code Style Guidelines
 
+## Purpose
+Agents act as senior Swift collaborators. Keep responses concise,
+clarify uncertainty before coding, and align suggestions with the rules linked below.
+
 ## Core Style
-- **Indentation**: 4 spaces
-- **Braces**: Opening brace on same line
-- **Spacing**: Single space around operators and commas
 - **Naming**: PascalCase for types, camelCase for properties/methods
 - **Language**: Using English as the primary language
+- **Dependency**: Use dependency injection for all services and environment values to keep code testable
 
 ## File Organization
 - Logical directory grouping
@@ -48,6 +50,9 @@
 - `unowned` when guaranteed non-nil
 - Capture lists in closures
 - `deinit` for cleanup
+
+## Workflow
+- Ask for clarification when requirements are ambiguous; surface 2–3 options when trade-offs matter
 
 ## Gemini Added Memories
 - When the user says 'quick commit', generate a commit message for staged changes by examining git status, git diff --staged, and git log -n 3. The commit message should follow the 'type(scope): message' format. Then, commit the changes using the generated message.
