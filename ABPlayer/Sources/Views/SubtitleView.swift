@@ -108,12 +108,13 @@ struct SubtitleView: View {
   }
 
   private func trackCurrentCue() async {
+    // Small epsilon for floating-point comparison to avoid precision issues at boundaries
+    let epsilon: Double = 0.001
+
     while !Task.isCancelled {
       if !isUserScrolling {
         let currentTime = playerManager.currentTime
-        let activeCue = cues.first { cue in
-          currentTime >= cue.startTime && currentTime < cue.endTime
-        }
+        let activeCue = findActiveCue(at: currentTime, epsilon: epsilon)
 
         if activeCue?.id != currentCueID {
           await MainActor.run {
@@ -124,6 +125,42 @@ struct SubtitleView: View {
 
       try? await Task.sleep(for: .milliseconds(100))
     }
+  }
+
+  /// Uses binary search to find the cue containing the given time
+  /// - Parameters:
+  ///   - time: The current playback time
+  ///   - epsilon: Small tolerance for floating-point comparison
+  /// - Returns: The active cue, or nil if none contains the time
+  private func findActiveCue(at time: Double, epsilon: Double) -> SubtitleCue? {
+    guard !cues.isEmpty else { return nil }
+
+    // Binary search to find the cue whose startTime is <= time
+    var low = 0
+    var high = cues.count - 1
+    var result: Int? = nil
+
+    while low <= high {
+      let mid = (low + high) / 2
+      if cues[mid].startTime <= time + epsilon {
+        result = mid
+        low = mid + 1
+      } else {
+        high = mid - 1
+      }
+    }
+
+    // Verify the found cue actually contains the current time
+    if let index = result {
+      let cue = cues[index]
+      // Use epsilon to handle boundary precision: time should be >= startTime - epsilon and < endTime + epsilon
+      // But prefer strict < endTime to avoid overlapping with next cue
+      if time >= cue.startTime - epsilon && time < cue.endTime {
+        return cue
+      }
+    }
+
+    return nil
   }
 }
 
