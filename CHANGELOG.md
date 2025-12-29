@@ -1,3 +1,18 @@
+## [0.1.12] - 2025-12-28
+
+### Features
+- Initialize playback records before use and update `isPlaybackComplete` to check completion count.
+- Introduce `PlaybackRecord` model to store detailed playback state and replace `AudioFile`'s `lastPlaybackTime` property.
+- Generate deterministic AudioFile IDs via SHA256 hash, adjust SwiftData deletion order for external storage attributes, and add CoreData ER diagram.
+- Implement asynchronous selection syncing with a loading indicator and task cancellation.
+
+### Improvements
+- remove conditional session saving logic from duration update
+
+### Other
+- Remove `onPlayFile` parameter and selected file checkmark from `FolderNavigationView`, and add `selectedFile` change observer.
+
+
 ## [0.1.11] - 2025-12-28
 
 ### Features

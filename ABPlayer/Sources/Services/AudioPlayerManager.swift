@@ -159,6 +159,9 @@ final class AudioPlayerManager {
   private func handlePlaybackEnded() {
     // Record completion stats
     if let file = currentFile {
+      if file.playbackRecord == nil {
+        file.playbackRecord = PlaybackRecord(audioFile: file)
+      }
       file.playbackRecord?.lastPlayedAt = Date()
       file.playbackRecord?.completionCount += 1
     }
@@ -192,7 +195,12 @@ final class AudioPlayerManager {
         self.isPlaying = true
         self.sessionTracker?.startSessionIfNeeded()
         // Update last played time
-        self.currentFile?.playbackRecord?.lastPlayedAt = Date()
+        if let file = self.currentFile {
+          if file.playbackRecord == nil {
+            file.playbackRecord = PlaybackRecord(audioFile: file)
+          }
+          file.playbackRecord?.lastPlayedAt = Date()
+        }
       }
     }
   }
@@ -213,7 +221,12 @@ final class AudioPlayerManager {
           self.isPlaying = true
           self.sessionTracker?.startSessionIfNeeded()
           // Update last played time
-          self.currentFile?.playbackRecord?.lastPlayedAt = Date()
+          if let file = self.currentFile {
+            if file.playbackRecord == nil {
+              file.playbackRecord = PlaybackRecord(audioFile: file)
+            }
+            file.playbackRecord?.lastPlayedAt = Date()
+          }
         }
       }
     }

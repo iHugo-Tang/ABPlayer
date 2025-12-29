@@ -137,10 +137,8 @@ extension AudioFile {
     )
   }
 
-  /// 是否播放完成（进度100%）
-  /// 使用1秒容差来处理播放器停止位置与总时长的微小差异
+  /// 是否曾经播放完成过（completionCount >= 1）
   var isPlaybackComplete: Bool {
-    guard let duration = cachedDuration, duration > 0 else { return false }
-    return currentPlaybackPosition >= duration - 2.0
+    playbackRecord?.completionCount ?? 0 >= 1
   }
 }
