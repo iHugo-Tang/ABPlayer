@@ -17,31 +17,66 @@ actor SessionRecorder {
       currentSessionID = session.persistentModelID
     } catch {
       print("[SessionRecorder] Failed to start session: \(error)")
+      currentSessionID = nil
     }
   }
 
   /// Add listening time to the current session
   func addTime(_ delta: Double) {
-    guard let id = currentSessionID,
-      let session = modelContext.model(for: id) as? ListeningSession
-    else { return }
+    // If no active session, start one
+    guard let id = currentSessionID else {
+      print("[SessionRecorder] No active session, starting new one")
+      startNewSession()
+      return
+    }
 
-    session.duration += delta
+    // Try to fetch the session - it may have been invalidated
+    guard let session = modelContext.model(for: id) as? ListeningSession else {
+      print("[SessionRecorder] Session invalidated (ID: \(id)), starting fresh session")
+      currentSessionID = nil
+      startNewSession()
+      return
+    }
+
+    if session.isDeleted {
+      print("[SessionRecorder] Session invalidated (ID: \(id)), starting fresh session")
+      currentSessionID = nil
+      startNewSession()
+      return
+    }
 
     // Autosave will handle this eventually, but we save periodically
     // to ensure data isn't lost if app crashes
-    try? modelContext.save()
+    do {
+      session.duration += delta
+      try modelContext.save()
+    } catch {
+      print("[SessionRecorder] Failed to save time update: \(error)")
+      // If save fails, the session may be corrupted - reset for next time
+      currentSessionID = nil
+    }
   }
 
   /// End the current session
   func endSession() {
-    guard let id = currentSessionID,
-      let session = modelContext.model(for: id) as? ListeningSession
-    else { return }
+    guard let id = currentSessionID else { return }
 
-    session.endedAt = Date()
+    // Try to fetch the session - it may have been invalidated
+    guard let session = modelContext.model(for: id) as? ListeningSession else {
+      print("[SessionRecorder] Cannot end session - already invalidated")
+      currentSessionID = nil
+      return
+    }
+
+    if session.isDeleted {
+      print("[SessionRecorder] Session invalidated (ID: \(id)), starting fresh session")
+      currentSessionID = nil
+      startNewSession()
+      return
+    }
 
     do {
+      session.endedAt = Date()
       try modelContext.save()
     } catch {
       print("[SessionRecorder] Failed to save session end: \(error)")
@@ -60,7 +95,7 @@ final class SessionTracker {
   // Buffered state
   private var bufferedListeningTime: Double = 0
   private var lastCommitTime: Date = Date()
-  private let commitInterval: TimeInterval = 5.0
+  private let commitInterval: TimeInterval = 5
 
   // UI State
   var totalSeconds: Double = 0

@@ -1,3 +1,14 @@
+## [0.1.14] - 2025-12-29
+
+### Features
+- Implement persistent volume control, improve session tracking resilience, and configure ModelContainer for all schema types.
+- Offload listening session SwiftData operations to a background ModelActor and refactor SessionTracker for UI coordination.
+- introduce dedicated ListeningSession SwiftData model, refactor SessionTracker to use it and leverage autosave, update agent guidelines, and add PlaybackRecord to schema.
+
+### Chores
+- remove SwiftUI debug print statement from TranscriptionView
+
+
 ## [0.1.13] - 2025-12-28
 
 ### Features

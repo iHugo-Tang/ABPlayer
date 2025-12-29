@@ -21,15 +21,26 @@ struct ABPlayerApp: App {
         options.sendDefaultPii = true
       }
 
-      modelContainer = try ModelContainer(
-        for: AudioFile.self,
+      let schema = Schema([
+        AudioFile.self,
         LoopSegment.self,
         ListeningSession.self,
         PlaybackRecord.self,
         Folder.self,
         SubtitleFile.self,
-        Transcription.self
+        Transcription.self,
+      ])
+
+      let appSupportDir = FileManager.default.urls(
+        for: .applicationSupportDirectory, in: .userDomainMask
+      ).first!
+      let storeURL = appSupportDir.appendingPathComponent(
+        "cc.ihugo.app.ABPlayer", isDirectory: true
       )
+      .appendingPathComponent("ABPlayer.sqlite")
+
+      let modelConfiguration = ModelConfiguration(url: storeURL)
+      modelContainer = try ModelContainer(for: schema, configurations: modelConfiguration)
       modelContainer.mainContext.autosaveEnabled = true
 
       // Initialize queue manager with dependencies

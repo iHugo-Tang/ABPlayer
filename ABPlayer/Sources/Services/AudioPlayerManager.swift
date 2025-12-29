@@ -42,6 +42,7 @@ final class AudioPlayerManager {
   var isPlaying: Bool = false
   var currentTime: Double = 0
   var duration: Double = 0
+  var volume: Float = 1.0
 
   var pointA: Double?
   var pointB: Double?
@@ -150,6 +151,9 @@ final class AudioPlayerManager {
         currentTime = resumeTime
         lastPersistedTime = resumeTime
       }
+
+      // Apply current volume
+      await _engine.setVolume(volume)
     } catch {
       assertionFailure("Failed to load audio file: \(error)")
     }
@@ -251,6 +255,13 @@ final class AudioPlayerManager {
     Task { [weak self] in
       guard let self else { return }
       await _engine.seek(to: clampedTime)
+    }
+  }
+
+  func setVolume(_ volume: Float) {
+    self.volume = volume
+    Task {
+      await _engine.setVolume(volume)
     }
   }
 
@@ -444,6 +455,7 @@ actor AudioPlayerEngine {
 
     let item = AVPlayerItem(asset: asset)
     let player = AVPlayer(playerItem: item)
+    player.volume = 1.0  // Will be updated by manager
     self.player = player
 
     lastPlaybackTick = nil
@@ -477,6 +489,10 @@ actor AudioPlayerEngine {
     let target = CMTime(seconds: time, preferredTimescale: 600)
     player.seek(to: target, toleranceBefore: .zero, toleranceAfter: .zero)
     lastPersistedTime = time
+  }
+
+  func setVolume(_ volume: Float) {
+    player?.volume = volume
   }
 
   nonisolated func teardownSync() {

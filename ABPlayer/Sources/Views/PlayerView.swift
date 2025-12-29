@@ -20,6 +20,10 @@ struct PlayerView: View {
   // Persisted panel widths
   @AppStorage("playerSectionWidth") private var playerSectionWidth: Double = 360
 
+  // Volume Persistence
+  @AppStorage("playerVolume") private var playerVolume: Double = 1.0
+  @State private var showVolumePopover: Bool = false
+
   var body: some View {
     GeometryReader { geometry in
       let availableWidth = geometry.size.width
@@ -94,6 +98,9 @@ struct PlayerView: View {
         .help(showContentPanel ? "Hide content panel" : "Show content panel")
       }
     }
+    .onChange(of: playerVolume) { _, newValue in
+      playerManager.setVolume(Float(newValue))
+    }
     .onAppear {
       if playerManager.currentFile?.id == audioFile.id,
         playerManager.currentFile != nil
@@ -129,36 +136,70 @@ struct PlayerView: View {
           .fontWeight(.semibold)
           .lineLimit(1)
 
-        Menu {
-          ForEach(LoopMode.allCases, id: \.self) { mode in
-            Button {
-              playerManager.loopMode = mode
-            } label: {
-              HStack {
-                Text(mode.displayName)
-                if playerManager.loopMode == mode {
-                  Image(systemName: "checkmark")
+        HStack {
+          Menu {
+            ForEach(LoopMode.allCases, id: \.self) { mode in
+              Button {
+                playerManager.loopMode = mode
+              } label: {
+                HStack {
+                  Text(mode.displayName)
+                  if playerManager.loopMode == mode {
+                    Image(systemName: "checkmark")
+                  }
                 }
               }
             }
+          } label: {
+            Image(
+              systemName: playerManager.loopMode != .none
+                ? "\(playerManager.loopMode.iconName).circle.fill"
+                : "repeat.circle"
+            )
+            .font(.title)
+            .foregroundStyle(playerManager.loopMode != .none ? .blue : .primary)
           }
-        } label: {
-          Image(
-            systemName: playerManager.loopMode != .none
-              ? "\(playerManager.loopMode.iconName).circle.fill"
-              : "repeat.circle"
-          )
-          .font(.title)
-          .foregroundStyle(playerManager.loopMode != .none ? .blue : .primary)
+          .buttonStyle(.plain)
+          .help("Loop mode: \(playerManager.loopMode.displayName)")
+
+          // add a volume control
+          volumeControl
+            .padding(.trailing, 8)
         }
-        .buttonStyle(.plain)
-        .help("Loop mode: \(playerManager.loopMode.displayName)")
       }
 
       Spacer()
 
       playbackControls
     }
+  }
+
+  private var volumeControl: some View {
+    Button {
+      showVolumePopover.toggle()
+    } label: {
+      Image(systemName: playerVolume == 0 ? "speaker.slash" : "speaker.wave.3")
+        .frame(width: 20, height: 20)
+    }
+    .buttonStyle(.plain)
+    .popover(isPresented: $showVolumePopover, arrowEdge: .bottom) {
+      VStack(spacing: 8) {
+        Slider(value: $playerVolume, in: 0...1) {
+          Text("Volume")
+        }
+        .frame(width: 150)
+
+        Text("\(Int(playerVolume * 100))%")
+          .font(.caption2)
+          .foregroundStyle(.secondary)
+      }
+      .padding()
+    }
+    .onAppear {
+      // Sync initial volume
+      playerManager.setVolume(Float(playerVolume))
+    }
+    .help("Volume")
   }
 
   private var playbackControls: some View {
