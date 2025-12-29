@@ -24,6 +24,7 @@ erDiagram
     AudioFile }o--|| Folder : "属于"
     AudioFile ||--o| SubtitleFile : "关联"
     AudioFile ||--o| Transcription : "有转录（通过ID）"
+    AudioFile ||--o| PlaybackRecord : "有播放记录"
     Folder ||--o{ Folder : "包含子文件夹"
     Folder ||--o{ AudioFile : "包含多个"
     
@@ -32,10 +33,17 @@ erDiagram
         String displayName "显示名称"
         Data bookmarkData "文件bookmark"
         Date createdAt "创建时间"
-        Double lastPlaybackTime "上次播放进度"
         Data pdfBookmarkData "PDF文件bookmark"
         Double cachedDuration "缓存的音频时长"
         Bool hasTranscription "是否有SRT文件"
+    }
+    
+    PlaybackRecord {
+        UUID id PK
+        Date lastPlayedAt "上次播放时间"
+        Int completionCount "播放完成次数"
+        Double currentPosition "当前播放位置"
+        UUID audioFileId FK "关联的音频文件"
     }
     
     LoopSegment {
@@ -94,7 +102,7 @@ erDiagram
 - `id`: 唯一标识符
 - `displayName`: 显示名称
 - `bookmarkData`: 安全作用域 bookmark，用于访问沙盒外文件
-- `lastPlaybackTime`: 记录播放进度
+- `bookmarkData`: 安全作用域 bookmark，用于访问沙盒外文件
 - `cachedDuration`: 缓存音频时长，避免重复读取
 - `hasTranscription`: 标记是否存在 SRT 转录文件
 - `pdfBookmarkData`: 关联的 PDF 文件
@@ -103,6 +111,7 @@ erDiagram
 - 一对多：`segments` - 一个音频文件可以有多个循环片段
 - 多对一：`folder` - 归属于某个文件夹
 - 一对一：`subtitleFile` - 可关联一个字幕文件
+- 一对一：`playbackRecord` - 关联播放记录
 
 ---
 
@@ -205,12 +214,29 @@ AudioFile.id.uuidString === Transcription.audioFileId
 
 ## 关系类型总结
 
+### 7️⃣ PlaybackRecord（播放记录）
+
+**用途**：存储音频文件的播放进度和统计信息
+
+**关键字段**：
+- `currentPosition`: 当前播放进度（秒）
+- `completionCount`: 完整播放次数
+- `lastPlayedAt`: 上次播放时间戳
+
+**关系**：
+- 一对一：`audioFile` - 关联到一个音频文件（级联删除）
+
+---
+
+## 关系类型总结
+
 | 关系 | 类型 | 说明 |
 |------|------|------|
 | `AudioFile` ↔ `LoopSegment` | 1:N | 一个音频可有多个循环片段 |
 | `AudioFile` ↔ `Folder` | N:1 | 多个音频属于一个文件夹 |
 | `AudioFile` ↔ `SubtitleFile` | 1:1 | 一个音频关联一个字幕 |
 | `AudioFile` ↔ `Transcription` | 1:N（逻辑） | 通过 UUID 字符串关联 |
+| `AudioFile` ↔ `PlaybackRecord` | 1:1 | 播放进度记录（级联删除）|
 | `Folder` ↔ `Folder` | 自引用 | 支持多级嵌套 |
 | `ListeningSession` | 独立 | 无直接关系 |
 

@@ -111,7 +111,7 @@ final class AudioPlayerManager {
 
     let bookmarkData = audioFile.bookmarkData
     // 如果 fromStart 为 true，从0开始播放，否则使用保存的进度
-    let resumeTime = fromStart ? 0 : audioFile.lastPlaybackTime
+    let resumeTime = fromStart ? 0 : audioFile.currentPlaybackPosition
 
     do {
       let playerItem = try await _engine.load(
@@ -157,6 +157,12 @@ final class AudioPlayerManager {
 
   /// Handle when a file finishes playing
   private func handlePlaybackEnded() {
+    // Record completion stats
+    if let file = currentFile {
+      file.playbackRecord?.lastPlayedAt = Date()
+      file.playbackRecord?.completionCount += 1
+    }
+
     switch loopMode {
     case .none:
       isPlaying = false
@@ -185,6 +191,8 @@ final class AudioPlayerManager {
       if success {
         self.isPlaying = true
         self.sessionTracker?.startSessionIfNeeded()
+        // Update last played time
+        self.currentFile?.playbackRecord?.lastPlayedAt = Date()
       }
     }
   }
@@ -204,6 +212,8 @@ final class AudioPlayerManager {
         if success {
           self.isPlaying = true
           self.sessionTracker?.startSessionIfNeeded()
+          // Update last played time
+          self.currentFile?.playbackRecord?.lastPlayedAt = Date()
         }
       }
     }
@@ -221,7 +231,7 @@ final class AudioPlayerManager {
     currentTime = clampedTime
 
     if clampedTime.isFinite && clampedTime >= 0 {
-      currentFile?.lastPlaybackTime = clampedTime
+      currentFile?.currentPlaybackPosition = clampedTime
       lastPersistedTime = clampedTime
     }
 
@@ -355,7 +365,7 @@ final class AudioPlayerManager {
 
     // Persist playback time periodically (every 1 second)
     if abs(seconds - lastPersistedTime) >= 1 {
-      currentFile?.lastPlaybackTime = seconds
+      currentFile?.currentPlaybackPosition = seconds
       lastPersistedTime = seconds
     }
 

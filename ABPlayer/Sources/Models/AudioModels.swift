@@ -15,8 +15,20 @@ final class AudioFile {
   @Relationship(inverse: \LoopSegment.audioFile)
   var segments: [LoopSegment]
 
-  /// 上次播放进度（秒）
-  var lastPlaybackTime: Double
+  /// 播放记录（级联删除）
+  @Relationship(deleteRule: .cascade, inverse: \PlaybackRecord.audioFile)
+  var playbackRecord: PlaybackRecord?
+
+  /// 便捷访问：当前播放位置
+  var currentPlaybackPosition: Double {
+    get { playbackRecord?.currentPosition ?? 0 }
+    set {
+      if playbackRecord == nil {
+        playbackRecord = PlaybackRecord()
+      }
+      playbackRecord?.currentPosition = newValue
+    }
+  }
 
   /// 所属文件夹
   var folder: Folder?
@@ -41,7 +53,6 @@ final class AudioFile {
     bookmarkData: Data,
     createdAt: Date = Date(),
     segments: [LoopSegment] = [],
-    lastPlaybackTime: Double = 0,
     folder: Folder? = nil,
     subtitleFile: SubtitleFile? = nil,
     pdfBookmarkData: Data? = nil,
@@ -53,7 +64,6 @@ final class AudioFile {
     self.bookmarkData = bookmarkData
     self.createdAt = createdAt
     self.segments = segments
-    self.lastPlaybackTime = lastPlaybackTime
     self.folder = folder
     self.subtitleFile = subtitleFile
     self.pdfBookmarkData = pdfBookmarkData
@@ -131,6 +141,6 @@ extension AudioFile {
   /// 使用1秒容差来处理播放器停止位置与总时长的微小差异
   var isPlaybackComplete: Bool {
     guard let duration = cachedDuration, duration > 0 else { return false }
-    return lastPlaybackTime >= duration - 2.0
+    return currentPlaybackPosition >= duration - 2.0
   }
 }
