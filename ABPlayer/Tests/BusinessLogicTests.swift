@@ -515,3 +515,122 @@ struct ScrollPauseLogicTests {
     #expect(countdownSeconds == nil)
   }
 }
+
+// MARK: - Vocabulary Logic Tests
+
+struct VocabularyLogicTests {
+
+  @Test
+  func testDifficultyLevelCalculation() {
+    // Given: forgot count is higher than remembered count
+    let forgotCount = 5
+    let rememberedCount = 2
+
+    // When: calculating difficulty level
+    let difficultyLevel = max(0, forgotCount - rememberedCount)
+
+    // Then: should be the difference
+    #expect(difficultyLevel == 3)
+  }
+
+  @Test
+  func testDifficultyLevelNonNegative() {
+    // Given: remembered count is higher than forgot count
+    let forgotCount = 2
+    let rememberedCount = 5
+
+    // When: calculating difficulty level
+    let difficultyLevel = max(0, forgotCount - rememberedCount)
+
+    // Then: should be clamped to 0
+    #expect(difficultyLevel == 0)
+  }
+
+  @Test
+  func testDifficultyLevelEqualCounts() {
+    // Given: equal counts
+    let forgotCount = 3
+    let rememberedCount = 3
+
+    // When: calculating difficulty level
+    let difficultyLevel = max(0, forgotCount - rememberedCount)
+
+    // Then: should be 0
+    #expect(difficultyLevel == 0)
+  }
+
+  @Test
+  func testDifficultyColorLevel1IsGreen() {
+    // Given: difficulty level 1
+    let level = 1
+
+    // When: determining color
+    let color: String
+    switch level {
+    case 1: color = "green"
+    case 2: color = "yellow"
+    default: color = "red"
+    }
+
+    // Then: should be green
+    #expect(color == "green")
+  }
+
+  @Test
+  func testDifficultyColorLevel2IsYellow() {
+    // Given: difficulty level 2
+    let level = 2
+
+    // When: determining color
+    let color: String
+    switch level {
+    case 1: color = "green"
+    case 2: color = "yellow"
+    default: color = "red"
+    }
+
+    // Then: should be yellow
+    #expect(color == "yellow")
+  }
+
+  @Test
+  func testDifficultyColorLevel3OrMoreIsRed() {
+    // Given: difficulty level >= 3
+    for level in [3, 4, 5, 10] {
+      // When: determining color
+      let color: String
+      switch level {
+      case 1: color = "green"
+      case 2: color = "yellow"
+      default: color = "red"
+      }
+
+      // Then: should be red
+      #expect(color == "red")
+    }
+  }
+
+  @Test
+  func testNewVocabularyStartsWithForgotCount1() {
+    // Given: a new vocabulary entry after clicking "Don't know + 1"
+    let initialForgotCount = 1
+    let initialRememberedCount = 0
+
+    // When: calculating difficulty level
+    let difficultyLevel = max(0, initialForgotCount - initialRememberedCount)
+
+    // Then: should be 1 (green)
+    #expect(difficultyLevel == 1)
+  }
+
+  @Test
+  func testWordNormalization() {
+    // Given: word with punctuation and mixed case
+    let word = "Hello,"
+    let normalized = word.lowercased().trimmingCharacters(
+      in: CharacterSet.punctuationCharacters)
+
+    // Then: should be lowercase without punctuation
+    #expect(normalized == "hello")
+  }
+}

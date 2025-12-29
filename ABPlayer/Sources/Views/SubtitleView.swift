@@ -1,3 +1,4 @@
+import SwiftData
 import SwiftUI
 
 /// Displays synchronized subtitles with current playback position highlighted
@@ -167,6 +168,9 @@ struct SubtitleView: View {
 // MARK: - Cue Row
 
 private struct SubtitleCueRow: View {
+  @Environment(\.modelContext) private var modelContext
+  @Query private var vocabularies: [Vocabulary]
+
   let cue: SubtitleCue
   let isActive: Bool
   let selectedWordIndex: Int?
@@ -181,6 +185,60 @@ private struct SubtitleCueRow: View {
     cue.text.split(separator: " ", omittingEmptySubsequences: true).map(String.init)
   }
 
+  /// Normalize a word for vocabulary lookup (lowercase, trim punctuation)
+  private func normalize(_ word: String) -> String {
+    word.lowercased().trimmingCharacters(in: .punctuationCharacters)
+  }
+
+  /// Find vocabulary entry for a word
+  private func findVocabulary(for word: String) -> Vocabulary? {
+    let normalized = normalize(word)
+    return vocabularies.first { $0.word == normalized }
+  }
+
+  /// Get difficulty level for a word (nil if not in vocabulary or level is 0)
+  private func difficultyLevel(for word: String) -> Int? {
+    guard let vocab = findVocabulary(for: word), vocab.difficultyLevel > 0 else {
+      return nil
+    }
+    return vocab.difficultyLevel
+  }
+
+  /// Increment forgot count for a word (creates new entry if not exists)
+  private func incrementForgotCount(for word: String) {
+    if let vocab = findVocabulary(for: word) {
+      vocab.forgotCount += 1
+    } else {
+      let newVocab = Vocabulary(word: normalize(word), forgotCount: 1)
+      modelContext.insert(newVocab)
+    }
+  }
+
+  /// Increment remembered count for a word (only if already in vocabulary)
+  private func incrementRememberedCount(for word: String) {
+    // Only increment if word exists - you can't "remember" a word you never "forgot"
+    if let vocab = findVocabulary(for: word) {
+      vocab.rememberedCount += 1
+    }
+  }
+
+  /// Get forgot count for a word (0 if not in vocabulary)
+  private func forgotCount(for word: String) -> Int {
+    findVocabulary(for: word)?.forgotCount ?? 0
+  }
+
+  /// Get color for a word in non-active rows (secondary or difficulty color)
+  private func wordColor(for word: String) -> Color {
+    guard let level = difficultyLevel(for: word) else {
+      return .secondary
+    }
+    switch level {
+    case 1: return .green
+    case 2: return .yellow
+    default: return .red
+    }
+  }
+
   var body: some View {
     HStack(alignment: .firstTextBaseline, spacing: 12) {
       Text(timeString(from: cue.startTime))
@@ -193,6 +251,7 @@ private struct SubtitleCueRow: View {
           ForEach(Array(words.enumerated()), id: \.offset) { index, word in
             InteractiveWordView(
               word: word,
+              difficultyLevel: difficultyLevel(for: word),
               isHovered: hoveredWordIndex == index,
               isSelected: selectedWordIndex == index,
               onHoverChanged: { isHovering in
@@ -209,9 +268,16 @@ private struct SubtitleCueRow: View {
               onDismiss: {
                 onWordSelected(nil)
               },
+              onForgot: {
+                incrementForgotCount(for: word)
+              },
+              onRemembered: {
+                incrementRememberedCount(for: word)
+              },
               onMenuHoverChanged: { hovering in
                 isMenuHovered = hovering
-              }
+              },
+              forgotCount: forgotCount(for: word)
             )
           }
         }
@@ -220,12 +286,14 @@ private struct SubtitleCueRow: View {
           onWordSelected(nil)
         }
       } else {
-        Text(cue.text)
-          .font(.system(.title3))
-          .foregroundStyle(.secondary)
-          .multilineTextAlignment(.leading)
-          .frame(maxWidth: .infinity, alignment: .leading)
-          .fixedSize(horizontal: false, vertical: true)
+        FlowLayout(alignment: .leading, spacing: 4) {
+          ForEach(Array(words.enumerated()), id: \.offset) { _, word in
+            Text(word)
+              .font(.system(.title3))
+              .foregroundStyle(wordColor(for: word))
+          }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
       }
     }
     .padding(.vertical, 14)
@@ -280,19 +348,40 @@ private struct SubtitleCueRow: View {
 
 private struct InteractiveWordView: View {
   let word: String
+  let difficultyLevel: Int?
   let isHovered: Bool
   let isSelected: Bool
   let onHoverChanged: (Bool) -> Void
   let onTap: () -> Void
   let onDismiss: () -> Void
+  let onForgot: () -> Void
+  let onRemembered: () -> Void
   let onMenuHoverChanged: (Bool) -> Void
+  let forgotCount: Int
 
   private var isHighlighted: Bool { isHovered || isSelected }
+
+  /// Color based on difficulty level: 1=green, 2=yellow, >=3=red
+  private var difficultyColor: Color? {
+    guard let level = difficultyLevel, level > 0 else { return nil }
+    switch level {
+    case 1: return .green
+    case 2: return .yellow
+    default: return .red
+    }
+  }
+
+  private var foregroundColor: Color {
+    if isHighlighted {
+      return Color.accentColor
+    }
+    return difficultyColor ?? .primary
+  }
 
   var body: some View {
     Text(word)
       .font(.system(.title3))
-      .foregroundStyle(isHighlighted ? Color.accentColor : .primary)
+      .foregroundStyle(foregroundColor)
       .padding(.horizontal, 2)
       .padding(.vertical, 1)
       .background(
@@ -302,7 +391,10 @@ private struct InteractiveWordView: View {
       .onHover { onHoverChanged($0) }
       .onTapGesture { onTap() }
       .popover(isPresented: .constant(isSelected), arrowEdge: .bottom) {
-        WordMenuView(word: word, onDismiss: onDismiss, onHoverChanged: onMenuHoverChanged)
+        WordMenuView(
+          word: word, onDismiss: onDismiss, onForgot: onForgot,
+          onRemembered: onRemembered, onHoverChanged: onMenuHoverChanged,
+          forgotCount: forgotCount)
       }
   }
 }
@@ -312,25 +404,39 @@ private struct InteractiveWordView: View {
 private struct WordMenuView: View {
   let word: String
   let onDismiss: () -> Void
+  let onForgot: () -> Void
+  let onRemembered: () -> Void
   let onHoverChanged: (Bool) -> Void
+  let forgotCount: Int
 
   var body: some View {
-    VStack(alignment: .leading, spacing: 4) {
+    HStack(spacing: 8) {
       Button {
-        print("Definition: \(word)")
+        NSPasteboard.general.clearContents()
+        NSPasteboard.general.setString(word, forType: .string)
         onDismiss()
       } label: {
-        Label("Definition", systemImage: "book")
+        Label("Copy", systemImage: "doc.on.doc")
       }
       .buttonStyle(.plain)
 
       Button {
-        print("生词+1: \(word)")
+        onForgot()
         onDismiss()
       } label: {
-        Label("生词+1", systemImage: "plus.circle")
+        Label("Forgot", systemImage: "xmark.circle")
       }
       .buttonStyle(.plain)
+
+      if forgotCount > 0 {
+        Button {
+          onRemembered()
+          onDismiss()
+        } label: {
+          Label("Remember", systemImage: "checkmark.circle")
+        }
+        .buttonStyle(.plain)
+      }
     }
     .padding(8)
     .onHover { onHoverChanged($0) }
