@@ -239,6 +239,11 @@ private struct SubtitleCueRow: View {
     findVocabulary(for: word)?.rememberedCount ?? 0
   }
 
+  /// Get creation date for a word (nil if not in vocabulary)
+  private func createdAt(for word: String) -> Date? {
+    findVocabulary(for: word)?.createdAt
+  }
+
   /// Get color for a word in non-active rows (secondary or difficulty color)
   private func wordColor(for word: String) -> Color {
     guard let level = difficultyLevel(for: word) else {
@@ -280,20 +285,21 @@ private struct SubtitleCueRow: View {
               onDismiss: {
                 onWordSelected(nil)
               },
-              onForgot: {
-                incrementForgotCount(for: word)
+              onForgot: { cleaned in
+                incrementForgotCount(for: cleaned)
               },
-              onRemembered: {
-                incrementRememberedCount(for: word)
+              onRemembered: { cleaned in
+                incrementRememberedCount(for: cleaned)
               },
-              onRemove: {
-                removeVocabulary(for: word)
+              onRemove: { cleaned in
+                removeVocabulary(for: cleaned)
               },
               onMenuHoverChanged: { hovering in
                 isMenuHovered = hovering
               },
               forgotCount: forgotCount(for: word),
-              rememberedCount: rememberedCount(for: word)
+              rememberedCount: rememberedCount(for: word),
+              createdAt: createdAt(for: word)
             )
           }
         }
@@ -372,12 +378,17 @@ private struct InteractiveWordView: View {
   let onHoverChanged: (Bool) -> Void
   let onTap: () -> Void
   let onDismiss: () -> Void
-  let onForgot: () -> Void
-  let onRemembered: () -> Void
-  let onRemove: () -> Void
+  let onForgot: (String) -> Void
+  let onRemembered: (String) -> Void
+  let onRemove: (String) -> Void
   let onMenuHoverChanged: (Bool) -> Void
   let forgotCount: Int
   let rememberedCount: Int
+  let createdAt: Date?
+
+  private var cleanedWord: String {
+    word.lowercased().trimmingCharacters(in: .punctuationCharacters)
+  }
 
   private var isHighlighted: Bool { isHovered || isSelected }
 
@@ -421,7 +432,8 @@ private struct InteractiveWordView: View {
           word: word, onDismiss: onDismiss, onForgot: onForgot,
           onRemembered: onRemembered, onRemove: onRemove,
           onHoverChanged: onMenuHoverChanged,
-          forgotCount: forgotCount, rememberedCount: rememberedCount)
+          forgotCount: forgotCount, rememberedCount: rememberedCount,
+          createdAt: createdAt)
       }
   }
 }
@@ -431,30 +443,47 @@ private struct InteractiveWordView: View {
 private struct WordMenuView: View {
   let word: String
   let onDismiss: () -> Void
-  let onForgot: () -> Void
-  let onRemembered: () -> Void
-  let onRemove: () -> Void
+  let onForgot: (String) -> Void
+  let onRemembered: (String) -> Void
+  let onRemove: (String) -> Void
   let onHoverChanged: (Bool) -> Void
   let forgotCount: Int
   let rememberedCount: Int
+  let createdAt: Date?
+
+  private var canRemember: Bool {
+    guard forgotCount > 0, let createdAt = createdAt else { return false }
+    // Must be at least 12 hours since creation
+    return Date().timeIntervalSince(createdAt) >= 12 * 3600
+  }
+
+  private var cleanedWord: String {
+    word.lowercased().trimmingCharacters(in: .punctuationCharacters)
+  }
 
   var body: some View {
     VStack(alignment: .leading, spacing: 0) {
       Group {
         MenuButton(label: "Copy", systemImage: "doc.on.doc") {
           NSPasteboard.general.clearContents()
-          NSPasteboard.general.setString(word, forType: .string)
+          NSPasteboard.general.setString(cleanedWord, forType: .string)
           onDismiss()
         }
 
-        MenuButton(label: "Forgot (\(forgotCount))", systemImage: "xmark.circle") {
-          onForgot()
+        MenuButton(
+          label: "Forgot" + (forgotCount > 0 ? " (\(forgotCount))" : ""),
+          systemImage: "xmark.circle"
+        ) {
+          onForgot(cleanedWord)
           onDismiss()
         }
 
-        if forgotCount > 0 {
-          MenuButton(label: "Remember (\(rememberedCount))", systemImage: "checkmark.circle") {
-            onRemembered()
+        if canRemember {
+          MenuButton(
+            label: "Remember" + (rememberedCount > 0 ? " (\(rememberedCount))" : ""),
+            systemImage: "checkmark.circle"
+          ) {
+            onRemembered(cleanedWord)
             onDismiss()
           }
         }
@@ -462,7 +491,7 @@ private struct WordMenuView: View {
         if forgotCount > 0 || rememberedCount > 0 {
           // add a menu item to remove the word from the vocabulary
           MenuButton(label: "Remove", systemImage: "trash") {
-            onRemove()
+            onRemove(cleanedWord)
             onDismiss()
           }
         }
