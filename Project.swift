@@ -1,5 +1,6 @@
 import ProjectDescription
 
+let shortVersionString = "0.2.3"
 let project = Project(
   name: "ABPlayer",
   settings: .settings(
@@ -20,7 +21,7 @@ let project = Project(
       deploymentTargets: .macOS("15.7.2"),
       infoPlist: .extendingDefault(with: [
         "CFBundleVersion": "nightly-f1e431b",
-        "CFBundleShortVersionString": "0.2.3",
+        "CFBundleShortVersionString": .string(shortVersionString),
         "NSMainStoryboardFile": "",
       ]),
       buildableFolders: [
@@ -41,7 +42,7 @@ let project = Project(
       deploymentTargets: .macOS("15.7.2"),
       infoPlist: .extendingDefault(with: [
         "CFBundleVersion": "nightly-f1e431b",
-        "CFBundleShortVersionString": "0.2.3",
+        "CFBundleShortVersionString": .string(shortVersionString),
         "NSMainStoryboardFile": "",
       ]),
       buildableFolders: [
