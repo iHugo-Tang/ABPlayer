@@ -154,10 +154,8 @@ struct PlayerView: View {
                 playerManager.loopMode = mode
               } label: {
                 HStack {
+                  Image(systemName: mode.iconName)
                   Text(mode.displayName)
-                  if playerManager.loopMode == mode {
-                    Image(systemName: "checkmark")
-                  }
                 }
               }
             }
