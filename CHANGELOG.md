@@ -1,3 +1,13 @@
+## [0.2.1] - 2025-12-30
+
+### Features
+- Add number-based sorting options and persist the selected sort order using AppStorage.
+- Add video playback functionality with a dedicated player view, controls, and segment display.
+
+### Improvements
+- rename PlayerView to AudioPlayerView
+
+
 ## [0.2.0] - 2025-12-30
 
 ### Features

@@ -6,6 +6,8 @@ import SwiftUI
 enum SortOrder: String, CaseIterable {
   case nameAZ = "Name (A-Z)"
   case nameZA = "Name (Z-A)"
+  case numberAsc = "Number (Smallest First)"
+  case numberDesc = "Number (Biggest First)"
   case dateCreatedNewestFirst = "Date Created (Newest First)"
   case dateCreatedOldestFirst = "Date Created (Oldest First)"
 }
@@ -36,7 +38,7 @@ struct FolderNavigationView: View {
   @State private var selection: SelectionItem?
   @State private var isSyncing = false
   @State private var syncTask: Task<Void, Never>?
-  @State private var sortOrder: SortOrder = .nameAZ
+  @AppStorage("folderNavigationSortOrder") private var sortOrder: SortOrder = .nameAZ
   @State private var isRescanningFolder = false
 
   let onSelectFile: (AudioFile) async -> Void
@@ -321,6 +323,13 @@ struct FolderNavigationView: View {
 
   // MARK: - Computed Properties
 
+  /// Extracts the leading number from a filename for number-based sorting
+  /// Returns Int.max if the filename doesn't start with a number
+  private func extractLeadingNumber(_ name: String) -> Int {
+    let digits = name.prefix(while: { $0.isNumber })
+    return Int(digits) ?? Int.max
+  }
+
   private var currentFolders: [Folder] {
     let folders: [Folder]
     if let folder = currentFolder {
@@ -334,6 +343,10 @@ struct FolderNavigationView: View {
       return folders.sorted { $0.name < $1.name }
     case .nameZA:
       return folders.sorted { $0.name > $1.name }
+    case .numberAsc:
+      return folders.sorted { extractLeadingNumber($0.name) < extractLeadingNumber($1.name) }
+    case .numberDesc:
+      return folders.sorted { extractLeadingNumber($0.name) > extractLeadingNumber($1.name) }
     case .dateCreatedNewestFirst:
       return folders.sorted { $0.createdAt > $1.createdAt }
     case .dateCreatedOldestFirst:
@@ -354,6 +367,14 @@ struct FolderNavigationView: View {
       return files.sorted { $0.displayName < $1.displayName }
     case .nameZA:
       return files.sorted { $0.displayName > $1.displayName }
+    case .numberAsc:
+      return files.sorted {
+        extractLeadingNumber($0.displayName) < extractLeadingNumber($1.displayName)
+      }
+    case .numberDesc:
+      return files.sorted {
+        extractLeadingNumber($0.displayName) > extractLeadingNumber($1.displayName)
+      }
     case .dateCreatedNewestFirst:
       return files.sorted { $0.createdAt > $1.createdAt }
     case .dateCreatedOldestFirst:
