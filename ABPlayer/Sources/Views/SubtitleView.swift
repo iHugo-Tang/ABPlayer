@@ -8,6 +8,8 @@ struct SubtitleView: View {
   let cues: [SubtitleCue]
   /// Binding to expose countdown seconds to parent (nil when not paused)
   @Binding var countdownSeconds: Int?
+  /// Font size for subtitle text
+  let fontSize: Double
 
   /// Duration for resume countdown in seconds
   private static let pauseDuration = 3
@@ -31,6 +33,7 @@ struct SubtitleView: View {
               SubtitleCueRow(
                 cue: cue,
                 isActive: cue.id == currentCueID,
+                fontSize: fontSize,
                 selectedWordIndex: selectedWord?.cueID == cue.id ? selectedWord?.wordIndex : nil,
                 onWordSelected: { wordIndex in
                   handleWordSelection(wordIndex: wordIndex, cueID: cue.id)
@@ -183,6 +186,7 @@ private struct SubtitleCueRow: View {
 
   let cue: SubtitleCue
   let isActive: Bool
+  let fontSize: Double
   let selectedWordIndex: Int?
   let onWordSelected: (Int?) -> Void
   let onTap: () -> Void
@@ -309,7 +313,8 @@ private struct SubtitleCueRow: View {
               },
               forgotCount: forgotCount(for: word),
               rememberedCount: rememberedCount(for: word),
-              createdAt: createdAt(for: word)
+              createdAt: createdAt(for: word),
+              fontSize: fontSize
             )
           }
         }
@@ -321,7 +326,7 @@ private struct SubtitleCueRow: View {
         FlowLayout(alignment: .leading, spacing: 4) {
           ForEach(Array(words.enumerated()), id: \.offset) { _, word in
             Text(word)
-              .font(.system(.title3))
+              .font(.system(size: fontSize))
               .foregroundStyle(wordColor(for: word))
               .padding(.horizontal, 2)
               .padding(.vertical, 1)
@@ -395,6 +400,7 @@ private struct InteractiveWordView: View {
   let forgotCount: Int
   let rememberedCount: Int
   let createdAt: Date?
+  let fontSize: Double
 
   private var cleanedWord: String {
     word.lowercased().trimmingCharacters(in: .punctuationCharacters)
@@ -421,7 +427,7 @@ private struct InteractiveWordView: View {
 
   var body: some View {
     Text(word)
-      .font(.system(.title3))
+      .font(.system(size: fontSize))
       .foregroundStyle(foregroundColor)
       .padding(.horizontal, 2)
       .padding(.vertical, 1)

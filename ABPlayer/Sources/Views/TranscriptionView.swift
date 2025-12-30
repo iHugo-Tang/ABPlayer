@@ -11,6 +11,9 @@ struct TranscriptionView: View {
   @Environment(AudioPlayerManager.self) private var playerManager
   @Environment(\.modelContext) private var modelContext
 
+  @AppStorage("subtitleFontSize") private var subtitleFontSize: Double = 20
+  private let defaultFontSize: Double = 20
+
   @State private var cachedCues: [SubtitleCue] = []
   @State private var hasCheckedCache = false
   /// Countdown seconds for pause highlight/scroll (nil when not paused)
@@ -94,13 +97,35 @@ struct TranscriptionView: View {
         .foregroundStyle(.secondary)
 
         Spacer()
+
+        // Subtitle Font
+        HStack(spacing: 8) {
+          Stepper(
+            value: $subtitleFontSize,
+            in: 12...36,
+            step: 2
+          ) {
+            Text("Font: \(Int(subtitleFontSize))")
+              .monospacedDigit()
+          }
+          .fixedSize()
+
+          Button {
+            subtitleFontSize = defaultFontSize
+          } label: {
+            Image(systemName: "arrow.counterclockwise")
+          }
+          .buttonStyle(.borderless)
+          .foregroundStyle(.secondary)
+          .disabled(subtitleFontSize == defaultFontSize)
+        }
       }
       .padding(.horizontal, 12)
       .padding(.vertical, 8)
 
       Divider()
 
-      SubtitleView(cues: cachedCues, countdownSeconds: $pauseCountdown)
+      SubtitleView(cues: cachedCues, countdownSeconds: $pauseCountdown, fontSize: subtitleFontSize)
     }
   }
 
