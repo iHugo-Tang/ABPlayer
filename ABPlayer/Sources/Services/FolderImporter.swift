@@ -31,8 +31,20 @@ final class FolderImporter {
       url.stopAccessingSecurityScopedResource()
     }
 
+    // 创建 bookmark 用于后续 rescan
+    let bookmarkData = try url.bookmarkData(
+      options: [.withSecurityScope],
+      includingResourceValuesForKeys: nil,
+      relativeTo: nil
+    )
+
     let rootPath = url.lastPathComponent
-    return try processDirectory(at: url, relativePath: rootPath, parent: nil)
+    let folder = try processDirectory(at: url, relativePath: rootPath, parent: nil)
+
+    // 仅根文件夹存储 bookmark
+    folder.bookmarkData = bookmarkData
+
+    return folder
   }
 
   // MARK: - Directory Processing
@@ -173,19 +185,54 @@ final class FolderImporter {
 
     let baseName = url.deletingPathExtension().lastPathComponent
 
-    // 自动关联字幕（如果没有或已失效）
-    if audioFile.subtitleFile == nil {
-      if let subtitleURL = findMatchingFile(baseName: baseName, in: subtitleFiles) {
+    // 1. Sync Subtitle File
+    if let subtitleURL = findMatchingFile(baseName: baseName, in: subtitleFiles) {
+      if audioFile.subtitleFile == nil {
         try pairSubtitle(at: subtitleURL, with: audioFile)
+      }
+      // If needed we could update existing subtitle file content here
+    } else {
+      // If subtitle file no longer exists, remove relation
+      if let existing = audioFile.subtitleFile {
+        modelContext.delete(existing)
+        audioFile.subtitleFile = nil
       }
     }
 
-    // 自动关联 PDF（如果没有）
-    if audioFile.pdfBookmarkData == nil {
-      if let pdfURL = findMatchingFile(baseName: baseName, in: pdfFiles) {
-        try pairPDF(at: pdfURL, with: audioFile)
+    // 2. Sync PDF File
+    if let pdfURL = findMatchingFile(baseName: baseName, in: pdfFiles) {
+      // Update bookmark even if exists to ensure valid access
+      let pdfBookmark = try pdfURL.bookmarkData(
+        options: [.withSecurityScope],
+        includingResourceValuesForKeys: nil,
+        relativeTo: nil
+      )
+      audioFile.pdfBookmarkData = pdfBookmark
+    } else {
+      // If PDF no longer exists, clear bookmark
+      audioFile.pdfBookmarkData = nil
+    }
+
+    // 3. Sync Transcription Record
+    let audioFileIdString = audioFile.id.uuidString
+    let transcriptionDescriptor = FetchDescriptor<Transcription>(
+      predicate: #Predicate { $0.audioFileId == audioFileIdString }
+    )
+
+    // Check if transcription record exists
+    if (try? modelContext.fetch(transcriptionDescriptor).first) != nil {
+      if !audioFile.hasTranscriptionRecord {
+        audioFile.hasTranscriptionRecord = true
+      }
+    } else {
+      // Only clear if true (avoid unnecessary writes)
+      if audioFile.hasTranscriptionRecord {
+        audioFile.hasTranscriptionRecord = false
       }
     }
+
+    // Auto-save happens at end of batch usually, but we can save here if precise state needed immediately
+    // modelContext.save() will be called by caller or auto-save
   }
 
   // MARK: - File Matching

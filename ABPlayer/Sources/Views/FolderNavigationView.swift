@@ -93,14 +93,12 @@ struct FolderNavigationView: View {
       if isRescanningFolder {
         ProgressView()
           .controlSize(.small)
-      }
-
-      // Rescan button
-      if currentFolder != nil {
+      } else if currentFolder != nil {
+        // Rescan button
         Button {
           rescanCurrentFolder()
         } label: {
-          Label("重新扫描", systemImage: "arrow.clockwise")
+          Label("Rescan", systemImage: "arrow.clockwise")
             .labelStyle(.iconOnly)
         }
         .buttonStyle(.plain)
@@ -122,7 +120,7 @@ struct FolderNavigationView: View {
           }
         }
       } label: {
-        Label("排序", systemImage: "arrow.up.arrow.down")
+        Label("Sort", systemImage: "arrow.up.arrow.down")
           .labelStyle(.iconOnly)
       }
       .buttonStyle(.plain)
@@ -294,7 +292,7 @@ struct FolderNavigationView: View {
                 .font(.caption2)
             }
 
-            if file.hasTranscription {
+            if file.hasTranscriptionRecord {
               Text("•")
               Image(systemName: "waveform")
                 .font(.caption2)
@@ -380,24 +378,31 @@ struct FolderNavigationView: View {
   private func rescanCurrentFolder() {
     guard let folder = currentFolder else { return }
 
-    // 需要找到此文件夹对应的磁盘路径
-    // 由于我们只存储 relativePath，需要从根文件夹开始重新扫描
-    // 这里简化处理：找到根文件夹并重新同步
-    var rootFolder = folder
-    while let parent = rootFolder.parent {
-      rootFolder = parent
+    // 找到根文件夹
+    let rootFolder = folder.rootFolder
+
+    // 检查根文件夹是否有 bookmark
+    guard let url = try? rootFolder.resolveURL() else {
+      print("⚠️ No root folder bookmark found")
+      return
     }
 
-    // 尝试从 relativePath 恢复 URL（需要用户重新选择文件夹）
-    // 由于安全性限制，bookmark 已过期时需要用户重新授权
     isRescanningFolder = true
 
-    // 目前简化实现：显示提示，建议用户重新导入文件夹
-    // TODO: 实现完整的 rescan 逻辑（需要存储 folder 的 bookmark）
     Task {
-      // 模拟扫描延迟
-      try? await Task.sleep(nanoseconds: 500_000_000)
-      isRescanningFolder = false
+      defer {
+        Task { @MainActor in
+          isRescanningFolder = false
+        }
+      }
+
+      do {
+        let importer = FolderImporter(modelContext: modelContext)
+        _ = try importer.syncFolder(at: url)
+        print("✅ Successfully rescanned folder: \(rootFolder.name)")
+      } catch {
+        print("❌ Failed to rescan folder: \(error.localizedDescription)")
+      }
     }
   }
 

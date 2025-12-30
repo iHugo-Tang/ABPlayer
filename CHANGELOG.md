@@ -1,3 +1,10 @@
+## [0.1.19] - 2025-12-29
+
+### Features
+- Enable folder rescan via security-scoped bookmarks and improve synchronization of audio files with subtitles, PDFs, and transcription records.
+- Implement idempotent folder synchronization using deterministic IDs and separate debug app data storage.
+
+
 ## [0.1.18] - 2025-12-29
 
 ### Features

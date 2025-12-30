@@ -279,7 +279,7 @@ final class TranscriptionQueueManager {
       predicate: #Predicate { $0.id == audioFileId }
     )
     if let audioFile = try? context.fetch(audioDescriptor).first {
-      audioFile.hasTranscription = true
+      audioFile.hasTranscriptionRecord = true
       try? context.save()
     }
   }

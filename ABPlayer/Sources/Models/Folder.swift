@@ -11,6 +11,10 @@ final class Folder {
   /// 相对于根导入目录的路径，用于生成确定性 ID
   var relativePath: String
 
+  /// 根文件夹的 security-scoped bookmark（仅根文件夹需要存储）
+  @Attribute(.externalStorage)
+  var bookmarkData: Data?
+
   @Relationship(inverse: \Folder.parent)
   var subfolders: [Folder]
 
@@ -31,7 +35,8 @@ final class Folder {
     createdAt: Date = Date(),
     parent: Folder? = nil,
     subfolders: [Folder] = [],
-    audioFiles: [AudioFile] = []
+    audioFiles: [AudioFile] = [],
+    bookmarkData: Data? = nil
   ) {
     self.id = id
     self.name = name
@@ -40,6 +45,7 @@ final class Folder {
     self.parent = parent
     self.subfolders = subfolders
     self.audioFiles = audioFiles
+    self.bookmarkData = bookmarkData
   }
 }
 
@@ -58,5 +64,29 @@ extension Folder {
         uuidBytes[8], uuidBytes[9], uuidBytes[10], uuidBytes[11],
         uuidBytes[12], uuidBytes[13], uuidBytes[14], uuidBytes[15]
       ))
+  }
+
+  /// 从 bookmark 恢复 URL（仅根文件夹有 bookmark）
+  func resolveURL() throws -> URL? {
+    guard let bookmarkData else { return nil }
+
+    var isStale = false
+    let url = try URL(
+      resolvingBookmarkData: bookmarkData,
+      options: [.withSecurityScope],
+      relativeTo: nil,
+      bookmarkDataIsStale: &isStale
+    )
+
+    return url
+  }
+
+  /// 获取根文件夹
+  var rootFolder: Folder {
+    var root = self
+    while let parent = root.parent {
+      root = parent
+    }
+    return root
   }
 }

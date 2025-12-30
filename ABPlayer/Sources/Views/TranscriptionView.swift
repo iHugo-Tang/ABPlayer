@@ -418,23 +418,14 @@ struct TranscriptionView: View {
 
   private func loadCachedTranscription() async {
     // 1. 优先检查SRT文件 (先检查数据库标志位，如果不一致再尝试文件系统作为容错)
-    if audioFile.hasTranscription
+    if audioFile.hasTranscriptionRecord
       || FileManager.default.fileExists(atPath: audioFile.srtFileURL?.path ?? "")
     {
       if let srtCues = loadSRTFile() {
         cachedCues = srtCues
         hasCheckedCache = true
 
-        // 修复不一致的标志位
-        if !audioFile.hasTranscription {
-          audioFile.hasTranscription = true
-        }
         return
-      } else {
-        // 如果读取失败（例如文件被删），更新标志位
-        if audioFile.hasTranscription {
-          audioFile.hasTranscription = false
-        }
       }
     }
 
@@ -493,7 +484,7 @@ struct TranscriptionView: View {
         audioURL.stopAccessingSecurityScopedResource()
       }
     }
-    audioFile.hasTranscription = false
+    audioFile.hasTranscriptionRecord = false
 
     // Reset state and start fresh transcription
     cachedCues = []

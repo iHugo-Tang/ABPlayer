@@ -44,8 +44,8 @@ final class AudioFile {
   /// 缓存的音频时长（秒），避免每次加载时读取
   var cachedDuration: Double?
 
-  /// 是否有转录的SRT文件
-  var hasTranscription: Bool = false
+  /// 是否有转录记录 (DB Record)
+  var hasTranscriptionRecord: Bool = false
 
   init(
     id: UUID = UUID(),
@@ -57,7 +57,7 @@ final class AudioFile {
     subtitleFile: SubtitleFile? = nil,
     pdfBookmarkData: Data? = nil,
     cachedDuration: Double? = nil,
-    hasTranscription: Bool = false
+    hasTranscriptionRecord: Bool = false
   ) {
     self.id = id
     self.displayName = displayName
@@ -68,7 +68,7 @@ final class AudioFile {
     self.subtitleFile = subtitleFile
     self.pdfBookmarkData = pdfBookmarkData
     self.cachedDuration = cachedDuration
-    self.hasTranscription = hasTranscription
+    self.hasTranscriptionRecord = hasTranscriptionRecord
   }
 }
 
