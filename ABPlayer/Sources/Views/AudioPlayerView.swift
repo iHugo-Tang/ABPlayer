@@ -10,8 +10,6 @@ struct AudioPlayerView: View {
   @Bindable var audioFile: AudioFile
 
   @State private var showContentPanel: Bool = true
-  @AppStorage("segmentSortDescendingByStartTime") private var isSegmentSortDescendingByStartTime:
-    Bool = true
 
   // Progress bar seeking state
   @State private var isSeeking: Bool = false
@@ -19,7 +17,8 @@ struct AudioPlayerView: View {
   @State private var wasPlayingBeforeSeek: Bool = false
 
   // Persisted panel widths
-  @AppStorage("playerSectionWidth") private var playerSectionWidth: Double = 360
+  let minWidthOfPlayerSection: CGFloat = 380
+  @AppStorage("playerSectionWidth") private var playerSectionWidth: Double = 380
 
   // Volume Persistence
   @AppStorage("playerVolume") private var playerVolume: Double = 1.0
@@ -35,6 +34,7 @@ struct AudioPlayerView: View {
       HStack(spacing: 0) {
         // Left: Player controls + Segments
         playerSection
+          .frame(minWidth: minWidthOfPlayerSection)
           .frame(width: showContentPanel ? playerSectionWidth : nil)
 
         // Right: Content panel (PDF, Subtitles only) - takes remaining space
@@ -61,8 +61,9 @@ struct AudioPlayerView: View {
                 .onChanged { value in
                   // Dragging right increases playerSection, left decreases
                   let newWidth = playerSectionWidth + value.translation.width
-                  // Constrain: min 300, max leaves at least 200 for content panel
-                  playerSectionWidth = min(max(newWidth, 300), Double(availableWidth) - 208)
+                  // Constrain: min minWidthOfPlayerSection, max leaves at least 200 for content panel
+                  playerSectionWidth = min(
+                    max(newWidth, minWidthOfPlayerSection), Double(availableWidth) - 208)
                 }
             )
 
@@ -129,9 +130,9 @@ struct AudioPlayerView: View {
     VStack(alignment: .leading, spacing: 16) {
       header
       progressSection
-      loopControls
+
       Divider()
-      segmentsSection
+      SegmentsSection(audioFile: audioFile)
     }
     .padding()
     .frame(maxHeight: .infinity)
@@ -293,209 +294,6 @@ struct AudioPlayerView: View {
   }
 
   // MARK: - Loop Controls
-
-  private var loopControls: some View {
-    VStack(alignment: .leading) {
-      HStack {
-        Button("Set A", action: playerManager.setPointA)
-          .keyboardShortcut("x", modifiers: [])
-
-        Button("Set B", action: playerManager.setPointB)
-          .keyboardShortcut("c", modifiers: [])
-
-        Button("Save") {
-          saveCurrentSegment()
-        }
-        .keyboardShortcut("b", modifiers: [])
-        .disabled(!playerManager.hasValidLoopRange)
-
-        Button("Clear", action: playerManager.clearLoop)
-          .keyboardShortcut("v", modifiers: [])
-
-        if let pointA = playerManager.pointA {
-          Text("A: \(timeString(from: pointA))")
-        }
-
-        if let pointB = playerManager.pointB {
-          Text("B: \(timeString(from: pointB))")
-        }
-
-        Spacer()
-      }
-
-    }
-    .captionStyle()
-  }
-
-  // MARK: - Segments Section
-
-  private var segmentsSection: some View {
-    VStack(alignment: .leading, spacing: 8) {
-      HStack {
-        Text("Saved Segments")
-          .font(.headline)
-
-        HStack {
-          Button {
-            jumpToPreviousSegment()
-          } label: {
-            Image(systemName: "backward.end")
-          }
-          .disabled(audioFile.segments.isEmpty)
-          .keyboardShortcut(.leftArrow, modifiers: [])
-
-          Button {
-            jumpToNextSegment()
-          } label: {
-            Image(systemName: "forward.end")
-          }
-          .disabled(audioFile.segments.isEmpty)
-          .keyboardShortcut(.rightArrow, modifiers: [])
-        }
-
-        Spacer()
-
-        Button {
-          isSegmentSortDescendingByStartTime.toggle()
-        } label: {
-          HStack(spacing: 4) {
-            Image(systemName: "arrow.up.arrow.down")
-            Text(isSegmentSortDescendingByStartTime ? "Start ↓" : "Start ↑")
-          }
-        }
-        .buttonStyle(.borderless)
-        .help(
-          "Sort segments by start time \(isSegmentSortDescendingByStartTime ? "descending" : "ascending")"
-        )
-
-      }
-
-      if segments.isEmpty {
-        ContentUnavailableView(
-          "No segments saved",
-          systemImage: "lines.measurement.horizontal",
-          description: Text("Set A and B, then tap \"Save Current A-B\".")
-        )
-        .frame(maxHeight: .infinity)
-        .frame(maxWidth: .infinity, alignment: .center)
-      } else {
-        List(
-          selection: Binding(
-            get: { playerManager.currentSegmentID },
-            set: { newID in
-              playerManager.currentSegmentID = newID
-              if let segmentID = newID,
-                let segment = audioFile.segments.first(where: { $0.id == segmentID })
-              {
-                playerManager.apply(segment: segment)
-              }
-            }
-          )
-        ) {
-          ForEach(segments) { segment in
-            HStack {
-              VStack(alignment: .leading) {
-                Text(segment.label)
-                Text(
-                  "\(timeString(from: segment.startTime)) - \(timeString(from: segment.endTime))"
-                )
-                .font(.caption2)
-                .foregroundStyle(.secondary)
-              }
-
-              Spacer()
-            }
-            .contentShape(Rectangle())
-            .onTapGesture {
-              selectSegment(segment)
-            }
-            .contextMenu {
-              Button(role: .destructive) {
-                deleteSegment(segment)
-              } label: {
-                Label("Delete Segment", systemImage: "trash")
-              }
-            }
-          }
-        }
-        .frame(minHeight: 120, maxHeight: .infinity)
-      }
-    }
-    .frame(maxHeight: .infinity)
-  }
-
-  // MARK: - Segment Actions
-
-  private var segments: [LoopSegment] {
-    audioFile.segments.sorted { first, second in
-      if isSegmentSortDescendingByStartTime {
-        return first.startTime > second.startTime
-      } else {
-        return first.startTime < second.startTime
-      }
-    }
-  }
-
-  private func saveCurrentSegment() {
-    // Delegate to playerManager which handles all the logic
-    _ = playerManager.saveCurrentSegment()
-  }
-
-  private func deleteSegment(_ segment: LoopSegment) {
-    guard let indexInArray = audioFile.segments.firstIndex(where: { $0.id == segment.id }) else {
-      return
-    }
-
-    let removedIndex = audioFile.segments[indexInArray].index
-
-    let removedSegment = audioFile.segments.remove(at: indexInArray)
-    modelContext.delete(removedSegment)
-
-    for segment in audioFile.segments where segment.index > removedIndex {
-      segment.index -= 1
-    }
-
-    if playerManager.currentSegmentID == segment.id {
-      playerManager.currentSegmentID = audioFile.segments.first?.id
-      playerManager.clearLoop()
-    }
-  }
-
-  private func selectSegment(_ segment: LoopSegment) {
-    // apply() sets currentSegmentID internally
-    playerManager.apply(segment: segment)
-  }
-
-  private func currentSegmentIndex() -> Int {
-    if let currentSegmentID = playerManager.currentSegmentID,
-      let index = segments.firstIndex(where: { $0.id == currentSegmentID })
-    {
-      return index
-    }
-    return 0
-  }
-
-  private func applySegment(at index: Int) {
-    guard segments.indices.contains(index) else {
-      return
-    }
-    let segment = segments[index]
-    selectSegment(segment)
-  }
-
-  private func jumpToPreviousSegment() {
-    guard !segments.isEmpty else { return }
-    let currentIndex = currentSegmentIndex()
-    let newIndex = max(0, currentIndex - 1)
-    applySegment(at: newIndex)
-  }
-
-  private func jumpToNextSegment() {
-    guard !segments.isEmpty else { return }
-    let currentIndex = currentSegmentIndex()
-    let newIndex = min(segments.count - 1, currentIndex + 1)
-    applySegment(at: newIndex)
-  }
 
   // MARK: - Helpers
 

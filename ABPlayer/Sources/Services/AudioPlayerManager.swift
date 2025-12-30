@@ -39,6 +39,10 @@ final class AudioPlayerManager {
   var currentFile: AudioFile?
   var sessionTracker: SessionTracker?
 
+  var avPlayer: AVPlayer? {
+    get async { await _engine.currentPlayer }
+  }
+
   var isPlaying: Bool = false
   var currentTime: Double = 0
   var duration: Double = 0
@@ -430,6 +434,8 @@ actor AudioPlayerEngine {
   private var currentScopedURL: URL?
   private var lastPersistedTime: Double = 0
   private var lastPlaybackTick: Double?
+
+  var currentPlayer: AVPlayer? { player }
 
   func load(
     bookmarkData: Data,

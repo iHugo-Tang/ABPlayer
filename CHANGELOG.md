@@ -1,3 +1,18 @@
+## [0.2.0] - 2025-12-30
+
+### Features
+- Add video playback functionality with a dedicated player view, controls, and segment display.
+- Persist and restore player loop mode using AppStorage.
+- Add word creation date, enable 'Remember' action after 12 hours, and refactor word menu actions to use cleaned words.
+- Introduce vocabulary removal, display remembered counts, and refactor word menu buttons with a new `MenuButton` component.
+
+### Improvements
+- rename PlayerView to AudioPlayerView
+
+### Other
+- Replace conditional checkmark for selected loop mode with dedicated icon for each option.
+
+
 ## [0.1.23] - 2025-12-29
 
 ### Features

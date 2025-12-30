@@ -13,7 +13,9 @@ final class FolderImporter {
   }
 
   /// Supported file extensions
-  static let audioExtensions: Set<String> = ["mp3", "m4a", "wav", "aac"]
+  static let audioExtensions: Set<String> = [
+    "mp3", "m4a", "wav", "aac", "mp4", "mov", "m4v", "avi", "mkv",
+  ]
   static let subtitleExtensions: Set<String> = ["srt", "vtt"]
   static let pdfExtension = "pdf"
 

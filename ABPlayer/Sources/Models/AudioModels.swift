@@ -147,4 +147,11 @@ extension AudioFile {
     guard let url = try? resolveURL() else { return false }
     return FileManager.default.fileExists(atPath: url.path)
   }
+
+  static let videoExtensions: Set<String> = ["mp4", "mov", "m4v", "avi", "mkv"]
+
+  var isVideo: Bool {
+    let ext = (displayName as NSString).pathExtension.lowercased()
+    return Self.videoExtensions.contains(ext)
+  }
 }
