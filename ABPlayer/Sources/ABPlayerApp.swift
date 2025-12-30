@@ -35,11 +35,7 @@ struct ABPlayerApp: App {
       let appSupportDir = FileManager.default.urls(
         for: .applicationSupportDirectory, in: .userDomainMask
       ).first!
-      #if DEBUG
-        let folderName = "cc.ihugo.app.ABPlayer-dev"
-      #else
-        let folderName = "cc.ihugo.app.ABPlayer"
-      #endif
+      let folderName = Bundle.main.bundleIdentifier ?? "cc.ihugo.app.ABPlayer"
 
       let storeURL = appSupportDir.appendingPathComponent(
         folderName, isDirectory: true

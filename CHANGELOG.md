@@ -1,3 +1,15 @@
+## [0.2.3] - 2025-12-30
+
+### Features
+- Rework typography system, enhance subtitle font size selection, and introduce a development build target.
+- Add configurable font size for subtitles and integrate it into the subtitle rendering components.
+- reimplement pause countdown UI as an overlay in subtitle view and remove old indicator from transcription view.
+
+### Improvements
+- use bundle identifier to dynamically determine app support folder name
+- Remove redundant frame and background styling from VideoPlayerView.
+
+
 ## [0.2.2] - 2025-12-30
 
 ### Features
