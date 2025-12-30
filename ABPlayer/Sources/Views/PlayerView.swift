@@ -25,6 +25,9 @@ struct PlayerView: View {
   @AppStorage("playerVolume") private var playerVolume: Double = 1.0
   @State private var showVolumePopover: Bool = false
 
+  // Loop Mode Persistence
+  @AppStorage("playerLoopMode") private var storedLoopMode: String = LoopMode.none.rawValue
+
   var body: some View {
     GeometryReader { geometry in
       let availableWidth = geometry.size.width
@@ -102,7 +105,14 @@ struct PlayerView: View {
     .onChange(of: playerVolume) { _, newValue in
       playerManager.setVolume(Float(newValue))
     }
+    .onChange(of: playerManager.loopMode) { _, newValue in
+      storedLoopMode = newValue.rawValue
+    }
     .onAppear {
+      // Restore persisted loop mode
+      if let mode = LoopMode(rawValue: storedLoopMode) {
+        playerManager.loopMode = mode
+      }
       if playerManager.currentFile?.id == audioFile.id,
         playerManager.currentFile != nil
       {
