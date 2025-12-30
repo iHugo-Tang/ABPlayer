@@ -81,6 +81,7 @@ struct FolderNavigationView: View {
         HStack(spacing: 4) {
           if !navigationPath.isEmpty {
             Label("Back", systemImage: "chevron.left")
+              .font(.title2)
               .labelStyle(.iconOnly)
           }
 
@@ -237,7 +238,7 @@ struct FolderNavigationView: View {
       VStack(alignment: .leading) {
         Text(folder.name)
           .lineLimit(1)
-          .font(.appHeadline)
+          .bodyStyle()
 
         let count = folder.audioFiles.count + folder.subfolders.count
         Text("\(count) items")
@@ -280,6 +281,7 @@ struct FolderNavigationView: View {
           .lineLimit(1)
           .strikethrough(!isAvailable, color: .secondary)
           .foregroundStyle(isAvailable ? .primary : .secondary)
+          .bodyStyle()
 
         HStack(spacing: 4) {
           if !isAvailable {

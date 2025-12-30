@@ -11,8 +11,7 @@ struct TranscriptionView: View {
   @Environment(AudioPlayerManager.self) private var playerManager
   @Environment(\.modelContext) private var modelContext
 
-  @AppStorage("subtitleFontSize") private var subtitleFontSize: Double = 20
-  private let defaultFontSize: Double = 20
+  @AppStorage("subtitleFontSize") private var subtitleFontSize: Double = 16
 
   @State private var cachedCues: [SubtitleCue] = []
   @State private var hasCheckedCache = false
@@ -98,27 +97,25 @@ struct TranscriptionView: View {
 
         Spacer()
 
-        // Subtitle Font
-        HStack(spacing: 8) {
-          Stepper(
-            value: $subtitleFontSize,
-            in: 12...36,
-            step: 2
-          ) {
-            Text("Font: \(Int(subtitleFontSize))")
-              .monospacedDigit()
+        // Subtitle Font Size Picker
+        HStack(spacing: 0) {
+          ForEach([("Small", 14.0), ("Medium", 16.0), ("Large", 18.0)], id: \.0) { label, size in
+            Button {
+              subtitleFontSize = size
+            } label: {
+              Text(label)
+                .font(.caption)
+                .padding(.horizontal, 12)
+                .padding(.vertical, 6)
+            }
+            .buttonStyle(.plain)
+            .background(
+              subtitleFontSize == size ? Color.accentColor : Color.secondary.opacity(0.15)
+            )
+            .foregroundStyle(subtitleFontSize == size ? .white : .secondary)
           }
-          .fixedSize()
-
-          Button {
-            subtitleFontSize = defaultFontSize
-          } label: {
-            Image(systemName: "arrow.counterclockwise")
-          }
-          .buttonStyle(.borderless)
-          .foregroundStyle(.secondary)
-          .disabled(subtitleFontSize == defaultFontSize)
         }
+        .clipShape(RoundedRectangle(cornerRadius: 6))
       }
       .padding(.horizontal, 12)
       .padding(.vertical, 8)

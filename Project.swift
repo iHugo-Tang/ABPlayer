@@ -28,7 +28,28 @@ let project = Project(
         "ABPlayer/Resources",
       ],
       dependencies: [
-        .external(name: "Sentry-Dynamic"),
+        .external(name: "Sentry"),
+        .external(name: "WhisperKit"),
+        .external(name: "KeyboardShortcuts"),
+      ],
+    ),
+    .target(
+      name: "ABPlayer-Dev",
+      destinations: .macOS,
+      product: .app,
+      bundleId: "cc.ihugo.app.ABPlayer",
+      deploymentTargets: .macOS("15.7.2"),
+      infoPlist: .extendingDefault(with: [
+        "CFBundleVersion": "nightly-f1e431b",
+        "CFBundleShortVersionString": "0.2.2",
+        "NSMainStoryboardFile": "",
+      ]),
+      buildableFolders: [
+        "ABPlayer/Sources",
+        "ABPlayer/Resources",
+      ],
+      dependencies: [
+        .external(name: "Sentry"),
         .external(name: "WhisperKit"),
         .external(name: "KeyboardShortcuts"),
       ],

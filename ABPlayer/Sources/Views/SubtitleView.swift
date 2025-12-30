@@ -273,7 +273,7 @@ private struct SubtitleCueRow: View {
   var body: some View {
     HStack(alignment: .firstTextBaseline, spacing: 12) {
       Text(timeString(from: cue.startTime))
-        .font(.system(.subheadline, design: .monospaced))
+        .font(.system(size: max(11, fontSize - 4), design: .monospaced))
         .foregroundStyle(isActive ? .primary : .tertiary)
         .frame(width: 52, alignment: .trailing)
 
