@@ -1,3 +1,12 @@
+## [0.1.21] - 2025-12-29
+
+### Features
+- trigger `onDismiss` callback when the popover is dismissed
+
+### Chores
+- Add padding to individual subtitle words.
+
+
 ## [0.1.20] - 2025-12-29
 
 ### Features

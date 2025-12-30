@@ -392,7 +392,13 @@ private struct InteractiveWordView: View {
       )
       .onHover { onHoverChanged($0) }
       .onTapGesture { onTap() }
-      .popover(isPresented: .constant(isSelected), arrowEdge: .bottom) {
+      .popover(
+        isPresented: Binding(
+          get: { isSelected },
+          set: { if !$0 { onDismiss() } }
+        ),
+        arrowEdge: .bottom
+      ) {
         WordMenuView(
           word: word, onDismiss: onDismiss, onForgot: onForgot,
           onRemembered: onRemembered, onHoverChanged: onMenuHoverChanged,
