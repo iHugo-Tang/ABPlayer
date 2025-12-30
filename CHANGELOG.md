@@ -1,3 +1,10 @@
+## [0.2.2] - 2025-12-30
+
+### Features
+- reimplement pause countdown UI as an overlay in subtitle view and remove old indicator from transcription view.
+- Add number-based sorting options and persist the selected sort order using AppStorage.
+
+
 ## [0.2.1] - 2025-12-30
 
 ### Features

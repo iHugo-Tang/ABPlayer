@@ -23,46 +23,56 @@ struct SubtitleView: View {
   @State private var wasPlayingBeforeWordInteraction = false
 
   var body: some View {
-    ScrollViewReader { proxy in
-      ScrollView {
-        LazyVStack(alignment: .leading, spacing: 8) {
-          ForEach(cues) { cue in
-            SubtitleCueRow(
-              cue: cue,
-              isActive: cue.id == currentCueID,
-              selectedWordIndex: selectedWord?.cueID == cue.id ? selectedWord?.wordIndex : nil,
-              onWordSelected: { wordIndex in
-                handleWordSelection(wordIndex: wordIndex, cueID: cue.id)
-              },
-              onTap: {
-                dismissWord()
-                playerManager.seek(to: cue.startTime)
-              }
-            )
-            .id(cue.id)
+    ZStack(alignment: .topTrailing) {
+      ScrollViewReader { proxy in
+        ScrollView {
+          LazyVStack(alignment: .leading, spacing: 8) {
+            ForEach(cues) { cue in
+              SubtitleCueRow(
+                cue: cue,
+                isActive: cue.id == currentCueID,
+                selectedWordIndex: selectedWord?.cueID == cue.id ? selectedWord?.wordIndex : nil,
+                onWordSelected: { wordIndex in
+                  handleWordSelection(wordIndex: wordIndex, cueID: cue.id)
+                },
+                onTap: {
+                  dismissWord()
+                  playerManager.seek(to: cue.startTime)
+                }
+              )
+              .id(cue.id)
+            }
+          }
+          .padding(.horizontal, 12)
+          .padding(.vertical, 8)
+        }
+        .onScrollPhaseChange { _, newPhase in
+          handleScrollPhaseChange(newPhase)
+        }
+        .onChange(of: currentCueID) { _, newValue in
+          guard !isUserScrolling, let id = newValue else { return }
+          withAnimation(.easeInOut(duration: 0.25)) {
+            proxy.scrollTo(id, anchor: .center)
           }
         }
-        .padding(.horizontal, 12)
-        .padding(.vertical, 8)
-      }
-      .onScrollPhaseChange { _, newPhase in
-        handleScrollPhaseChange(newPhase)
-      }
-      .onChange(of: currentCueID) { _, newValue in
-        guard !isUserScrolling, let id = newValue else { return }
-        withAnimation(.easeInOut(duration: 0.25)) {
-          proxy.scrollTo(id, anchor: .center)
+        .onChange(of: cues) { _, _ in
+          scrollResumeTask?.cancel()
+          scrollResumeTask = nil
+          isUserScrolling = false
+          currentCueID = nil
+          countdownSeconds = nil
+          selectedWord = nil
         }
       }
-      .onChange(of: cues) { _, _ in
-        scrollResumeTask?.cancel()
-        scrollResumeTask = nil
-        isUserScrolling = false
-        currentCueID = nil
-        countdownSeconds = nil
-        selectedWord = nil
+
+      // Countdown indicator overlay in top right corner
+      if let countdown = countdownSeconds {
+        CountdownRingView(countdown: countdown, total: Self.pauseDuration)
+          .padding(12)
+          .transition(.scale.combined(with: .opacity))
       }
     }
+    .animation(.easeInOut(duration: 0.2), value: countdownSeconds != nil)
     .task {
       await trackCurrentCue()
     }
@@ -537,5 +547,49 @@ struct SubtitleEmptyView: View {
       systemImage: "text.bubble",
       description: Text("This audio file has no associated subtitle file")
     )
+  }
+}
+
+// MARK: - Countdown Ring View
+
+/// Circular countdown indicator with progress ring
+private struct CountdownRingView: View {
+  let countdown: Int
+  let total: Int
+
+  private var progress: Double {
+    guard total > 0 else { return 0 }
+    return Double(countdown) / Double(total)
+  }
+
+  var body: some View {
+    ZStack {
+      // Background ring
+      Circle()
+        .stroke(Color.secondary.opacity(0.2), lineWidth: 3)
+
+      // Progress ring
+      Circle()
+        .trim(from: 0, to: progress)
+        .stroke(
+          Color.accentColor,
+          style: StrokeStyle(lineWidth: 3, lineCap: .round)
+        )
+        .rotationEffect(.degrees(-90))
+        .animation(.linear(duration: 1), value: progress)
+
+      // Countdown number
+      Text("\(countdown)")
+        .font(.system(.caption, design: .rounded, weight: .semibold))
+        .monospacedDigit()
+        .foregroundStyle(.primary)
+    }
+    .frame(width: 32, height: 32)
+    .padding(6)
+    .background {
+      RoundedRectangle(cornerRadius: 10, style: .continuous)
+        .fill(.ultraThinMaterial)
+        .shadow(color: .black.opacity(0.1), radius: 4, x: 0, y: 2)
+    }
   }
 }
