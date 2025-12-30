@@ -164,8 +164,6 @@ struct VideoPlayerView: View {
         }
       }
       .aspectRatio(16 / 9, contentMode: .fit)
-      .frame(maxWidth: .infinity)
-      .background(Color.black)
 
       // 2. Controls Area (Fixed height)
       VStack(spacing: 12) {
