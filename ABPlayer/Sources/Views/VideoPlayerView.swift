@@ -153,15 +153,7 @@ struct VideoPlayerView: View {
         }
       }
     }
-    .onChange(of: audioFile) { _, newFile in
-      Task {
-        // When selection changes, reload if needed and update player
-        if playerManager.currentFile?.id != newFile.id {
-          await playerManager.load(audioFile: newFile)
-        }
-        self.currentPlayer = await playerManager.avPlayer
-      }
-    }
+
   }
 
   // MARK: - Video Section

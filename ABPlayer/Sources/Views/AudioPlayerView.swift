@@ -133,13 +133,7 @@ struct AudioPlayerView: View {
         Task { await playerManager.load(audioFile: audioFile) }
       }
     }
-    .onChange(of: audioFile) { _, newFile in
-      Task {
-        if playerManager.currentFile?.id != newFile.id {
-          await playerManager.load(audioFile: newFile)
-        }
-      }
-    }
+
   }
 
   // MARK: - Player Section
