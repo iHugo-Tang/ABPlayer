@@ -75,7 +75,7 @@ jobs:
     - name: Get Current Version
       id: get_version
       run: |
-        VERSION=$(grep 'let shortVersionString =' Project.swift | sed -E 's/.*"([^"]+)".*/\1/')
+        VERSION=$(grep 'let buildVersionString =' Project.swift | sed -E 's/.*"([^"]+)".*/\1/')
         echo "version=$VERSION" >> $GITHUB_OUTPUT
         echo "Current Version: $VERSION"
 
