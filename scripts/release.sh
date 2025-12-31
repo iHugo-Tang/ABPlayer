@@ -39,7 +39,8 @@ fi
 echo "Generating changelog for version $NEW_VERSION..."
 
 DATE=$(date +%Y-%m-%d)
-HEADER="## [$NEW_VERSION] - $DATE"
+FULL_VERSION="${NEW_VERSION}.${NEW_BUILD}"
+HEADER="## [$FULL_VERSION] - $DATE"
 
 # Determine commit range
 if [ -f "$STATE_FILE" ]; then
