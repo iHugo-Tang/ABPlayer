@@ -1,5 +1,11 @@
 ## [0.2.6] - 2025-12-31
 
+### Chores
+- Increment project version to 0.2.6 and update changelog and release state.
+
+
+## [0.2.6] - 2025-12-31
+
 ### Other
 - Merge pull request #50 from sunset-valley/feat/auto-update
 

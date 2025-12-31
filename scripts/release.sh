@@ -7,62 +7,36 @@ GREEN='\033[0;32m'
 RED='\033[0;31m'
 NC='\033[0m' # No Color
 
-# GitHub repository info
-REPO_OWNER="sunset-valley"
-REPO_NAME="ABPlayer"
-
-# Function to increment patch version
-increment_version() {
-    local version=$1
-    # Remove 'v' prefix if present
-    version=${version#v}
-    
-    # Split version into parts
-    IFS='.' read -ra parts <<< "$version"
-    local major=${parts[0]:-0}
-    local minor=${parts[1]:-0}
-    local patch=${parts[2]:-0}
-    
-    # Increment patch version
-    patch=$((patch + 1))
-    
-    echo "$major.$minor.$patch"
-}
-
-# Check if version argument is provided
-if [ -z "$1" ]; then
-    echo "No version specified. Fetching latest version from GitHub releases..."
-    
-    # Get latest release version from GitHub API
-    LATEST_VERSION=$(curl -s "https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/releases/latest" | grep '"tag_name":' | sed -E 's/.*"([^"]+)".*/\1/')
-    
-    if [ -z "$LATEST_VERSION" ]; then
-        echo -e "${RED}Error: Could not fetch latest version from GitHub. Please provide a version manually.${NC}"
-        exit 1
-    fi
-    
-    echo "Latest version: $LATEST_VERSION"
-    NEW_VERSION=$(increment_version "$LATEST_VERSION")
-    echo "New version: $NEW_VERSION"
-else
-    NEW_VERSION="$1"
-fi
 PROJECT_FILE="Project.swift"
 CHANGELOG_FILE="CHANGELOG.md"
 STATE_FILE=".release_state"
 
-# 1. Update Project.swift
-echo "Updating version to $NEW_VERSION in $PROJECT_FILE..."
-if [ -f "$PROJECT_FILE" ]; then
-    # Update CFBundleShortVersionString
-    sed -i '' "s/let shortVersionString = \".*\"/let shortVersionString = \"$NEW_VERSION\"/" "$PROJECT_FILE"
-else
+if [ ! -f "$PROJECT_FILE" ]; then
     echo -e "${RED}Error: $PROJECT_FILE not found!${NC}"
     exit 1
 fi
 
-# 2. Generate Changelog
-echo "Generating changelog..."
+# 1. Update Build Version (Always increments)
+echo "Reading current build version..."
+CURRENT_BUILD=$(grep 'let buildVersionString' "$PROJECT_FILE" | sed -E 's/.*"([0-9]+)".*/\1/')
+NEW_BUILD=$((CURRENT_BUILD + 1))
+echo "Incrementing build version: $CURRENT_BUILD -> $NEW_BUILD"
+
+sed -i '' "s/let buildVersionString = \"$CURRENT_BUILD\"/let buildVersionString = \"$NEW_BUILD\"/" "$PROJECT_FILE"
+
+# 2. Update Short Version (Only if argument provided)
+if [ -n "$1" ]; then
+    NEW_VERSION="$1"
+    echo "Updating short version to: $NEW_VERSION"
+    sed -i '' "s/let shortVersionString = \".*\"/let shortVersionString = \"$NEW_VERSION\"/" "$PROJECT_FILE"
+else
+    # Read existing short version
+    NEW_VERSION=$(grep 'let shortVersionString' "$PROJECT_FILE" | sed -E 's/.*"([^"]+)".*/\1/')
+    echo "No version specified. Keeping existing short version: $NEW_VERSION"
+fi
+
+# 3. Generate Changelog
+echo "Generating changelog for version $NEW_VERSION..."
 
 DATE=$(date +%Y-%m-%d)
 HEADER="## [$NEW_VERSION] - $DATE"
@@ -164,7 +138,7 @@ fi
 
 echo -e "${GREEN}Changelog updated.${NC}"
 
-# 3. Update State File
+# 4. Update State File
 CURRENT_HEAD=$(git rev-parse HEAD)
 echo "$CURRENT_HEAD" > "$STATE_FILE"
 echo "Updated release state to $CURRENT_HEAD"
