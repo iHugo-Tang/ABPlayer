@@ -1,3 +1,18 @@
+## [0.2.6.34] - 2025-12-31
+
+### Features
+- add Telegram notification for successful releases
+
+### Improvements
+- Centralize vocabulary query in SubtitleView and pass map to subtitle rows for efficient lookup.
+
+### Chores
+- set development bundle ID
+
+### Other
+- Merge pull request #58 from sunset-valley/ci/tg
+
+
 ## [0.2.6.33] - 2025-12-31
 
 ### Features

@@ -4,6 +4,7 @@ import SwiftUI
 /// Displays synchronized subtitles with current playback position highlighted
 struct SubtitleView: View {
   @Environment(AudioPlayerManager.self) private var playerManager
+  @Query private var vocabularies: [Vocabulary]
 
   let cues: [SubtitleCue]
   /// Binding to expose countdown seconds to parent (nil when not paused)
@@ -24,6 +25,10 @@ struct SubtitleView: View {
   /// Tracks if playback was playing before word interaction (for cross-row dismiss)
   @State private var wasPlayingBeforeWordInteraction = false
 
+  private var vocabularyMap: [String: Vocabulary] {
+    Dictionary(vocabularies.map { ($0.word, $0) }, uniquingKeysWith: { first, _ in first })
+  }
+
   var body: some View {
     ZStack(alignment: .topTrailing) {
       ScrollViewReader { proxy in
@@ -33,7 +38,9 @@ struct SubtitleView: View {
               SubtitleCueRow(
                 cue: cue,
                 isActive: cue.id == currentCueID,
+
                 fontSize: fontSize,
+                vocabularyMap: vocabularyMap,
                 selectedWordIndex: selectedWord?.cueID == cue.id ? selectedWord?.wordIndex : nil,
                 onWordSelected: { wordIndex in
                   handleWordSelection(wordIndex: wordIndex, cueID: cue.id)
@@ -191,11 +198,11 @@ struct SubtitleView: View {
 
 private struct SubtitleCueRow: View {
   @Environment(\.modelContext) private var modelContext
-  @Query private var vocabularies: [Vocabulary]
 
   let cue: SubtitleCue
   let isActive: Bool
   let fontSize: Double
+  let vocabularyMap: [String: Vocabulary]
   let selectedWordIndex: Int?
   let onWordSelected: (Int?) -> Void
   let onHidePopover: () -> Void
@@ -217,7 +224,7 @@ private struct SubtitleCueRow: View {
   /// Find vocabulary entry for a word
   private func findVocabulary(for word: String) -> Vocabulary? {
     let normalized = normalize(word)
-    return vocabularies.first { $0.word == normalized }
+    return vocabularyMap[normalized]
   }
 
   /// Get difficulty level for a word (nil if not in vocabulary or level is 0)
