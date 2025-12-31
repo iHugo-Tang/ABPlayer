@@ -1,3 +1,13 @@
+## [0.2.6.31] - 2025-12-31
+
+### Features
+- Reactively load audio files in the player view and remove explicit loading from the main split view.
+- Implement volume debouncing and add a reset volume button to player views.
+
+### Other
+- Merge pull request #55 from sunset-valley/feat/volume-boosting
+
+
 ## [0.2.6.30] - 2025-12-31
 
 ### Features
