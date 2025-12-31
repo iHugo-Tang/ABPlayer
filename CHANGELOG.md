@@ -1,3 +1,26 @@
+## [0.2.6] - 2025-12-31
+
+### Other
+- Merge pull request #50 from sunset-valley/feat/auto-update
+
+
+## [0.2.6] - 2025-12-31
+
+### Features
+- Integrate Sparkle for in-app updates and automate release artifact generation in CI.
+- Observe AVPlayer rate to update playback state and manage session tracking and progress persistence.
+- Release 0.2.5 with `autoPlayNext` playback mode, updated icons, and UI enhancements.
+
+### Improvements
+- Introduce `onHidePopover` for explicit word selection dismissal and simplify hover-based deselection logic.
+
+### Chores
+- ignore buildServer.json
+
+### Other
+- Merge pull request #49 from sunset-valley/feat/loopmode-auto-next1
+
+
 ## [0.2.5] - 2025-12-30
 
 ### Features
