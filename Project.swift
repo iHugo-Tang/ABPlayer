@@ -1,5 +1,6 @@
 import ProjectDescription
 
+let buildVersionString = "27"
 let shortVersionString = "0.2.6"
 let project = Project(
   name: "ABPlayer",
@@ -20,7 +21,7 @@ let project = Project(
       bundleId: "cc.ihugo.app.ABPlayer",
       deploymentTargets: .macOS("15.7.2"),
       infoPlist: .extendingDefault(with: [
-        "CFBundleVersion": "nightly-f1e431b",
+        "CFBundleVersion": .string(buildVersionString),
         "CFBundleShortVersionString": .string(shortVersionString),
         "NSMainStoryboardFile": "",
         "SUFeedURL":
@@ -46,7 +47,7 @@ let project = Project(
       bundleId: "cc.ihugo.app.ABPlayer",
       deploymentTargets: .macOS("15.7.2"),
       infoPlist: .extendingDefault(with: [
-        "CFBundleVersion": "nightly-f1e431b",
+        "CFBundleVersion": .string(buildVersionString),
         "CFBundleShortVersionString": .string(shortVersionString),
         "NSMainStoryboardFile": "",
         "SUFeedURL":
