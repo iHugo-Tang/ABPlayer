@@ -234,3 +234,13 @@ jobs:
           --org "$SENTRY_ORG" \
           --project "$SENTRY_PROJECT" \
           DerivedData/Build/Products/Release/ABPlayer.app.dSYM
+
+    - name: Send Telegram Notification
+      if: steps.compare_versions.outputs.should_release == 'true'
+      env:
+        TELEGRAM_TO: ${{ secrets.TELEGRAM_TO }}
+        TELEGRAM_TOKEN: ${{ secrets.TELEGRAM_TOKEN }}
+      run: |
+        VERSION="${{ steps.get_version.outputs.version }}"
+        MESSAGE="Release Success: $VERSION"
+        curl -s -X POST https://api.telegram.org/bot$TELEGRAM_TOKEN/sendMessage -d chat_id=$TELEGRAM_TO -d text="$MESSAGE"
