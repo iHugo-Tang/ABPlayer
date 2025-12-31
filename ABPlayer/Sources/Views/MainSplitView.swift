@@ -62,6 +62,7 @@ public struct MainSplitView: View {
       .onChange(of: windowGeometry.size) { _, newSize in
         print("[Debug] Window size changed: \(newSize.width) x \(newSize.height)")
       }
+      .frame(minWidth: 1000, minHeight: 600)
     }
     .fileImporter(
       isPresented: $isImportingFile,
