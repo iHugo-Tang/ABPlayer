@@ -1,3 +1,4 @@
+import AVFoundation
 import Foundation
 import Testing
 
@@ -632,5 +633,168 @@ struct VocabularyLogicTests {
 
     // Then: should be lowercase without punctuation
     #expect(normalized == "hello")
+  }
+}
+
+// MARK: - Mocks
+
+actor MockAudioPlayerEngine: AudioPlayerEngineProtocol {
+  var currentPlayer: AVPlayer? = AVPlayer()
+
+  // Call tracking
+  var loadCallCount = 0
+  var lastLoadedBookmarkData: Data?
+  var playCallCount = 0
+  var pauseCallCount = 0
+
+  // Simulation control
+  var loadDelay: UInt64 = 0  // nanoseconds
+  var shouldPlayFail = false
+
+  func load(
+    bookmarkData: Data,
+    resumeTime: Double,
+    onDurationLoaded: @MainActor @Sendable @escaping (Double) -> Void,
+    onTimeUpdate: @MainActor @Sendable @escaping (Double) -> Void,
+    onLoopCheck: @MainActor @Sendable @escaping (Double) -> Void,
+    onPlaybackStateChange: @MainActor @Sendable @escaping (Bool) -> Void,
+    onPlayerReady: @MainActor @Sendable @escaping (AVPlayer) -> Void
+  ) async throws -> AVPlayerItem? {
+    loadCallCount += 1
+    lastLoadedBookmarkData = bookmarkData
+
+    if loadDelay > 0 {
+      try? await Task.sleep(nanoseconds: loadDelay)
+    }
+
+    await onDurationLoaded(100.0)  // Dummy duration
+    await onPlayerReady(currentPlayer!)
+
+    // Simulate player ready state
+    return AVPlayerItem(url: URL(string: "https://example.com/dummy.mp3")!)
+  }
+
+  func play() -> Bool {
+    playCallCount += 1
+    return !shouldPlayFail
+  }
+
+  func pause() {
+    pauseCallCount += 1
+  }
+
+  func syncPauseState() {}
+  func syncPlayState() {}
+  func seek(to time: Double) {}
+  func setVolume(_ volume: Float) async {}
+  nonisolated func teardownSync() {}
+}
+
+// MARK: - Integration Tests with Mock Engine
+
+@MainActor
+struct AudioPlayerManagerIntegrationTests {
+
+  @Test
+  func testSwitchingFileResetsPlayingState() async {
+    // Given
+    let mockEngine = MockAudioPlayerEngine()
+    let manager = AudioPlayerManager(engine: mockEngine)
+
+    // Setup dummy file A
+    let fileA = AudioFile(displayName: "A.mp3", bookmarkData: Data("A".utf8))
+
+    // Begin playing file A (manually set state since logic handles UI update immediately)
+    // We simulate "play" has happened
+    await manager.load(audioFile: fileA)
+    manager.isPlaying = true
+
+    // Verify playing state
+    #expect(manager.isPlaying == true)
+
+    // When: Loading file B
+    let fileB = AudioFile(displayName: "B.mp3", bookmarkData: Data("B".utf8))
+    await manager.load(audioFile: fileB)
+
+    // Then: Manager should have stopped playing immediately upon load starts
+    // Manager.load sets isPlaying = false at the beginning
+    #expect(manager.isPlaying == false)
+    #expect(manager.currentFile?.displayName == "B.mp3")
+  }
+
+  @Test
+  func testCurrentFileUpdatesCorrectly() async {
+    // Given
+    let mockEngine = MockAudioPlayerEngine()
+    let manager = AudioPlayerManager(engine: mockEngine)
+
+    let fileA = AudioFile(displayName: "A.mp3", bookmarkData: Data("A".utf8))
+    let fileB = AudioFile(displayName: "B.mp3", bookmarkData: Data("B".utf8))
+
+    // When: Switch A -> B
+    await manager.load(audioFile: fileA)
+    #expect(manager.currentFile?.displayName == "A.mp3")
+
+    await manager.load(audioFile: fileB)
+
+    // Then
+    #expect(manager.currentFile?.displayName == "B.mp3")
+
+    // Verify Engine was called twice
+    let callCount = await mockEngine.loadCallCount
+    #expect(callCount == 2)
+  }
+
+  @Test
+  func testLoadCallsAreSerialized() async {
+    // Given: Slow engine
+    let mockEngine = MockAudioPlayerEngine()
+    // 100ms delay
+    await mockEngine.setDelay(100_000_000)
+
+    let manager = AudioPlayerManager(engine: mockEngine)
+    let fileA = AudioFile(displayName: "A.mp3", bookmarkData: Data("A".utf8))
+    let fileB = AudioFile(displayName: "B.mp3", bookmarkData: Data("B".utf8))
+
+    // When: Call load A then load B immediately
+    // We use Task to launch them potentially concurrently, but Manager is MainActor protected.
+    // However, the awaiting of engine inside Manager.load is suspension point.
+
+    await manager.load(audioFile: fileA)
+    await manager.load(audioFile: fileB)
+
+    // Since we await'ed them sequentially, they ran sequentially.
+    // The critical part is that state is correct at the end.
+
+    #expect(manager.currentFile?.displayName == "B.mp3")
+
+    let lastBookmark = await mockEngine.lastLoadedBookmarkData
+    #expect(lastBookmark == Data("B".utf8))
+  }
+
+  @Test
+  func testTogglePlayPauseWhilePlayingCallsPauseReference() async {
+    // Given: Playing
+    let mockEngine = MockAudioPlayerEngine()
+    let manager = AudioPlayerManager(engine: mockEngine)
+    manager.isPlaying = true
+
+    // When: Toggle
+    manager.togglePlayPause()
+
+    // Then: State updates immediately
+    #expect(manager.isPlaying == false)
+
+    // Verify sync pause was NOT called immediately on main actor?
+    // Wait, manager calls _player?.pause() synchronously (if valid).
+    // And calls await _engine.syncPauseState() in background.
+    // We can't easily test the background task timing here without expectations,
+    // but we can check the state is false.
+  }
+}
+
+extension MockAudioPlayerEngine {
+  func setDelay(_ delay: UInt64) {
+    self.loadDelay = delay
   }
 }

@@ -32,12 +32,42 @@ enum LoopMode: String, CaseIterable {
   }
 }
 
+// MARK: - Audio Engine Protocol
+
+protocol AudioPlayerEngineProtocol: Actor {
+  var currentPlayer: AVPlayer? { get }
+
+  func load(
+    bookmarkData: Data,
+    resumeTime: Double,
+    onDurationLoaded: @MainActor @Sendable @escaping (Double) -> Void,
+    onTimeUpdate: @MainActor @Sendable @escaping (Double) -> Void,
+    onLoopCheck: @MainActor @Sendable @escaping (Double) -> Void,
+    onPlaybackStateChange: @MainActor @Sendable @escaping (Bool) -> Void,
+    onPlayerReady: @MainActor @Sendable @escaping (AVPlayer) -> Void
+  ) async throws -> AVPlayerItem?
+
+  func play() -> Bool
+  func pause()
+  func syncPauseState()
+  func syncPlayState()
+  func seek(to time: Double)
+  func setVolume(_ volume: Float) async
+  nonisolated func teardownSync()
+}
+
 // MARK: - Observable UI State (MainActor)
 
 @MainActor
 @Observable
 final class AudioPlayerManager {
-  private let _engine = AudioPlayerEngine()
+  private let _engine: any AudioPlayerEngineProtocol
+
+  init(engine: (any AudioPlayerEngineProtocol)? = nil) {
+    self._engine = engine ?? AudioPlayerEngine()
+  }
+
+  private weak var _player: AVPlayer?
 
   var currentFile: AudioFile?
   var sessionTracker: SessionTracker?
@@ -140,6 +170,10 @@ final class AudioPlayerManager {
         },
         onPlaybackStateChange: { [weak self] isPlaying in
           self?.handlePlaybackStateUpdate(isPlaying)
+        },
+        onPlayerReady: { [weak self] player in
+          // ✅ P1 优化: 保存播放器直接引用
+          self?._player = player
         }
       )
 
@@ -231,28 +265,68 @@ final class AudioPlayerManager {
   }
 
   func togglePlayPause() {
+    let startTime = CFAbsoluteTimeGetCurrent()
+    print("[Performance] togglePlayPause() called, isPlaying: \(isPlaying)")
+
     if isPlaying {
+      // ✅ P0 优化: 立即更新 UI 状态
+      isPlaying = false
+      let uiUpdateTime = CFAbsoluteTimeGetCurrent()
+      print(
+        "[Performance] isPlaying = false (immediate) after \((uiUpdateTime - startTime) * 1000)ms")
+
+      // ✅ P1 优化: 直接同步调用 AVPlayer.pause()，无需 await Actor
+      _player?.pause()
+      let pauseTime = CFAbsoluteTimeGetCurrent()
+      print(
+        "[Performance] _player.pause() (sync) completed after \((pauseTime - uiUpdateTime) * 1000)ms"
+      )
+
+      print(
+        "[Performance] User perceives pause after \((CFAbsoluteTimeGetCurrent() - startTime) * 1000)ms"
+      )
+
+      // 后台同步 Actor 状态和持久化
       Task { [weak self] in
         guard let self else { return }
-        await _engine.pause()
-        self.isPlaying = false
+        await _engine.syncPauseState()
         self.sessionTracker?.persistProgress()
+        print(
+          "[Performance] Background sync completed after \((CFAbsoluteTimeGetCurrent() - startTime) * 1000)ms"
+        )
       }
     } else {
+      // ✅ P0 优化: 立即更新 UI 状态
+      isPlaying = true
+      let uiUpdateTime = CFAbsoluteTimeGetCurrent()
+      print(
+        "[Performance] isPlaying = true (immediate) after \((uiUpdateTime - startTime) * 1000)ms")
+
+      // ✅ P1 优化: 直接同步调用 AVPlayer.play()
+      _player?.play()
+      let playTime = CFAbsoluteTimeGetCurrent()
+      print(
+        "[Performance] _player.play() (sync) completed after \((playTime - uiUpdateTime) * 1000)ms")
+
+      print(
+        "[Performance] User perceives play after \((CFAbsoluteTimeGetCurrent() - startTime) * 1000)ms"
+      )
+
+      // 后台同步 Actor 状态和会话追踪
       Task { [weak self] in
         guard let self else { return }
-        let success = await _engine.play()
-        if success {
-          self.isPlaying = true
-          self.sessionTracker?.startSessionIfNeeded()
-          // Update last played time
-          if let file = self.currentFile {
-            if file.playbackRecord == nil {
-              file.playbackRecord = PlaybackRecord(audioFile: file)
-            }
-            file.playbackRecord?.lastPlayedAt = Date()
+        await _engine.syncPlayState()
+        self.sessionTracker?.startSessionIfNeeded()
+        // Update last played time
+        if let file = self.currentFile {
+          if file.playbackRecord == nil {
+            file.playbackRecord = PlaybackRecord(audioFile: file)
           }
+          file.playbackRecord?.lastPlayedAt = Date()
         }
+        print(
+          "[Performance] Background sync completed after \((CFAbsoluteTimeGetCurrent() - startTime) * 1000)ms"
+        )
       }
     }
   }
@@ -452,7 +526,7 @@ final class AudioPlayerManager {
 
 // MARK: - Audio Engine Actor (Background)
 
-actor AudioPlayerEngine {
+actor AudioPlayerEngine: AudioPlayerEngineProtocol {
   private var player: AVPlayer?
   private var timeObserverToken: Any?
   private var currentScopedURL: URL?
@@ -469,7 +543,8 @@ actor AudioPlayerEngine {
     onDurationLoaded: @MainActor @Sendable @escaping (Double) -> Void,
     onTimeUpdate: @MainActor @Sendable @escaping (Double) -> Void,
     onLoopCheck: @MainActor @Sendable @escaping (Double) -> Void,
-    onPlaybackStateChange: @MainActor @Sendable @escaping (Bool) -> Void
+    onPlaybackStateChange: @MainActor @Sendable @escaping (Bool) -> Void,
+    onPlayerReady: @MainActor @Sendable @escaping (AVPlayer) -> Void
   ) async throws -> AVPlayerItem? {
     teardownPlayerInternal()
 
@@ -503,6 +578,9 @@ actor AudioPlayerEngine {
     player.volume = 1.0  // Will be updated by manager
     self.player = player
 
+    // ✅ P1 优化: 通知 Manager 播放器已就绪
+    await onPlayerReady(player)
+
     lastPlaybackTick = nil
     lastPersistedTime = 0
 
@@ -535,6 +613,17 @@ actor AudioPlayerEngine {
   func pause() {
     player?.pause()
     lastPlaybackTick = nil
+  }
+
+  /// ✅ P1 优化: 同步暂停状态（用于直接调用 _player.pause() 后）
+  func syncPauseState() {
+    lastPlaybackTick = nil
+  }
+
+  /// ✅ P1 优化: 同步播放状态（用于直接调用 _player.play() 后）
+  func syncPlayState() {
+    guard let player else { return }
+    lastPlaybackTick = CMTimeGetSeconds(player.currentTime())
   }
 
   func seek(to time: Double) {

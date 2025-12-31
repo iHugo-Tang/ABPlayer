@@ -1,3 +1,16 @@
+## [0.2.6.32] - 2025-12-31
+
+### Features
+- Introduce `AudioPlayerEngineProtocol` to enable `AudioPlayerManager` dependency injection and add integration tests with a mock engine.
+- Reactively load audio files in the player view and remove explicit loading from the main split view.
+
+### Improvements
+- improve play/pause responsiveness by directly controlling AVPlayer and updating UI state immediately.
+
+### Other
+- Merge pull request #56 from sunset-valley/fix/video-swich
+
+
 ## [0.2.6.31] - 2025-12-31
 
 ### Features
