@@ -252,7 +252,7 @@ public struct MainSplitView: View {
       return
     }
 
-//    await playerManager.load(audioFile: file, fromStart: fromStart)
+    await playerManager.load(audioFile: file, fromStart: fromStart)
   }
 
   private func playFile(_ file: AudioFile, fromStart: Bool = false) async {

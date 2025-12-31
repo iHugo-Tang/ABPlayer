@@ -1,3 +1,13 @@
+## [0.2.6.35] - 2025-12-31
+
+### Improvements
+- Remove redundant `onChange` observers for audio file loading and re-enable direct load call in `MainSplitView`.
+- Centralize vocabulary query in SubtitleView and pass map to subtitle rows for efficient lookup.
+
+### Other
+- Merge pull request #59 from sunset-valley/fix/improve-pause
+
+
 ## [0.2.6.34] - 2025-12-31
 
 ### Features
