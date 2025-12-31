@@ -1,3 +1,17 @@
+## [0.2.6.28] - 2025-12-31
+
+### Features
+- Increment project version to 0.2.6, refactor release script to manage build and short versions, and update Project.swift to use a dynamic build version.
+
+### Bug Fixes
+- correct CI version extraction to use buildVersionString instead of shortVersionString
+
+### Other
+- Merge pull request #53 from sunset-valley/feat/auto-update-3
+- Merge pull request #52 from sunset-valley/feat/auto-update-2
+- Merge pull request #51 from sunset-valley/feat/auto-update-1
+
+
 ## [0.2.6] - 2025-12-31
 
 ### Chores
