@@ -4,7 +4,7 @@ import SwiftUI
 #if os(macOS)
   /// A simple wrapper around AVPlayerView that hides all native controls.
   struct NativeVideoPlayer: NSViewRepresentable {
-    let player: AVPlayer
+    let player: AVPlayer?
 
     func makeNSView(context: Context) -> AVPlayerView {
       let view = AVPlayerView()
@@ -15,9 +15,7 @@ import SwiftUI
     }
 
     func updateNSView(_ nsView: AVPlayerView, context: Context) {
-      if nsView.player !== player {
-        nsView.player = player
-      }
+      nsView.player = player
     }
   }
 #endif
