@@ -19,6 +19,8 @@ struct VideoPlayerView: View {
 
   // Persisted panel widths - Independent from AudioPlayerView
   let minWidthOfPlayerSection: CGFloat = 480
+  let minWidthOfContentPanel: CGFloat = 300
+  let dividerWidth: CGFloat = 8
   @AppStorage("videoPlayerSectionWidth") private var videoPlayerSectionWidth: Double = 480  // Wider default for video
 
   // Volume Persistence
@@ -34,12 +36,13 @@ struct VideoPlayerView: View {
   var body: some View {
     GeometryReader { geometry in
       let availableWidth = geometry.size.width
+      let effectiveWidth = clampWidth(videoPlayerSectionWidth, availableWidth: availableWidth)
 
       HStack(spacing: 0) {
         // Left: Video Player + Controls
         videoSection
           .frame(minWidth: minWidthOfPlayerSection)
-          .frame(width: showContentPanel ? videoPlayerSectionWidth : nil)
+          .frame(width: showContentPanel ? effectiveWidth : nil)
 
         // Right: Content panel (PDF, Subtitles only) - takes remaining space
         if showContentPanel {
@@ -63,21 +66,27 @@ struct VideoPlayerView: View {
             .gesture(
               DragGesture(minimumDistance: 1)
                 .onChanged { value in
-                  // Dragging right increases videoSection, left decreases
                   let newWidth = videoPlayerSectionWidth + value.translation.width
-                  // Constrain: min minWidthOfPlayerSection, max leaves at least 200 for content panel
-                  videoPlayerSectionWidth = min(
-                    max(newWidth, minWidthOfPlayerSection), Double(availableWidth) - 208)
+                  videoPlayerSectionWidth = clampWidth(newWidth, availableWidth: availableWidth)
+                  print(
+                    "[Debug] Video player section width: \(videoPlayerSectionWidth) effectiveWidth: \(effectiveWidth)"
+                  )
                 }
             )
 
           // ContentPanelView takes remaining space
           ContentPanelView(audioFile: audioFile)
-            .frame(maxWidth: .infinity)
+            .frame(minWidth: minWidthOfContentPanel, maxWidth: .infinity)
             .transition(.move(edge: .trailing).combined(with: .opacity))
         }
       }
       .animation(.easeInOut(duration: 0.25), value: showContentPanel)
+      .onChange(of: showContentPanel) { _, isShowing in
+        if isShowing {
+          videoPlayerSectionWidth = clampWidth(
+            videoPlayerSectionWidth, availableWidth: availableWidth)
+        }
+      }
     }
     .toolbar {
       ToolbarItem(placement: .automatic) {
@@ -164,6 +173,7 @@ struct VideoPlayerView: View {
         }
       }
       .aspectRatio(16 / 9, contentMode: .fit)
+      .layoutPriority(1)
 
       // 2. Controls Area (Fixed height)
       VStack(spacing: 12) {
@@ -309,6 +319,13 @@ struct VideoPlayerView: View {
       playerManager.setVolume(Float(playerVolume))
     }
     .help("Volume")
+  }
+
+  // MARK: - Layout Helpers
+
+  private func clampWidth(_ width: Double, availableWidth: CGFloat) -> Double {
+    let maxWidth = Double(availableWidth) - dividerWidth - minWidthOfContentPanel
+    return min(max(width, minWidthOfPlayerSection), max(maxWidth, minWidthOfPlayerSection))
   }
 
   // MARK: - Helpers

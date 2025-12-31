@@ -142,7 +142,6 @@ struct SegmentsSection: View {
         .frame(minHeight: 120, maxHeight: .infinity)
       }
     }
-    .frame(maxHeight: .infinity)
   }
 
   // MARK: - Segment Actions

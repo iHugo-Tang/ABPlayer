@@ -156,7 +156,6 @@ struct TranscriptionView: View {
           .font(.subheadline)
           .foregroundStyle(.secondary)
           .multilineTextAlignment(.center)
-          .frame(maxWidth: 280)
       }
 
       Button {

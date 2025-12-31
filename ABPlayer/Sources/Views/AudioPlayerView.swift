@@ -18,6 +18,8 @@ struct AudioPlayerView: View {
 
   // Persisted panel widths
   let minWidthOfPlayerSection: CGFloat = 380
+  let minWidthOfContentPanel: CGFloat = 300
+  let dividerWidth: CGFloat = 8
   @AppStorage("playerSectionWidth") private var playerSectionWidth: Double = 380
 
   // Volume Persistence
@@ -30,12 +32,13 @@ struct AudioPlayerView: View {
   var body: some View {
     GeometryReader { geometry in
       let availableWidth = geometry.size.width
+      let effectiveWidth = clampWidth(playerSectionWidth, availableWidth: availableWidth)
 
       HStack(spacing: 0) {
         // Left: Player controls + Segments
         playerSection
           .frame(minWidth: minWidthOfPlayerSection)
-          .frame(width: showContentPanel ? playerSectionWidth : nil)
+          .frame(width: showContentPanel ? effectiveWidth : nil)
 
         // Right: Content panel (PDF, Subtitles only) - takes remaining space
         if showContentPanel {
@@ -59,21 +62,23 @@ struct AudioPlayerView: View {
             .gesture(
               DragGesture(minimumDistance: 1)
                 .onChanged { value in
-                  // Dragging right increases playerSection, left decreases
                   let newWidth = playerSectionWidth + value.translation.width
-                  // Constrain: min minWidthOfPlayerSection, max leaves at least 200 for content panel
-                  playerSectionWidth = min(
-                    max(newWidth, minWidthOfPlayerSection), Double(availableWidth) - 208)
+                  playerSectionWidth = clampWidth(newWidth, availableWidth: availableWidth)
                 }
             )
 
           // ContentPanelView takes remaining space
           ContentPanelView(audioFile: audioFile)
-            .frame(maxWidth: .infinity)
+            .frame(minWidth: minWidthOfContentPanel, maxWidth: .infinity)
             .transition(.move(edge: .trailing).combined(with: .opacity))
         }
       }
       .animation(.easeInOut(duration: 0.25), value: showContentPanel)
+      .onChange(of: showContentPanel) { _, isShowing in
+        if isShowing {
+          playerSectionWidth = clampWidth(playerSectionWidth, availableWidth: availableWidth)
+        }
+      }
     }
     .toolbar {
       ToolbarItem(placement: .automatic) {
@@ -293,7 +298,12 @@ struct AudioPlayerView: View {
     }
   }
 
-  // MARK: - Loop Controls
+  // MARK: - Layout Helpers
+
+  private func clampWidth(_ width: Double, availableWidth: CGFloat) -> Double {
+    let maxWidth = Double(availableWidth) - dividerWidth - minWidthOfContentPanel
+    return min(max(width, minWidthOfPlayerSection), max(maxWidth, minWidthOfPlayerSection))
+  }
 
   // MARK: - Helpers
 
