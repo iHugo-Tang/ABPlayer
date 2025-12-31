@@ -31,9 +31,6 @@ struct VideoPlayerView: View {
   // Loop Mode Persistence
   @AppStorage("playerLoopMode") private var storedLoopMode: String = LoopMode.none.rawValue
 
-  // Local AVPlayer instance for the view
-  @State private var currentPlayer: AVPlayer?
-
   var body: some View {
     GeometryReader { geometry in
       let availableWidth = geometry.size.width
@@ -128,37 +125,21 @@ struct VideoPlayerView: View {
     .onChange(of: playerManager.loopMode) { _, newValue in
       storedLoopMode = newValue.rawValue
     }
-    .task {
-      // Fetch the underlying player from the manager
-      if let player = await playerManager.avPlayer {
-        self.currentPlayer = player
-      }
-    }
+
     .onAppear {
       // Restore persisted loop mode
       if let mode = LoopMode(rawValue: storedLoopMode) {
         playerManager.loopMode = mode
       }
-      if playerManager.currentFile?.id == audioFile.id,
+      if playerManager.currentFile?.id != audioFile.id,
         playerManager.currentFile != nil
       {
-        playerManager.currentFile = audioFile
-        Task {
-          self.currentPlayer = await playerManager.avPlayer
-        }
-      } else {
         Task {
           await playerManager.load(audioFile: audioFile)
-          self.currentPlayer = await playerManager.avPlayer
         }
       }
     }
-    .onChange(of: audioFile) { _, newFile in
-      Task {
-        self.currentPlayer = await playerManager.avPlayer
-      }
-    }
-    
+
   }
 
   // MARK: - Video Section
@@ -166,17 +147,9 @@ struct VideoPlayerView: View {
   private var videoSection: some View {
     VStack(alignment: .leading, spacing: 0) {
       // 1. Video Player Area
-      Group {
-        if let player = currentPlayer {
-          NativeVideoPlayer(player: player)
-        } else {
-          Rectangle()
-            .fill(Color.black)
-            .overlay(ProgressView())
-        }
-      }
-      .aspectRatio(16 / 9, contentMode: .fit)
-      .layoutPriority(1)
+      NativeVideoPlayer(player: playerManager.player)
+        .aspectRatio(16 / 9, contentMode: .fit)
+        .layoutPriority(1)
 
       // 2. Controls Area (Fixed height)
       VStack(spacing: 12) {

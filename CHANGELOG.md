@@ -1,3 +1,18 @@
+## [0.2.6.38] - 2025-12-31
+
+### Improvements
+- Expose `AVPlayer` from `AudioPlayerManager` and simplify player view state management.
+
+
+## [0.2.6.37] - 2025-12-31
+
+### Features
+- Synchronize player views with audio file changes and reorder selected file assignment in `MainSplitView`.
+
+### Other
+- Merge pull request #61 from sunset-valley/fix/autoplay1
+
+
 ## [0.2.6.36] - 2025-12-31
 
 ### Features

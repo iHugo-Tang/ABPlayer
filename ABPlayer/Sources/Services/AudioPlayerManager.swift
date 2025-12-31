@@ -67,7 +67,7 @@ final class AudioPlayerManager {
     self._engine = engine ?? AudioPlayerEngine()
   }
 
-  private weak var _player: AVPlayer?
+  private(set) weak var player: AVPlayer?
 
   var currentFile: AudioFile?
   var sessionTracker: SessionTracker?
@@ -173,7 +173,7 @@ final class AudioPlayerManager {
         },
         onPlayerReady: { [weak self] player in
           // ✅ P1 优化: 保存播放器直接引用
-          self?._player = player
+          self?.player = player
         }
       )
 
@@ -276,10 +276,10 @@ final class AudioPlayerManager {
         "[Performance] isPlaying = false (immediate) after \((uiUpdateTime - startTime) * 1000)ms")
 
       // ✅ P1 优化: 直接同步调用 AVPlayer.pause()，无需 await Actor
-      _player?.pause()
+      player?.pause()
       let pauseTime = CFAbsoluteTimeGetCurrent()
       print(
-        "[Performance] _player.pause() (sync) completed after \((pauseTime - uiUpdateTime) * 1000)ms"
+        "[Performance] player.pause() (sync) completed after \((pauseTime - uiUpdateTime) * 1000)ms"
       )
 
       print(
@@ -303,10 +303,10 @@ final class AudioPlayerManager {
         "[Performance] isPlaying = true (immediate) after \((uiUpdateTime - startTime) * 1000)ms")
 
       // ✅ P1 优化: 直接同步调用 AVPlayer.play()
-      _player?.play()
+      player?.play()
       let playTime = CFAbsoluteTimeGetCurrent()
       print(
-        "[Performance] _player.play() (sync) completed after \((playTime - uiUpdateTime) * 1000)ms")
+        "[Performance] player.play() (sync) completed after \((playTime - uiUpdateTime) * 1000)ms")
 
       print(
         "[Performance] User perceives play after \((CFAbsoluteTimeGetCurrent() - startTime) * 1000)ms"

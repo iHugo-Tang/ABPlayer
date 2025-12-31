@@ -125,11 +125,9 @@ struct AudioPlayerView: View {
       if let mode = LoopMode(rawValue: storedLoopMode) {
         playerManager.loopMode = mode
       }
-      if playerManager.currentFile?.id == audioFile.id,
+      if playerManager.currentFile?.id != audioFile.id,
         playerManager.currentFile != nil
       {
-        playerManager.currentFile = audioFile
-      } else {
         Task { await playerManager.load(audioFile: audioFile) }
       }
     }
