@@ -1,3 +1,22 @@
+## [0.2.4] - 2025-12-30
+
+### Features
+- update application icons
+
+
+## [0.2.4] - 2025-12-30
+
+### Features
+- enhance window and split view resizing behavior, update Sentry configuration, and remove build server config.
+
+### Bug Fixes
+- Update version string parsing and updating in CI and release scripts to match new `Project.swift` format.
+
+### Improvements
+- Centralize `CFBundleShortVersionString` by introducing a new `shortVersionString` constant.
+- use bundle identifier to dynamically determine app support folder name
+
+
 ## [0.2.3] - 2025-12-30
 
 ### Features
