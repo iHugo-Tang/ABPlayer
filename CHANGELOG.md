@@ -1,3 +1,10 @@
+## [0.2.6.30] - 2025-12-31
+
+### Features
+- Implement volume debouncing and add a reset volume button to player views.
+- Implement volume boosting functionality up to 200% with a UI indicator.
+
+
 ## [0.2.6.29] - 2025-12-31
 
 ### Features

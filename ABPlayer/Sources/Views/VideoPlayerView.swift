@@ -26,6 +26,7 @@ struct VideoPlayerView: View {
   // Volume Persistence
   @AppStorage("playerVolume") private var playerVolume: Double = 1.0
   @State private var showVolumePopover: Bool = false
+  @State private var volumeDebounceTask: Task<Void, Never>?
 
   // Loop Mode Persistence
   @AppStorage("playerLoopMode") private var storedLoopMode: String = LoopMode.none.rawValue
@@ -117,7 +118,12 @@ struct VideoPlayerView: View {
       }
     }
     .onChange(of: playerVolume) { _, newValue in
-      playerManager.setVolume(Float(newValue))
+      volumeDebounceTask?.cancel()
+      volumeDebounceTask = Task {
+        try? await Task.sleep(for: .milliseconds(100))
+        guard !Task.isCancelled else { return }
+        playerManager.setVolume(Float(newValue))
+      }
     }
     .onChange(of: playerManager.loopMode) { _, newValue in
       storedLoopMode = newValue.rawValue
@@ -312,7 +318,7 @@ struct VideoPlayerView: View {
 
         HStack(spacing: 2) {
           Text("\(Int(playerVolume * 100))%")
-          if playerVolume > 1.0 {
+          if playerVolume > 1.001 {
             Image(systemName: "bolt.fill")
               .foregroundStyle(.orange)
           }
@@ -320,6 +326,16 @@ struct VideoPlayerView: View {
         .frame(width: 50, alignment: .trailing)
         .font(.caption2)
         .foregroundStyle(.secondary)
+
+        Button {
+          playerVolume = 1.0
+        } label: {
+          Image(systemName: "arrow.counterclockwise")
+            .font(.caption)
+            .foregroundStyle(.secondary)
+        }
+        .buttonStyle(.plain)
+        .help("Reset volume to 100%")
       }
       .padding()
     }
