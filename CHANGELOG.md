@@ -1,3 +1,13 @@
+## [0.2.6.33] - 2025-12-31
+
+### Features
+- add Telegram notification for successful releases
+- Introduce `AudioPlayerEngineProtocol` to enable `AudioPlayerManager` dependency injection and add integration tests with a mock engine.
+
+### Other
+- Merge pull request #57 from sunset-valley/feat/improve-pause
+
+
 ## [0.2.6.32] - 2025-12-31
 
 ### Features
