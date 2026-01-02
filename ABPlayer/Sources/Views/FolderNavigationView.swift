@@ -37,8 +37,6 @@ struct FolderNavigationView: View {
   @Binding var navigationPath: [Folder]
 
   @State private var selection: SelectionItem?
-  @State private var isSyncing = false
-  @State private var syncTask: Task<Void, Never>?
   @AppStorage("folderNavigationSortOrder") private var sortOrder: SortOrder = .nameAZ
   @State private var isRescanningFolder = false
 
@@ -52,18 +50,12 @@ struct FolderNavigationView: View {
     .onChange(of: selection) { _, newValue in
       handleSelectionChange(newValue)
     }
-    .onChange(of: currentFolder) { _, _ in
-      syncAsync()
-    }
-    .task {
-      await syncSelectionWithSelectedFile()
-    }
-  }
-
-  private func syncAsync() {
-    syncTask?.cancel()
-    syncTask = Task {
-      await syncSelectionWithSelectedFile()
+    .onChange(of: selectedFile) {
+      if let file = selectedFile {
+        selection = .audioFile(file)
+      } else {
+        selection = nil
+      }
     }
   }
 
@@ -187,42 +179,6 @@ struct FolderNavigationView: View {
 
     case .empty:
       break
-    }
-  }
-
-  /// Syncs the List selection state with selectedFile
-  /// - If selectedFile is in current folder, select corresponding row
-  /// - Otherwise clear List selection (but keep selectedFile for player)
-  @MainActor
-  private func syncSelectionWithSelectedFile() async {
-    guard let selectedFile else {
-      selection = nil
-      return
-    }
-
-    isSyncing = true
-    defer { isSyncing = false }
-
-    // Give a small delay to avoid flickering if it's very fast,
-    // and to ensure UI responsiveness if called frequently
-    try? await Task.sleep(nanoseconds: 100_000_000)  // 0.1s
-
-    if Task.isCancelled { return }
-
-    // Check if selectedFile is in current folder
-    let isInCurrentFolder = currentAudioFiles.contains { $0.id == selectedFile.id }
-
-    if Task.isCancelled { return }
-
-    if isInCurrentFolder {
-      // Only update if needed to avoid unnecessary state changes
-      if case .audioFile(let current) = selection, current.id == selectedFile.id {
-        return
-      }
-      selection = .audioFile(selectedFile)
-    } else {
-      // File not in current folder - clear List selection
-      selection = nil
     }
   }
 

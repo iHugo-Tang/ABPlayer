@@ -241,7 +241,7 @@ public struct MainSplitView: View {
 
   // MARK: - Selection
 
-  private func selectFile(_ file: AudioFile, fromStart: Bool = false) async {
+  private func selectFile(_ file: AudioFile, fromStart: Bool = false, debounce: Bool = true) async {
     lastSelectedAudioFileID = file.id.uuidString
     lastFolderID = file.folder?.id.uuidString
 
@@ -257,17 +257,21 @@ public struct MainSplitView: View {
     selectedFile = file
 
     loadAudioTask?.cancel()
-    loadAudioTask = Task {
-      await playerManager.clearPlayer()
-      try? await Task.sleep(for: .milliseconds(250))
-      if !Task.isCancelled {
-        await playerManager.load(audioFile: file, fromStart: fromStart)
+    if debounce {
+      loadAudioTask = Task {
+        await playerManager.clearPlayer()
+        try? await Task.sleep(for: .milliseconds(250))
+        if !Task.isCancelled {
+          await playerManager.load(audioFile: file, fromStart: fromStart)
+        }
       }
+    } else {
+      await playerManager.load(audioFile: file, fromStart: fromStart)
     }
   }
 
   private func playFile(_ file: AudioFile, fromStart: Bool = false) async {
-    await selectFile(file, fromStart: fromStart)
+    await selectFile(file, fromStart: fromStart, debounce: false)
     playerManager.play()
   }
 

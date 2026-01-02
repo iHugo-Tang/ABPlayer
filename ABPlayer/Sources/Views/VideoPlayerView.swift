@@ -134,7 +134,7 @@ struct VideoPlayerView: View {
       if playerManager.currentFile?.id != audioFile.id,
         playerManager.currentFile != nil
       {
-          await playerManager.load(audioFile: audioFile)
+        await playerManager.load(audioFile: audioFile)
       }
     }
   }
@@ -220,20 +220,20 @@ struct VideoPlayerView: View {
           } label: {
             Image(
               systemName: playerManager.loopMode != .none
-              ? "\(playerManager.loopMode.iconName).circle.fill"
-              : "repeat.circle"
+                ? "\(playerManager.loopMode.iconName).circle.fill"
+                : "repeat.circle"
             )
             .font(.title2)
             .foregroundStyle(playerManager.loopMode != .none ? .blue : .primary)
           }
           .buttonStyle(.plain)
           .help("Loop mode: \(playerManager.loopMode.displayName)")
-          
+
           volumeControl
         }
-        
+
         Spacer()
-        
+
         // Time & Duration
         HStack(spacing: 4) {
           Text(timeString(from: isSeeking ? seekValue : playerManager.currentTime))
@@ -243,7 +243,7 @@ struct VideoPlayerView: View {
         }
         .font(.body.monospacedDigit())
       }
-      
+
       // Playback Controls
       HStack(spacing: 16) {
         Button {
@@ -255,7 +255,7 @@ struct VideoPlayerView: View {
         }
         .buttonStyle(.plain)
         .keyboardShortcut("f", modifiers: [])
-        
+
         Button {
           playerManager.togglePlayPause()
         } label: {
@@ -264,7 +264,7 @@ struct VideoPlayerView: View {
         }
         .buttonStyle(.plain)
         .keyboardShortcut(.space, modifiers: [])
-        
+
         Button {
           let targetTime = playerManager.currentTime + 10
           playerManager.seek(to: targetTime)
