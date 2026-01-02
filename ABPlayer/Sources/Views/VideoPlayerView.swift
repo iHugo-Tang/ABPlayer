@@ -126,8 +126,7 @@ struct VideoPlayerView: View {
     .onChange(of: playerManager.loopMode) { _, newValue in
       storedLoopMode = newValue.rawValue
     }
-
-    .onAppear {
+    .task {
       // Restore persisted loop mode
       if let mode = LoopMode(rawValue: storedLoopMode) {
         playerManager.loopMode = mode
@@ -135,12 +134,9 @@ struct VideoPlayerView: View {
       if playerManager.currentFile?.id != audioFile.id,
         playerManager.currentFile != nil
       {
-        Task {
           await playerManager.load(audioFile: audioFile)
-        }
       }
     }
-
   }
 
   // MARK: - Video Section

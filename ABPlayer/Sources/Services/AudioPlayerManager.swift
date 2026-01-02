@@ -54,7 +54,7 @@ protocol AudioPlayerEngineProtocol: Actor {
   func syncPlayState()
   func seek(to time: Double)
   func setVolume(_ volume: Float) async
-  nonisolated func teardownSync()
+  func teardown()
 }
 
 // MARK: - Observable UI State (MainActor)
@@ -120,8 +120,16 @@ final class AudioPlayerManager {
     isLoopEnabled && hasValidLoopRange
   }
 
+  /// Clear the player reference to show loading state in views
+  func clearPlayer()async {
+    player = nil
+    await _engine.teardown()
+  }
+
   deinit {
-    _engine.teardownSync()
+    Task { [weak self] in
+      await self?.clearPlayer()
+    }
   }
 
   func cleanup() {
@@ -733,8 +741,8 @@ actor AudioPlayerEngine: AudioPlayerEngineProtocol {
     }
   }
 
-  nonisolated func teardownSync() {
-    Task { await self.teardownPlayerInternal() }
+  func teardown() {
+      self.teardownPlayerInternal()
   }
 
   private func teardownPlayerInternal() {
