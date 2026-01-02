@@ -1,3 +1,17 @@
+## [0.2.8.41] - 2026-01-02
+
+### Features
+- implement smoother video player section resizing by using temporary drag state variables during the gesture.
+- Add new `test` agent rule, rename `ABPlayer-Dev` target to `ABPlayerDev`, and clean up `build` agent rule.
+
+### Improvements
+- rename `teardownSync` to `teardown` in business logic tests
+
+### Other
+- Merge pull request #64 from sunset-valley/refactor/simplify-videoplayer
+- release: Bump version to 0.2.8.40, introducing audio loading cancellation, improved player teardown, and consolidated import actions.
+
+
 ## [0.2.8.40] - 2026-01-02
 
 ### Features

@@ -24,6 +24,10 @@ struct VideoPlayerView: View {
   let dividerWidth: CGFloat = 8
   @AppStorage("videoPlayerSectionWidth") private var videoPlayerSectionWidth: Double = 480  // Wider default for video
 
+  // Drag State
+  @State private var draggingWidth: Double?
+  @State private var initialDragWidth: Double?
+
   // Volume Persistence
   @AppStorage("playerVolume") private var playerVolume: Double = 1.0
   @State private var showVolumePopover: Bool = false
@@ -35,7 +39,9 @@ struct VideoPlayerView: View {
   var body: some View {
     GeometryReader { geometry in
       let availableWidth = geometry.size.width
-      let effectiveWidth = clampWidth(videoPlayerSectionWidth, availableWidth: availableWidth)
+      // Use draggingWidth if active, otherwise use the persisted value
+      let currentWidth = draggingWidth ?? videoPlayerSectionWidth
+      let effectiveWidth = clampWidth(currentWidth, availableWidth: availableWidth)
 
       HStack(spacing: 0) {
         // Left: Video Player + Controls
@@ -65,11 +71,22 @@ struct VideoPlayerView: View {
             .gesture(
               DragGesture(minimumDistance: 1)
                 .onChanged { value in
-                  let newWidth = videoPlayerSectionWidth + value.translation.width
-                  videoPlayerSectionWidth = clampWidth(newWidth, availableWidth: availableWidth)
-                  Logger.ui.debug(
-                    "[Debug] Video player section width: \(videoPlayerSectionWidth) effectiveWidth: \(effectiveWidth)"
-                  )
+                  if initialDragWidth == nil {
+                    initialDragWidth = videoPlayerSectionWidth
+                  }
+
+                  if let startWidth = initialDragWidth {
+                    let newWidth = startWidth + Double(value.translation.width)
+                    draggingWidth = clampWidth(newWidth, availableWidth: availableWidth)
+                  }
+                }
+                .onEnded { value in
+                  if let startWidth = initialDragWidth {
+                    let newWidth = startWidth + Double(value.translation.width)
+                    videoPlayerSectionWidth = clampWidth(newWidth, availableWidth: availableWidth)
+                  }
+                  draggingWidth = nil
+                  initialDragWidth = nil
                 }
             )
 

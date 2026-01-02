@@ -1,6 +1,6 @@
 import ProjectDescription
 
-let buildVersionString = "40"
+let buildVersionString = "41"
 let shortVersionString = "0.2.8"
 let project = Project(
   name: "ABPlayer",
@@ -41,7 +41,7 @@ let project = Project(
       ],
     ),
     .target(
-      name: "ABPlayer-Dev",
+      name: "ABPlayerDev",
       destinations: .macOS,
       product: .app,
       bundleId: "cc.ihugo.app.ABPlayerDev",
