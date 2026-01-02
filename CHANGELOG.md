@@ -1,3 +1,18 @@
+## [0.2.8.40] - 2026-01-02
+
+### Features
+- Implement audio file loading cancellation for rapid switching and adjust video player controls layout.
+
+### Improvements
+- Simplify folder navigation's file selection sync and add debounced audio file loading.
+- Improve player teardown and clearing logic with `clearPlayer` and migrate async view operations to `.task`.
+- Debounce audio file loading and remove redundant `selectedFile` change observer.
+- Consolidate import and clear data actions into a single "Add" menu and update 'Import Audio File' label.
+
+### Other
+- Merge pull request #63 from sunset-valley/fix/autoplay
+
+
 ## [0.2.7.39] - 2025-12-31
 
 ### Features

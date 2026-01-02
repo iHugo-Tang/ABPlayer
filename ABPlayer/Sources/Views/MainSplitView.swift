@@ -28,6 +28,7 @@ public struct MainSplitView: View {
   @State private var isClearingData: Bool = false
   @AppStorage("lastSelectedAudioFileID") private var lastSelectedAudioFileID: String?
   @AppStorage("lastFolderID") private var lastFolderID: String?
+  @State private var loadAudioTask: Task<Void, Never>?
 
   public init() {}
 
@@ -130,7 +131,7 @@ public struct MainSplitView: View {
           Button {
             isImportingFile = true
           } label: {
-            Label("Import Audio File", systemImage: "music.note")
+            Label("Import Media File", systemImage: "music.note")
           }
 
           Button {
@@ -138,11 +139,9 @@ public struct MainSplitView: View {
           } label: {
             Label("Import Folder", systemImage: "folder.badge.plus")
           }
-        } label: {
-          Label("Add", systemImage: "plus")
-        }
 
-        Menu {
+          Divider()
+
           Button(role: .destructive) {
             Task {
               await clearAllDataAsync()
@@ -151,7 +150,7 @@ public struct MainSplitView: View {
             Label("Clear All Data", systemImage: "trash")
           }
         } label: {
-          Label("More", systemImage: "ellipsis.circle")
+          Label("Add", systemImage: "plus")
         }
       }
     }
@@ -242,7 +241,7 @@ public struct MainSplitView: View {
 
   // MARK: - Selection
 
-  private func selectFile(_ file: AudioFile, fromStart: Bool = false) async {
+  private func selectFile(_ file: AudioFile, fromStart: Bool = false, debounce: Bool = true) async {
     lastSelectedAudioFileID = file.id.uuidString
     lastFolderID = file.folder?.id.uuidString
 
@@ -257,11 +256,22 @@ public struct MainSplitView: View {
     // (e.g., video -> audio won't show loading in video view first)
     selectedFile = file
 
-    await playerManager.load(audioFile: file, fromStart: fromStart)
+    loadAudioTask?.cancel()
+    if debounce {
+      loadAudioTask = Task {
+        await playerManager.clearPlayer()
+        try? await Task.sleep(for: .milliseconds(250))
+        if !Task.isCancelled {
+          await playerManager.load(audioFile: file, fromStart: fromStart)
+        }
+      }
+    } else {
+      await playerManager.load(audioFile: file, fromStart: fromStart)
+    }
   }
 
   private func playFile(_ file: AudioFile, fromStart: Bool = false) async {
-    await selectFile(file, fromStart: fromStart)
+    await selectFile(file, fromStart: fromStart, debounce: false)
     playerManager.play()
   }
 

@@ -687,7 +687,7 @@ actor MockAudioPlayerEngine: AudioPlayerEngineProtocol {
   func syncPlayState() {}
   func seek(to time: Double) {}
   func setVolume(_ volume: Float) async {}
-  nonisolated func teardownSync() {}
+  func teardown() {}
 }
 
 // MARK: - Integration Tests with Mock Engine
