@@ -1,3 +1,20 @@
+## [0.2.8.42] - 2026-01-03
+
+### Features
+- adjust font sizes of video player control buttons for improved visibility.
+- implement smoother video player section resizing by using temporary drag state variables during the gesture.
+
+### Improvements
+- Simplify drag gesture state management for video player section resizing
+
+### Chores
+- uppercase "Saved Segments", update rescan icon, and refine section layouts and sorting display.
+
+### Other
+- Merge pull request #66 from sunset-valley/fix/player-drag
+- Merge pull request #65 from sunset-valley/fix/app-hang
+
+
 ## [0.2.8.41] - 2026-01-02
 
 ### Features
