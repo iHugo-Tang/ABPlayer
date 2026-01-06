@@ -11,6 +11,9 @@ PROJECT_FILE="Project.swift"
 CHANGELOG_FILE="CHANGELOG.md"
 STATE_FILE=".release_state"
 
+# Centralized commit filter - commits matching these patterns will be excluded from changelog
+EXCLUDED_COMMIT_PATTERNS="^ci\(release_sh\):"
+
 if [ ! -f "$PROJECT_FILE" ]; then
     echo -e "${RED}Error: $PROJECT_FILE not found!${NC}"
     exit 1
@@ -48,14 +51,14 @@ if [ -f "$STATE_FILE" ]; then
     echo "Found last release commit: $LAST_COMMIT"
     # Check if the commit actually exists
     if git cat-file -e "$LAST_COMMIT" 2>/dev/null; then
-        COMMITS=$(git log --pretty=format:"%s" "$LAST_COMMIT..HEAD")
+        COMMITS=$(git log --pretty=format:"%s" "$LAST_COMMIT..HEAD" | grep -vE "$EXCLUDED_COMMIT_PATTERNS")
     else
         echo -e "${RED}Warning: Last commit $LAST_COMMIT not found. Defaulting to last 10 commits.${NC}"
-        COMMITS=$(git log -n 10 --pretty=format:"%s")
+        COMMITS=$(git log -n 10 --pretty=format:"%s" | grep -vE "$EXCLUDED_COMMIT_PATTERNS")
     fi
 else
     echo "No previous release state found. Defaulting to last 10 commits."
-    COMMITS=$(git log -n 10 --pretty=format:"%s")
+    COMMITS=$(git log -n 10 --pretty=format:"%s" | grep -vE "$EXCLUDED_COMMIT_PATTERNS")
 fi
 
 # Initialize category arrays
@@ -144,5 +147,11 @@ CURRENT_HEAD=$(git rev-parse HEAD)
 echo "$CURRENT_HEAD" > "$STATE_FILE"
 echo "Updated release state to $CURRENT_HEAD"
 
-echo -e "${GREEN}Release $NEW_VERSION preparation complete!${NC}"
-echo "Please review changes and commit."
+# 5. Commit changes automatically
+COMMIT_MESSAGE="ci(release_sh): ${NEW_VERSION}-${NEW_BUILD}"
+echo "Committing changes with message: $COMMIT_MESSAGE"
+
+git add "$PROJECT_FILE" "$CHANGELOG_FILE" "$STATE_FILE"
+git commit -m "$COMMIT_MESSAGE"
+
+echo -e "${GREEN}Release $NEW_VERSION-$NEW_BUILD complete and committed!${NC}"
