@@ -1,3 +1,11 @@
+## [0.2.8.45] - 2026-01-06
+
+### Other
+- Merge pull request #70 from sunset-valley/fix/perf-hang
+- perf(subtitle): fix 1000ms+ main thread hangs by caching FlowLayout and simplifying views
+- Merge pull request #69 from sunset-valley/ci/release
+
+
 ## [0.2.8.44] - 2026-01-06
 
 ### Other
