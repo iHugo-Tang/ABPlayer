@@ -24,10 +24,7 @@ struct SubtitleView: View {
   @State private var selectedWord: (cueID: UUID, wordIndex: Int)?
   /// Tracks if playback was playing before word interaction (for cross-row dismiss)
   @State private var wasPlayingBeforeWordInteraction = false
-
-  private var vocabularyMap: [String: Vocabulary] {
-    Dictionary(vocabularies.map { ($0.word, $0) }, uniquingKeysWith: { first, _ in first })
-  }
+  @State private var vocabularyMap: [String: Vocabulary] = [:]
 
   var body: some View {
     ZStack(alignment: .topTrailing) {
@@ -59,14 +56,13 @@ struct SubtitleView: View {
           .padding(.horizontal, 12)
           .padding(.vertical, 8)
         }
+        .transaction { $0.animation = nil }
         .onScrollPhaseChange { _, newPhase in
           handleScrollPhaseChange(newPhase)
         }
         .onChange(of: currentCueID) { _, newValue in
           guard !isUserScrolling, let id = newValue else { return }
-          withAnimation(.easeInOut(duration: 0.25)) {
-            proxy.scrollTo(id, anchor: .center)
-          }
+          proxy.scrollTo(id, anchor: .center)
         }
         .onChange(of: cues) { _, _ in
           scrollResumeTask?.cancel()
@@ -89,6 +85,17 @@ struct SubtitleView: View {
     .task {
       await trackCurrentCue()
     }
+    .onAppear {
+      updateVocabularyMap()
+    }
+    .onChange(of: vocabularies) { _, _ in
+      updateVocabularyMap()
+    }
+  }
+
+  private func updateVocabularyMap() {
+    vocabularyMap = Dictionary(
+      vocabularies.map { ($0.word, $0) }, uniquingKeysWith: { first, _ in first })
   }
 
   private func handleWordSelection(wordIndex: Int?, cueID: UUID) {
@@ -209,11 +216,42 @@ private struct SubtitleCueRow: View {
   let onTap: () -> Void
 
   @State private var isHovered = false
-  @State private var hoveredWordIndex: Int?
   @State private var isMenuHovered = false
 
-  private var words: [String] {
-    cue.text.split(separator: " ", omittingEmptySubsequences: true).map(String.init)
+  private let words: [String]
+
+  init(
+    cue: SubtitleCue,
+    isActive: Bool,
+    fontSize: Double,
+    vocabularyMap: [String: Vocabulary],
+    selectedWordIndex: Int?,
+    onWordSelected: @escaping (Int?) -> Void,
+    onHidePopover: @escaping () -> Void,
+    onTap: @escaping () -> Void
+  ) {
+    self.cue = cue
+    self.isActive = isActive
+    self.fontSize = fontSize
+    self.vocabularyMap = vocabularyMap
+    self.selectedWordIndex = selectedWordIndex
+    self.onWordSelected = onWordSelected
+    self.onHidePopover = onHidePopover
+    self.onTap = onTap
+    self.words = cue.text.split(separator: " ", omittingEmptySubsequences: true).map(String.init)
+  }
+
+  private var attributedText: AttributedString {
+    var result = AttributedString()
+    for (index, word) in words.enumerated() {
+      var wordPart = AttributedString(word)
+      wordPart.foregroundColor = wordColor(for: word)
+      result.append(wordPart)
+      if index < words.count - 1 {
+        result.append(AttributedString(" "))
+      }
+    }
+    return result
   }
 
   /// Normalize a word for vocabulary lookup (lowercase, trim punctuation)
@@ -300,11 +338,7 @@ private struct SubtitleCueRow: View {
             InteractiveWordView(
               word: word,
               difficultyLevel: difficultyLevel(for: word),
-              isHovered: hoveredWordIndex == index,
               isSelected: selectedWordIndex == index,
-              onHoverChanged: { isHovering in
-                hoveredWordIndex = isHovering ? index : nil
-              },
               onTap: {
                 onWordSelected(selectedWordIndex == index ? nil : index)
               },
@@ -335,16 +369,11 @@ private struct SubtitleCueRow: View {
           onHidePopover()
         }
       } else {
-        FlowLayout(alignment: .leading, spacing: 4) {
-          ForEach(Array(words.enumerated()), id: \.offset) { _, word in
-            Text(word)
-              .font(.system(size: fontSize))
-              .foregroundStyle(wordColor(for: word))
-              .padding(.horizontal, 2)
-              .padding(.vertical, 1)
-          }
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
+        Text(attributedText)
+          .font(.system(size: fontSize))
+          .frame(maxWidth: .infinity, alignment: .leading)
+          .padding(.horizontal, 2)
+          .padding(.vertical, 1)
       }
     }
     .padding(.vertical, 14)
@@ -400,9 +429,7 @@ private struct SubtitleCueRow: View {
 private struct InteractiveWordView: View {
   let word: String
   let difficultyLevel: Int?
-  let isHovered: Bool
   let isSelected: Bool
-  let onHoverChanged: (Bool) -> Void
   let onTap: () -> Void
   let onDismiss: () -> Void
   let onForgot: (String) -> Void
@@ -413,6 +440,8 @@ private struct InteractiveWordView: View {
   let rememberedCount: Int
   let createdAt: Date?
   let fontSize: Double
+
+  @State private var isHovered = false
 
   private var cleanedWord: String {
     word.lowercased().trimmingCharacters(in: .punctuationCharacters)
@@ -447,7 +476,7 @@ private struct InteractiveWordView: View {
         RoundedRectangle(cornerRadius: 4)
           .fill(isHighlighted ? Color.accentColor.opacity(0.15) : Color.clear)
       )
-      .onHover { onHoverChanged($0) }
+      .onHover { isHovered = $0 }
       .onTapGesture { onTap() }
       .popover(
         isPresented: Binding(
