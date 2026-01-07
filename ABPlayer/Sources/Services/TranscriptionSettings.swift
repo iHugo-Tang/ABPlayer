@@ -25,6 +25,10 @@ final class TranscriptionSettings {
   @ObservationIgnored
   @AppStorage("transcription_model_directory") var modelDirectory: String = ""
 
+  /// Custom ffmpeg path (empty = auto-detect)
+  @ObservationIgnored
+  @AppStorage("transcription_ffmpeg_path") var ffmpegPath: String = ""
+
   // MARK: - Computed Properties
 
   /// Returns the model directory URL (user-specified or default)
@@ -235,5 +239,53 @@ final class TranscriptionSettings {
     formatter.allowedUnits = [.useMB, .useGB]
     formatter.countStyle = .file
     return formatter.string(fromByteCount: bytes)
+  }
+
+  // MARK: - FFmpeg Path Management
+
+  /// Get the effective ffmpeg path (custom or auto-detected)
+  func effectiveFFmpegPath() -> String? {
+    if !ffmpegPath.isEmpty {
+      if Self.isFFmpegValid(at: ffmpegPath) {
+        return ffmpegPath
+      }
+    }
+    return Self.autoDetectFFmpegPath()
+  }
+
+  /// Check if ffmpeg is valid and executable at the given path
+  static func isFFmpegValid(at path: String) -> Bool {
+    let fileManager = FileManager.default
+    var isDirectory: ObjCBool = false
+
+    guard fileManager.fileExists(atPath: path, isDirectory: &isDirectory),
+      !isDirectory.boolValue
+    else {
+      return false
+    }
+
+    guard fileManager.isExecutableFile(atPath: path) else {
+      return false
+    }
+
+    return true
+  }
+
+  /// Auto-detect ffmpeg installation path
+  static func autoDetectFFmpegPath() -> String? {
+    let possiblePaths = [
+      "/opt/homebrew/bin/ffmpeg",
+      "/usr/local/bin/ffmpeg",
+      "/opt/local/bin/ffmpeg",
+      "/sw/bin/ffmpeg",
+    ]
+
+    for path in possiblePaths {
+      if isFFmpegValid(at: path) {
+        return path
+      }
+    }
+
+    return nil
   }
 }

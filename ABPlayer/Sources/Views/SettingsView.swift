@@ -1,6 +1,14 @@
 import KeyboardShortcuts
 import SwiftUI
 
+/// FFmpeg path validation status
+enum FFmpegStatus {
+  case unchecked
+  case valid
+  case invalid
+  case notFound
+}
+
 /// Settings view for configuring application options
 struct SettingsView: View {
   @Environment(TranscriptionSettings.self) private var settings
@@ -17,6 +25,10 @@ struct SettingsView: View {
   @State private var isMigrating = false
   @State private var migrationError: String?
   @State private var previousDirectory: String = ""
+
+  // FFmpeg states
+  @State private var isSelectingFFmpegPath = false
+  @State private var ffmpegPathStatus: FFmpegStatus = .unchecked
 
   // Shortcuts states
   @State private var showResetConfirmation = false
@@ -55,6 +67,13 @@ struct SettingsView: View {
     .frame(minWidth: 400, idealWidth: 600)
     .frame(minHeight: 400, idealHeight: 600)
     // Common modifiers
+    .fileImporter(
+      isPresented: $isSelectingFFmpegPath,
+      allowedContentTypes: [.unixExecutable],
+      allowsMultipleSelection: false
+    ) { result in
+      handleFFmpegPathSelection(result)
+    }
     .fileImporter(
       isPresented: $isSelectingDirectory,
       allowedContentTypes: [.folder],
@@ -99,6 +118,7 @@ struct SettingsView: View {
     .onAppear {
       if selectedTab == .transcription {
         refreshModels()
+        ffmpegPathStatus = .unchecked
       }
     }
     .onChange(of: selectedTab) { _, newValue in
@@ -277,6 +297,20 @@ struct SettingsView: View {
           set: { settings.autoTranscribe = $0 }
         ))
 
+      // FFmpeg Path
+      LabeledContent("FFmpeg Path") {
+        HStack {
+          Text(displayFFmpegPath)
+            .foregroundStyle(ffmpegStatusColor)
+            .lineLimit(1)
+            .truncationMode(.middle)
+
+          Button("Choose...") {
+            isSelectingFFmpegPath = true
+          }
+        }
+      }
+
     } header: {
       Label("Transcription", systemImage: "text.bubble")
     } footer: {
@@ -312,6 +346,16 @@ struct SettingsView: View {
           }
         }
         .captionStyle()
+
+        Text(
+          "FFmpeg is required for extracting audio from video files. If not installed, video transcription will fail."
+        )
+        .captionStyle()
+
+        if ffmpegPathStatus != .valid {
+          Text("Install with: brew install ffmpeg")
+            .captionStyle()
+        }
       }
     }
   }
@@ -366,6 +410,59 @@ struct SettingsView: View {
   }
 
   // MARK: - Helpers
+
+  private var displayFFmpegPath: String {
+    if settings.ffmpegPath.isEmpty {
+      if let detected = TranscriptionSettings.autoDetectFFmpegPath() {
+        return "Auto-detected: \(detected)"
+      }
+      return "Not found"
+    }
+    return settings.ffmpegPath
+  }
+
+  private var ffmpegStatusColor: Color {
+    updateFFmpegStatus()
+
+    switch ffmpegPathStatus {
+    case .valid:
+      return .green
+    case .invalid, .notFound:
+      return .red
+    case .unchecked:
+      return .secondary
+    }
+  }
+
+  private func updateFFmpegStatus() {
+    if ffmpegPathStatus == .unchecked {
+      if settings.ffmpegPath.isEmpty {
+        if let _ = TranscriptionSettings.autoDetectFFmpegPath() {
+          ffmpegPathStatus = .valid
+        } else {
+          ffmpegPathStatus = .notFound
+        }
+      } else {
+        if TranscriptionSettings.isFFmpegValid(at: settings.ffmpegPath) {
+          ffmpegPathStatus = .valid
+        } else {
+          ffmpegPathStatus = .invalid
+        }
+      }
+    }
+  }
+
+  private func handleFFmpegPathSelection(_ result: Result<[URL], Error>) {
+    switch result {
+    case .success(let urls):
+      if let url = urls.first {
+        settings.ffmpegPath = url.path
+        ffmpegPathStatus = .unchecked
+      }
+    case .failure:
+      break
+    }
+  }
 
   private var displayDirectory: String {
     if settings.modelDirectory.isEmpty {

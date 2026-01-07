@@ -162,9 +162,9 @@ final class TranscriptionManager {
       guard audioURL.startAccessingSecurityScopedResource() else {
         throw TranscriptionError.accessDenied
       }
-      
+
       if isVideoFile(audioURL) {
-        extractedWavURL = try await extractAudio(from: audioURL)
+        extractedWavURL = try await extractAudio(from: audioURL, settings: settings)
         workingURL = extractedWavURL!
       }
 
@@ -260,7 +260,7 @@ final class TranscriptionManager {
 
   // MARK: - Audio Extraction
 
-  private func extractAudio(from videoURL: URL) async throws -> URL {
+  private func extractAudio(from videoURL: URL, settings: TranscriptionSettings) async throws -> URL {
     let fileName = videoURL.lastPathComponent
     state = .extractingAudio(progress: 0, fileName: fileName)
 
@@ -270,7 +270,12 @@ final class TranscriptionManager {
 
     try? FileManager.default.removeItem(at: wavURL)
 
-    let ffmpegPath = "/opt/homebrew/bin/ffmpeg"
+    guard let ffmpegPath = settings.effectiveFFmpegPath() else {
+      throw TranscriptionError.audioExtractionFailed(
+        "FFmpeg not found. Please install FFmpeg or configure the path in Settings."
+      )
+    }
+
     let process = Process()
     process.executableURL = URL(fileURLWithPath: ffmpegPath)
     process.arguments = [
