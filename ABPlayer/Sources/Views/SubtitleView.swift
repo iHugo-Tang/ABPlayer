@@ -352,10 +352,12 @@ private struct SubtitleCueRow: View {
         .popover(
           isPresented: Binding(
             get: { popoverSourceRect != nil },
-            set: { if !$0 {
-              popoverSourceRect = nil
-              onWordSelected(nil)
-            } }
+            set: {
+              if !$0 {
+                popoverSourceRect = nil
+                onWordSelected(nil)
+              }
+            }
           ),
           attachmentAnchor: .rect(.rect(popoverSourceRect ?? .zero)),
           arrowEdge: .bottom
