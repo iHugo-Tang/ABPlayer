@@ -219,6 +219,7 @@ struct FolderNavigationView: View {
 
   private func audioFileRow(for file: AudioFile) -> some View {
     let isAvailable = file.isBookmarkValid
+    let isSelected = selectedFile?.id == file.id
 
     return HStack {
       // 文件图标
@@ -234,7 +235,7 @@ struct FolderNavigationView: View {
         Text(file.displayName)
           .lineLimit(1)
           .strikethrough(!isAvailable, color: .secondary)
-          .foregroundStyle(isAvailable ? .primary : .secondary)
+          .foregroundStyle(isSelected ? Color(nsColor: .labelColor) : (isAvailable ? .primary : .secondary))
           .bodyStyle()
 
         HStack(spacing: 4) {

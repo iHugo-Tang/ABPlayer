@@ -346,7 +346,7 @@ private struct SubtitleCueRow: View {
     HStack(alignment: .firstTextBaseline, spacing: 12) {
       Text(timeString(from: cue.startTime))
         .font(.system(size: max(11, fontSize - 4), design: .monospaced))
-        .foregroundStyle(isActive ? .primary : .tertiary)
+        .foregroundStyle(isActive ? Color.primary : Color.secondary)
         .frame(width: 52, alignment: .trailing)
 
       InteractiveAttributedTextView(
@@ -758,6 +758,7 @@ private struct InteractiveAttributedTextView: NSViewRepresentable {
 
     var cachedAttributedString: NSAttributedString?
     var cachedVocabularyVersion: Int = 0
+    var cachedDefaultTextColor: NSColor?
     var lastSelectedIndex: Int?
     var lastHoveredIndex: Int?
     var wordRanges: [NSRange] = []
@@ -817,10 +818,12 @@ private struct InteractiveAttributedTextView: NSViewRepresentable {
       if let cached = cachedAttributedString,
          !wordRanges.isEmpty,
          cached.string.split(separator: " ").count == words.count,
-         cachedVocabularyVersion == vocabularyVersion {
+         cachedVocabularyVersion == vocabularyVersion,
+         cachedDefaultTextColor == defaultTextColor {
          return cached
       }
 
+      cachedDefaultTextColor = defaultTextColor
       cachedVocabularyVersion = vocabularyVersion
       wordRanges.removeAll(keepingCapacity: true)
       wordFrames.removeAll(keepingCapacity: true)

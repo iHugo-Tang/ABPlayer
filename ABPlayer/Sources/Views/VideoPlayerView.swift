@@ -84,7 +84,7 @@ struct VideoPlayerView: View {
 
   @Bindable var audioFile: AudioFile
 
-  @State private var showContentPanel: Bool = true
+  @AppStorage("videoPlayerShowContentPanel") private var showContentPanel: Bool = true
 
   // Progress bar seeking state
   @State private var isSeeking: Bool = false
