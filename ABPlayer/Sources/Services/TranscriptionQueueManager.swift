@@ -8,6 +8,7 @@ enum TranscriptionTaskStatus: Equatable {
   case queued
   case downloading(progress: Double)
   case loading
+  case extractingAudio(progress: Double)
   case transcribing(progress: Double)
   case completed
   case failed(String)
@@ -70,7 +71,7 @@ final class TranscriptionQueueManager {
   func hasPendingTask(for audioFileId: UUID) -> Bool {
     guard let task = getTask(for: audioFileId) else { return false }
     switch task.status {
-    case .queued, .downloading, .loading, .transcribing:
+    case .queued, .downloading, .loading, .extractingAudio, .transcribing:
       return true
     case .completed, .failed, .cancelled:
       return false
@@ -100,17 +101,14 @@ final class TranscriptionQueueManager {
     }
   }
 
-  /// Cancel a task
   func cancelTask(id: UUID) {
     guard let index = tasks.firstIndex(where: { $0.id == id }) else { return }
 
     let task = tasks[index]
     switch task.status {
     case .queued:
-      // Just mark as cancelled
-      tasks[index].status = .cancelled
-    case .downloading, .loading, .transcribing:
-      // Cancel current transcription
+      tasks.remove(at: index)
+    case .downloading, .loading, .extractingAudio, .transcribing:
       transcriptionManager.cancelDownload()
       tasks[index].status = .cancelled
     default:
@@ -187,9 +185,7 @@ final class TranscriptionQueueManager {
       transcriptionManager.reset()
 
     } catch is CancellationError {
-      if let idx = tasks.firstIndex(where: { $0.id == task.id }) {
-        tasks[idx].status = .cancelled
-      }
+      tasks.removeAll { $0.id == task.id }
       transcriptionManager.reset()
     } catch {
       if let idx = tasks.firstIndex(where: { $0.id == task.id }) {
@@ -210,6 +206,10 @@ final class TranscriptionQueueManager {
     case .loading:
       if tasks[index].status != .loading {
         tasks[index].status = .loading
+      }
+    case .extractingAudio(let progress, _):
+      if tasks[index].status != .extractingAudio(progress: progress) {
+        tasks[index].status = .extractingAudio(progress: progress)
       }
     case .transcribing(let progress, _):
       if tasks[index].status != .transcribing(progress: progress) {

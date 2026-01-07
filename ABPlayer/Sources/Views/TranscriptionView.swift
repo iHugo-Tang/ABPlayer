@@ -46,6 +46,9 @@ struct TranscriptionView: View {
         case .loading(let modelName):
           loadingModelView(modelName: modelName)
 
+        case .extractingAudio(let progress, let fileName):
+          extractingAudioView(progress: progress, fileName: fileName)
+
         case .transcribing(let progress, let fileName):
           transcribingView(progress: progress, fileName: fileName)
 
@@ -207,6 +210,17 @@ struct TranscriptionView: View {
     )
   }
 
+  private func extractingAudioView(progress: Double, fileName: String) -> some View {
+    progressView(
+      icon: "waveform.and.mic",
+      title: "Extracting Audio",
+      subtitle: fileName,
+      progress: progress > 0 ? progress : nil,
+      showPercentage: progress > 0,
+      footnote: "Converting video to audio format"
+    )
+  }
+
   private func transcribingView(progress: Double, fileName: String) -> some View {
     progressView(
       icon: "waveform",
@@ -252,6 +266,19 @@ struct TranscriptionView: View {
             progress: nil,
             showPercentage: false,
             footnote: "This may take a moment on first run"
+          )
+          cancelButton(taskId: task.id)
+        }
+
+      case .extractingAudio(let progress):
+        VStack {
+          progressView(
+            icon: "waveform.and.mic",
+            title: "Extracting Audio",
+            subtitle: task.audioFileName,
+            progress: progress > 0 ? progress : nil,
+            showPercentage: progress > 0,
+            footnote: "Converting video to audio format"
           )
           cancelButton(taskId: task.id)
         }
