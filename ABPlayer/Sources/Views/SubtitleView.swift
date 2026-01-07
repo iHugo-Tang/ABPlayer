@@ -380,7 +380,7 @@ private struct SubtitleCueRow: View {
             } }
           ),
           attachmentAnchor: .rect(.rect(popoverSourceRect ?? .zero)),
-          arrowEdge: .top
+          arrowEdge: .bottom
         ) {
           if let selectedIndex = selectedWordIndex, selectedIndex < words.count {
             WordMenuView(
@@ -817,6 +817,17 @@ private struct InteractiveAttributedTextView: NSViewRepresentable {
       guard let layoutManager = textView.layoutManager,
             let textContainer = textView.textContainer,
             let textStorage = textView.textStorage else { return nil }
+      
+      let containerInset = textView.textContainerInset
+      
+      let hoverAreaFrame = textView.bounds.insetBy(
+        dx: containerInset.width * 2,
+        dy: containerInset.height * 2
+      )
+      
+      guard hoverAreaFrame.contains(point) else {
+        return nil
+      }
 
       let characterIndex = layoutManager.characterIndex(
         for: point,
