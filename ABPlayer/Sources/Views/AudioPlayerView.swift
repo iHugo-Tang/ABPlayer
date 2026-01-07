@@ -72,7 +72,7 @@ struct AudioPlayerView: View {
 
   @Bindable var audioFile: AudioFile
 
-  @State private var showContentPanel: Bool = true
+  @AppStorage("audioPlayerShowContentPanel") private var showContentPanel: Bool = true
 
   // Progress bar seeking state
   @State private var isSeeking: Bool = false
@@ -101,12 +101,12 @@ struct AudioPlayerView: View {
         draggingWidth ?? playerSectionWidth, availableWidth: availableWidth)
 
       HStack(spacing: 0) {
-        // Left: Player controls + Segments
+        // Left: Player controls + Content (Transcription/PDF)
         playerSection
           .frame(minWidth: minWidthOfPlayerSection)
           .frame(width: showContentPanel ? effectiveWidth : nil)
 
-        // Right: Content panel (PDF, Subtitles only) - takes remaining space
+        // Right: Segments panel - takes remaining space
         if showContentPanel {
           // Draggable divider for playerSection
           Rectangle()
@@ -139,9 +139,10 @@ struct AudioPlayerView: View {
                 }
             )
 
-          // ContentPanelView takes remaining space
-          ContentPanelView(audioFile: audioFile)
+          // SegmentsSection takes remaining space
+          SegmentsSection(audioFile: audioFile)
             .frame(minWidth: minWidthOfContentPanel, maxWidth: .infinity)
+            .padding()
             .transition(.move(edge: .trailing).combined(with: .opacity))
         }
       }
@@ -173,11 +174,11 @@ struct AudioPlayerView: View {
           showContentPanel.toggle()
         } label: {
           Label(
-            showContentPanel ? "Hide Panel" : "Show Panel",
+            showContentPanel ? "Hide Segments" : "Show Segments",
             systemImage: showContentPanel ? "sidebar.trailing" : "sidebar.trailing"
           )
         }
-        .help(showContentPanel ? "Hide content panel" : "Show content panel")
+        .help(showContentPanel ? "Hide segments panel" : "Show segments panel")
       }
     }
     .onChange(of: playerVolume) { _, newValue in
@@ -219,8 +220,7 @@ struct AudioPlayerView: View {
       header
       progressSection
 
-      Divider()
-      SegmentsSection(audioFile: audioFile)
+      ContentPanelView(audioFile: audioFile)
     }
     .padding()
     .frame(maxHeight: .infinity)

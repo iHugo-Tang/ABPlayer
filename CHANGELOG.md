@@ -1,3 +1,22 @@
+## [0.2.8.47] - 2026-01-07
+
+### Bug Fixes
+- Refine subtitle word selection and row tap interaction to prevent immediate popover dismissal.
+
+### Chores
+- Reformat popover `isPresented` binding setter for readability.
+
+### Other
+- refactor(audio-player): swap segments and content panel layout
+- feat(subtitle): optimize word selection with caching and add FPS monitor
+- refactor(subtitle): use InteractiveAttributedTextView for all states
+- fix(subtitle): improve popover arrow direction and hover area bounds
+- fix(subtitle): avoid state update cycle in popover logic
+- fix(subtitle): position popover relative to clicked word
+- fix(subtitle): fix popover position and dismissal issues
+- Merge pull request #72 from sunset-valley/fix/transcribe-mp4
+
+
 ## [0.2.8.46] - 2026-01-06
 
 ### Other
