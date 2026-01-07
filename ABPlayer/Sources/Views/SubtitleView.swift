@@ -217,6 +217,7 @@ private struct SubtitleCueRow: View {
 
   @State private var isHovered = false
   @State private var isMenuHovered = false
+  @State private var popoverSourceRect: CGRect = .zero
 
   private let words: [String]
 
@@ -356,6 +357,11 @@ private struct SubtitleCueRow: View {
           onMenuHoverChanged: { hovering in
             isMenuHovered = hovering
           },
+          onWordRectChanged: { rect in
+            if let rect {
+              popoverSourceRect = rect
+            }
+          },
           forgotCount: { forgotCount(for: $0) },
           rememberedCount: { rememberedCount(for: $0) },
           createdAt: { createdAt(for: $0) }
@@ -370,6 +376,7 @@ private struct SubtitleCueRow: View {
             get: { selectedWordIndex != nil },
             set: { if !$0 { onWordSelected(nil) } }
           ),
+          attachmentAnchor: .rect(.rect(popoverSourceRect)),
           arrowEdge: .top
         ) {
           if let selectedIndex = selectedWordIndex, selectedIndex < words.count {
@@ -560,6 +567,7 @@ private struct InteractiveAttributedTextView: NSViewRepresentable {
   let onRemembered: (String) -> Void
   let onRemove: (String) -> Void
   let onMenuHoverChanged: (Bool) -> Void
+  let onWordRectChanged: (CGRect?) -> Void
   let forgotCount: (String) -> Int
   let rememberedCount: (String) -> Int
   let createdAt: (String) -> Date?
@@ -596,12 +604,14 @@ private struct InteractiveAttributedTextView: NSViewRepresentable {
       onRemembered: onRemembered,
       onRemove: onRemove,
       onMenuHoverChanged: onMenuHoverChanged,
+      onWordRectChanged: onWordRectChanged,
       forgotCount: forgotCount,
       rememberedCount: rememberedCount,
       createdAt: createdAt
     )
     textView.textStorage?.setAttributedString(context.coordinator.buildAttributedString())
     textView.updateHoverState(hoveredIndex: textView.hoveredWordIndex)
+    context.coordinator.updateSelectedRect(in: textView)
     textView.invalidateIntrinsicContentSize()
   }
 
@@ -635,6 +645,7 @@ private struct InteractiveAttributedTextView: NSViewRepresentable {
       onRemembered: onRemembered,
       onRemove: onRemove,
       onMenuHoverChanged: onMenuHoverChanged,
+      onWordRectChanged: onWordRectChanged,
       forgotCount: forgotCount,
       rememberedCount: rememberedCount,
       createdAt: createdAt
@@ -652,6 +663,7 @@ private struct InteractiveAttributedTextView: NSViewRepresentable {
     var onRemembered: (String) -> Void
     var onRemove: (String) -> Void
     var onMenuHoverChanged: (Bool) -> Void
+    var onWordRectChanged: (CGRect?) -> Void
     var forgotCount: (String) -> Int
     var rememberedCount: (String) -> Int
     var createdAt: (String) -> Date?
@@ -667,6 +679,7 @@ private struct InteractiveAttributedTextView: NSViewRepresentable {
       onRemembered: @escaping (String) -> Void,
       onRemove: @escaping (String) -> Void,
       onMenuHoverChanged: @escaping (Bool) -> Void,
+      onWordRectChanged: @escaping (CGRect?) -> Void,
       forgotCount: @escaping (String) -> Int,
       rememberedCount: @escaping (String) -> Int,
       createdAt: @escaping (String) -> Date?
@@ -681,6 +694,7 @@ private struct InteractiveAttributedTextView: NSViewRepresentable {
       self.onRemembered = onRemembered
       self.onRemove = onRemove
       self.onMenuHoverChanged = onMenuHoverChanged
+      self.onWordRectChanged = onWordRectChanged
       self.forgotCount = forgotCount
       self.rememberedCount = rememberedCount
       self.createdAt = createdAt
@@ -697,6 +711,7 @@ private struct InteractiveAttributedTextView: NSViewRepresentable {
       onRemembered: @escaping (String) -> Void,
       onRemove: @escaping (String) -> Void,
       onMenuHoverChanged: @escaping (Bool) -> Void,
+      onWordRectChanged: @escaping (CGRect?) -> Void,
       forgotCount: @escaping (String) -> Int,
       rememberedCount: @escaping (String) -> Int,
       createdAt: @escaping (String) -> Date?
@@ -711,6 +726,7 @@ private struct InteractiveAttributedTextView: NSViewRepresentable {
       self.onRemembered = onRemembered
       self.onRemove = onRemove
       self.onMenuHoverChanged = onMenuHoverChanged
+      self.onWordRectChanged = onWordRectChanged
       self.forgotCount = forgotCount
       self.rememberedCount = rememberedCount
       self.createdAt = createdAt
@@ -745,6 +761,35 @@ private struct InteractiveAttributedTextView: NSViewRepresentable {
       case 1: return .systemGreen
       case 2: return .systemYellow
       default: return .systemRed
+      }
+    }
+
+    @MainActor
+    func updateSelectedRect(in textView: NSTextView) {
+      guard let index = selectedWordIndex,
+            let layoutManager = textView.layoutManager,
+            let textContainer = textView.textContainer,
+            let textStorage = textView.textStorage else {
+        onWordRectChanged(nil)
+        return
+      }
+
+      var range = NSRange(location: NSNotFound, length: 0)
+      textStorage.enumerateAttribute(NSAttributedString.Key("wordIndex"), in: NSRange(location: 0, length: textStorage.length)) { value, r, stop in
+        if let i = value as? Int, i == index {
+          range = r
+          stop.pointee = true
+        }
+      }
+
+      if range.location != NSNotFound {
+        let glyphRange = layoutManager.glyphRange(forCharacterRange: range, actualCharacterRange: nil)
+        var rect = layoutManager.boundingRect(forGlyphRange: glyphRange, in: textContainer)
+        rect.origin.x += textView.textContainerInset.width
+        rect.origin.y += textView.textContainerInset.height
+        onWordRectChanged(rect)
+      } else {
+        onWordRectChanged(nil)
       }
     }
 
@@ -811,6 +856,8 @@ private class InteractiveNSTextView: NSTextView {
 
   override func updateTrackingAreas() {
     super.updateTrackingAreas()
+    
+    coordinator?.updateSelectedRect(in: self)
     
     if let trackingArea = trackingArea {
       removeTrackingArea(trackingArea)
