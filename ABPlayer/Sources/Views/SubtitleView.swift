@@ -333,38 +333,59 @@ private struct SubtitleCueRow: View {
         .frame(width: 52, alignment: .trailing)
 
       if isActive {
-        FlowLayout(alignment: .leading, spacing: 4) {
-          ForEach(Array(words.enumerated()), id: \.offset) { index, word in
-            InteractiveWordView(
-              word: word,
-              difficultyLevel: difficultyLevel(for: word),
-              isSelected: selectedWordIndex == index,
-              onTap: {
-                onWordSelected(selectedWordIndex == index ? nil : index)
-              },
-              onDismiss: {
-                onWordSelected(nil)
-              },
-              onForgot: { cleaned in
-                incrementForgotCount(for: cleaned)
-              },
-              onRemembered: { cleaned in
-                incrementRememberedCount(for: cleaned)
-              },
-              onRemove: { cleaned in
-                removeVocabulary(for: cleaned)
-              },
-              onMenuHoverChanged: { hovering in
-                isMenuHovered = hovering
-              },
-              forgotCount: forgotCount(for: word),
-              rememberedCount: rememberedCount(for: word),
-              createdAt: createdAt(for: word),
-              fontSize: fontSize
+        InteractiveAttributedTextView(
+          words: words,
+          fontSize: fontSize,
+          selectedWordIndex: selectedWordIndex,
+          difficultyLevelProvider: { difficultyLevel(for: $0) },
+          onWordSelected: { index in
+            onWordSelected(selectedWordIndex == index ? nil : index)
+          },
+          onDismiss: {
+            onWordSelected(nil)
+          },
+          onForgot: { word in
+            incrementForgotCount(for: word)
+          },
+          onRemembered: { word in
+            incrementRememberedCount(for: word)
+          },
+          onRemove: { word in
+            removeVocabulary(for: word)
+          },
+          onMenuHoverChanged: { hovering in
+            isMenuHovered = hovering
+          },
+          forgotCount: { forgotCount(for: $0) },
+          rememberedCount: { rememberedCount(for: $0) },
+          createdAt: { createdAt(for: $0) }
+        )
+        .alignmentGuide(.firstTextBaseline) { context in
+          let font = NSFont.systemFont(ofSize: fontSize)
+          return context.height + font.descender
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .popover(
+          isPresented: Binding(
+            get: { selectedWordIndex != nil },
+            set: { if !$0 { onWordSelected(nil) } }
+          ),
+          arrowEdge: .top
+        ) {
+          if let selectedIndex = selectedWordIndex, selectedIndex < words.count {
+            WordMenuView(
+              word: words[selectedIndex],
+              onDismiss: { onWordSelected(nil) },
+              onForgot: { incrementForgotCount(for: $0) },
+              onRemembered: { incrementRememberedCount(for: $0) },
+              onRemove: { removeVocabulary(for: $0) },
+              onHoverChanged: { isMenuHovered = $0 },
+              forgotCount: forgotCount(for: words[selectedIndex]),
+              rememberedCount: rememberedCount(for: words[selectedIndex]),
+              createdAt: createdAt(for: words[selectedIndex])
             )
           }
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
         .onDisappear {
           onHidePopover()
         }
@@ -381,19 +402,19 @@ private struct SubtitleCueRow: View {
     .background(
       RoundedRectangle(cornerRadius: 8, style: .continuous)
         .fill(backgroundColor)
+        .onTapGesture {
+          if !isActive {
+            onTap()
+          } else if selectedWordIndex != nil && !isMenuHovered {
+            onWordSelected(nil)
+          }
+        }
     )
     .overlay(
       RoundedRectangle(cornerRadius: 8, style: .continuous)
         .strokeBorder(isActive ? Color.accentColor.opacity(0.5) : Color.clear, lineWidth: 1)
     )
     .contentShape(Rectangle())
-    .onTapGesture {
-      if !isActive {
-        onTap()
-      } else if selectedWordIndex != nil && !isMenuHovered {
-        onWordSelected(nil)
-      }
-    }
     .onHover { hovering in
       withAnimation(.easeInOut(duration: 0.15)) {
         isHovered = hovering
@@ -421,77 +442,6 @@ private struct SubtitleCueRow: View {
     guard value.isFinite, value >= 0 else { return "0:00" }
     let totalSeconds = Int(value.rounded())
     return String(format: "%d:%02d", totalSeconds / 60, totalSeconds % 60)
-  }
-}
-
-// MARK: - Interactive Word View
-
-private struct InteractiveWordView: View {
-  let word: String
-  let difficultyLevel: Int?
-  let isSelected: Bool
-  let onTap: () -> Void
-  let onDismiss: () -> Void
-  let onForgot: (String) -> Void
-  let onRemembered: (String) -> Void
-  let onRemove: (String) -> Void
-  let onMenuHoverChanged: (Bool) -> Void
-  let forgotCount: Int
-  let rememberedCount: Int
-  let createdAt: Date?
-  let fontSize: Double
-
-  @State private var isHovered = false
-
-  private var cleanedWord: String {
-    word.lowercased().trimmingCharacters(in: .punctuationCharacters)
-  }
-
-  private var isHighlighted: Bool { isHovered || isSelected }
-
-  /// Color based on difficulty level: 1=green, 2=yellow, >=3=red
-  private var difficultyColor: Color? {
-    guard let level = difficultyLevel, level > 0 else { return nil }
-    switch level {
-    case 1: return .green
-    case 2: return .yellow
-    default: return .red
-    }
-  }
-
-  private var foregroundColor: Color {
-    if isHighlighted {
-      return Color.accentColor
-    }
-    return difficultyColor ?? .primary
-  }
-
-  var body: some View {
-    Text(word)
-      .font(.system(size: fontSize))
-      .foregroundStyle(foregroundColor)
-      .padding(.horizontal, 2)
-      .padding(.vertical, 1)
-      .background(
-        RoundedRectangle(cornerRadius: 4)
-          .fill(isHighlighted ? Color.accentColor.opacity(0.15) : Color.clear)
-      )
-      .onHover { isHovered = $0 }
-      .onTapGesture { onTap() }
-      .popover(
-        isPresented: Binding(
-          get: { isSelected },
-          set: { if !$0 { onDismiss() } }
-        ),
-        arrowEdge: .bottom
-      ) {
-        WordMenuView(
-          word: word, onDismiss: onDismiss, onForgot: onForgot,
-          onRemembered: onRemembered, onRemove: onRemove,
-          onHoverChanged: onMenuHoverChanged,
-          forgotCount: forgotCount, rememberedCount: rememberedCount,
-          createdAt: createdAt)
-      }
   }
 }
 
@@ -597,6 +547,327 @@ struct SubtitleEmptyView: View {
   }
 }
 
+// MARK: - Interactive Attributed Text View
+
+private struct InteractiveAttributedTextView: NSViewRepresentable {
+  let words: [String]
+  let fontSize: Double
+  let selectedWordIndex: Int?
+  let difficultyLevelProvider: (String) -> Int?
+  let onWordSelected: (Int) -> Void
+  let onDismiss: () -> Void
+  let onForgot: (String) -> Void
+  let onRemembered: (String) -> Void
+  let onRemove: (String) -> Void
+  let onMenuHoverChanged: (Bool) -> Void
+  let forgotCount: (String) -> Int
+  let rememberedCount: (String) -> Int
+  let createdAt: (String) -> Date?
+
+  func makeNSView(context: Context) -> InteractiveNSTextView {
+    let textView = InteractiveNSTextView()
+    textView.isEditable = false
+    textView.isSelectable = false
+    textView.backgroundColor = .clear
+    textView.textContainerInset = NSSize(width: 2, height: 1)
+    textView.textContainer?.lineFragmentPadding = 0
+    textView.textContainer?.widthTracksTextView = true
+    textView.textContainer?.heightTracksTextView = false
+    textView.isVerticallyResizable = true
+    textView.isHorizontallyResizable = false
+    textView.autoresizingMask = [.width]
+    textView.coordinator = context.coordinator
+    
+    textView.setContentHuggingPriority(.defaultHigh, for: .vertical)
+    textView.setContentCompressionResistancePriority(.required, for: .vertical)
+    
+    return textView
+  }
+
+  func updateNSView(_ textView: InteractiveNSTextView, context: Context) {
+    context.coordinator.updateState(
+      words: words,
+      selectedWordIndex: selectedWordIndex,
+      fontSize: fontSize,
+      difficultyLevelProvider: difficultyLevelProvider,
+      onWordSelected: onWordSelected,
+      onDismiss: onDismiss,
+      onForgot: onForgot,
+      onRemembered: onRemembered,
+      onRemove: onRemove,
+      onMenuHoverChanged: onMenuHoverChanged,
+      forgotCount: forgotCount,
+      rememberedCount: rememberedCount,
+      createdAt: createdAt
+    )
+    textView.textStorage?.setAttributedString(context.coordinator.buildAttributedString())
+    textView.updateHoverState(hoveredIndex: textView.hoveredWordIndex)
+    textView.invalidateIntrinsicContentSize()
+  }
+
+  func sizeThatFits(_ proposal: ProposedViewSize, nsView: InteractiveNSTextView, context: Context) -> CGSize? {
+    guard let layoutManager = nsView.layoutManager,
+          let textContainer = nsView.textContainer else {
+      return nil
+    }
+    
+    let width = proposal.width ?? 400
+    textContainer.containerSize = NSSize(width: width, height: .greatestFiniteMagnitude)
+    
+    layoutManager.ensureLayout(for: textContainer)
+    let usedRect = layoutManager.usedRect(for: textContainer)
+    
+    let inset = nsView.textContainerInset
+    let height = usedRect.height + inset.height * 2
+    
+    return CGSize(width: width, height: height)
+  }
+
+  func makeCoordinator() -> Coordinator {
+    Coordinator(
+      words: words,
+      selectedWordIndex: selectedWordIndex,
+      fontSize: fontSize,
+      difficultyLevelProvider: difficultyLevelProvider,
+      onWordSelected: onWordSelected,
+      onDismiss: onDismiss,
+      onForgot: onForgot,
+      onRemembered: onRemembered,
+      onRemove: onRemove,
+      onMenuHoverChanged: onMenuHoverChanged,
+      forgotCount: forgotCount,
+      rememberedCount: rememberedCount,
+      createdAt: createdAt
+    )
+  }
+
+  class Coordinator: NSObject {
+    var words: [String]
+    var selectedWordIndex: Int?
+    var fontSize: Double
+    var difficultyLevelProvider: (String) -> Int?
+    var onWordSelected: (Int) -> Void
+    var onDismiss: () -> Void
+    var onForgot: (String) -> Void
+    var onRemembered: (String) -> Void
+    var onRemove: (String) -> Void
+    var onMenuHoverChanged: (Bool) -> Void
+    var forgotCount: (String) -> Int
+    var rememberedCount: (String) -> Int
+    var createdAt: (String) -> Date?
+
+    init(
+      words: [String],
+      selectedWordIndex: Int?,
+      fontSize: Double,
+      difficultyLevelProvider: @escaping (String) -> Int?,
+      onWordSelected: @escaping (Int) -> Void,
+      onDismiss: @escaping () -> Void,
+      onForgot: @escaping (String) -> Void,
+      onRemembered: @escaping (String) -> Void,
+      onRemove: @escaping (String) -> Void,
+      onMenuHoverChanged: @escaping (Bool) -> Void,
+      forgotCount: @escaping (String) -> Int,
+      rememberedCount: @escaping (String) -> Int,
+      createdAt: @escaping (String) -> Date?
+    ) {
+      self.words = words
+      self.selectedWordIndex = selectedWordIndex
+      self.fontSize = fontSize
+      self.difficultyLevelProvider = difficultyLevelProvider
+      self.onWordSelected = onWordSelected
+      self.onDismiss = onDismiss
+      self.onForgot = onForgot
+      self.onRemembered = onRemembered
+      self.onRemove = onRemove
+      self.onMenuHoverChanged = onMenuHoverChanged
+      self.forgotCount = forgotCount
+      self.rememberedCount = rememberedCount
+      self.createdAt = createdAt
+    }
+
+    func updateState(
+      words: [String],
+      selectedWordIndex: Int?,
+      fontSize: Double,
+      difficultyLevelProvider: @escaping (String) -> Int?,
+      onWordSelected: @escaping (Int) -> Void,
+      onDismiss: @escaping () -> Void,
+      onForgot: @escaping (String) -> Void,
+      onRemembered: @escaping (String) -> Void,
+      onRemove: @escaping (String) -> Void,
+      onMenuHoverChanged: @escaping (Bool) -> Void,
+      forgotCount: @escaping (String) -> Int,
+      rememberedCount: @escaping (String) -> Int,
+      createdAt: @escaping (String) -> Date?
+    ) {
+      self.words = words
+      self.selectedWordIndex = selectedWordIndex
+      self.fontSize = fontSize
+      self.difficultyLevelProvider = difficultyLevelProvider
+      self.onWordSelected = onWordSelected
+      self.onDismiss = onDismiss
+      self.onForgot = onForgot
+      self.onRemembered = onRemembered
+      self.onRemove = onRemove
+      self.onMenuHoverChanged = onMenuHoverChanged
+      self.forgotCount = forgotCount
+      self.rememberedCount = rememberedCount
+      self.createdAt = createdAt
+    }
+
+    func buildAttributedString() -> NSAttributedString {
+      let result = NSMutableAttributedString()
+      let font = NSFont.systemFont(ofSize: fontSize)
+
+      for (index, word) in words.enumerated() {
+        let attributes: [NSAttributedString.Key: Any] = [
+          .font: font,
+          .foregroundColor: baseColorForWord(word),
+          NSAttributedString.Key("wordIndex"): index
+        ]
+        let wordString = NSAttributedString(string: word, attributes: attributes)
+        result.append(wordString)
+        
+        if index < words.count - 1 {
+          result.append(NSAttributedString(string: " ", attributes: [.font: font]))
+        }
+      }
+      
+      return result
+    }
+
+    func baseColorForWord(_ word: String) -> NSColor {
+      guard let level = difficultyLevelProvider(word), level > 0 else {
+        return .labelColor
+      }
+      switch level {
+      case 1: return .systemGreen
+      case 2: return .systemYellow
+      default: return .systemRed
+      }
+    }
+
+    @MainActor
+    func handleClick(at point: NSPoint, in textView: NSTextView) {
+      guard let wordIndex = findWordIndex(at: point, in: textView) else {
+        onDismiss()
+        return
+      }
+      onWordSelected(wordIndex)
+    }
+
+    @MainActor
+    func handleMouseMoved(at point: NSPoint, in textView: NSTextView) -> Int? {
+      return findWordIndex(at: point, in: textView)
+    }
+
+    @MainActor
+    private func findWordIndex(at point: NSPoint, in textView: NSTextView) -> Int? {
+      guard let layoutManager = textView.layoutManager,
+            let textContainer = textView.textContainer,
+            let textStorage = textView.textStorage else { return nil }
+
+      let characterIndex = layoutManager.characterIndex(
+        for: point,
+        in: textContainer,
+        fractionOfDistanceBetweenInsertionPoints: nil
+      )
+
+      guard characterIndex < textStorage.length else { return nil }
+
+      return textStorage.attribute(NSAttributedString.Key("wordIndex"), at: characterIndex, effectiveRange: nil) as? Int
+    }
+  }
+}
+
+private class InteractiveNSTextView: NSTextView {
+  weak var coordinator: InteractiveAttributedTextView.Coordinator?
+  private var trackingArea: NSTrackingArea?
+  var hoveredWordIndex: Int?
+  weak var popoverViewController: NSViewController?
+
+  override var firstBaselineOffsetFromTop: CGFloat {
+    guard let layoutManager = layoutManager,
+          let textContainer = textContainer,
+          let textStorage = textStorage,
+          textStorage.length > 0 else {
+      return textContainerInset.height
+    }
+    
+    let glyphRange = layoutManager.glyphRange(for: textContainer)
+    guard glyphRange.length > 0 else {
+      return textContainerInset.height
+    }
+    
+    let firstLineFragmentRect = layoutManager.lineFragmentRect(forGlyphAt: 0, effectiveRange: nil)
+    let firstLineBaselineOffset = layoutManager.typesetter.baselineOffset(
+      in: layoutManager,
+      glyphIndex: 0
+    )
+    
+    return textContainerInset.height + firstLineFragmentRect.origin.y + firstLineBaselineOffset
+  }
+
+  override func updateTrackingAreas() {
+    super.updateTrackingAreas()
+    
+    if let trackingArea = trackingArea {
+      removeTrackingArea(trackingArea)
+    }
+    
+    let options: NSTrackingArea.Options = [.mouseEnteredAndExited, .mouseMoved, .activeInKeyWindow]
+    trackingArea = NSTrackingArea(rect: bounds, options: options, owner: self, userInfo: nil)
+    addTrackingArea(trackingArea!)
+  }
+
+  override func mouseDown(with event: NSEvent) {
+    let point = convert(event.locationInWindow, from: nil)
+    coordinator?.handleClick(at: point, in: self)
+  }
+
+  override func mouseMoved(with event: NSEvent) {
+    let point = convert(event.locationInWindow, from: nil)
+    let newHoveredWordIndex = coordinator?.handleMouseMoved(at: point, in: self)
+    
+    if newHoveredWordIndex != hoveredWordIndex {
+      hoveredWordIndex = newHoveredWordIndex
+      updateHoverState(hoveredIndex: newHoveredWordIndex)
+    }
+  }
+
+  override func mouseExited(with event: NSEvent) {
+    if hoveredWordIndex != nil {
+      hoveredWordIndex = nil
+      updateHoverState(hoveredIndex: nil)
+    }
+  }
+
+  func updateHoverState(hoveredIndex: Int?) {
+    guard let textStorage = textStorage, let coordinator = coordinator else { return }
+    
+    textStorage.beginEditing()
+    
+    textStorage.enumerateAttribute(NSAttributedString.Key("wordIndex"), in: NSRange(location: 0, length: textStorage.length)) { value, range, _ in
+      guard let wordIndex = value as? Int, wordIndex < coordinator.words.count else { return }
+      
+      let isHovered = wordIndex == hoveredIndex
+      let isSelected = wordIndex == coordinator.selectedWordIndex
+      let isHighlighted = isHovered || isSelected
+      
+      let word = coordinator.words[wordIndex]
+      let baseColor = coordinator.baseColorForWord(word)
+      let foregroundColor = isHighlighted ? NSColor.controlAccentColor : baseColor
+      let backgroundColor = isHighlighted ? NSColor.controlAccentColor.withAlphaComponent(0.15) : .clear
+      
+      textStorage.addAttribute(.foregroundColor, value: foregroundColor, range: range)
+      textStorage.addAttribute(.backgroundColor, value: backgroundColor, range: range)
+    }
+    
+    textStorage.endEditing()
+  }
+}
+
 // MARK: - Countdown Ring View
 
 /// Circular countdown indicator with progress ring
@@ -611,11 +882,9 @@ private struct CountdownRingView: View {
 
   var body: some View {
     ZStack {
-      // Background ring
       Circle()
         .stroke(Color.secondary.opacity(0.2), lineWidth: 3)
 
-      // Progress ring
       Circle()
         .trim(from: 0, to: progress)
         .stroke(
@@ -625,7 +894,6 @@ private struct CountdownRingView: View {
         .rotationEffect(.degrees(-90))
         .animation(.linear(duration: 1), value: progress)
 
-      // Countdown number
       Text("\(countdown)")
         .font(.system(.caption, design: .rounded, weight: .semibold))
         .monospacedDigit()
