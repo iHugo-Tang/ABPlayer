@@ -15,14 +15,14 @@ final class PlaybackRecord {
   var currentPosition: Double
 
   /// 关联的音频文件
-  var audioFile: AudioFile?
+  var audioFile: ABFile?
 
   init(
     id: UUID = UUID(),
     lastPlayedAt: Date? = nil,
     completionCount: Int = 0,
     currentPosition: Double = 0,
-    audioFile: AudioFile? = nil
+    audioFile: ABFile? = nil
   ) {
     self.id = id
     self.lastPlayedAt = lastPlayedAt

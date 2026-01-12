@@ -70,7 +70,7 @@ struct AudioPlayerView: View {
   @Environment(SessionTracker.self) private var sessionTracker
   @Environment(\.modelContext) private var modelContext
 
-  @Bindable var audioFile: AudioFile
+  @Bindable var audioFile: ABFile
 
   @AppStorage("audioPlayerShowContentPanel") private var showContentPanel: Bool = true
 

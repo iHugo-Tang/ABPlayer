@@ -13,13 +13,13 @@ public struct MainSplitView: View {
   @Environment(SessionTracker.self) private var sessionTracker
   @Environment(\.modelContext) private var modelContext
 
-  @Query(sort: \AudioFile.createdAt, order: .forward)
-  private var allAudioFiles: [AudioFile]
+  @Query(sort: \ABFile.createdAt, order: .forward)
+  private var allAudioFiles: [ABFile]
 
   @Query(sort: \Folder.name)
   private var allFolders: [Folder]
 
-  @State private var selectedFile: AudioFile?
+  @State private var selectedFile: ABFile?
   @State private var currentFolder: Folder?
   @State private var navigationPath: [Folder] = []
   @State private var isImportingFile: Bool = false
@@ -188,9 +188,9 @@ public struct MainSplitView: View {
       )
 
       let displayName = url.lastPathComponent
-      let deterministicID = AudioFile.generateDeterministicID(from: bookmarkData)
+      let deterministicID = ABFile.generateDeterministicID(from: bookmarkData)
 
-      let audioFile = AudioFile(
+      let audioFile = ABFile(
         id: deterministicID,
         displayName: displayName,
         bookmarkData: bookmarkData,
@@ -222,7 +222,7 @@ public struct MainSplitView: View {
 
   // MARK: - Selection
 
-  private func selectFile(_ file: AudioFile, fromStart: Bool = false, debounce: Bool = true) async {
+  private func selectFile(_ file: ABFile, fromStart: Bool = false, debounce: Bool = true) async {
     lastSelectedAudioFileID = file.id.uuidString
     lastFolderID = file.folder?.id.uuidString
 
@@ -251,7 +251,7 @@ public struct MainSplitView: View {
     }
   }
 
-  private func playFile(_ file: AudioFile, fromStart: Bool = false) async {
+  private func playFile(_ file: ABFile, fromStart: Bool = false) async {
     await selectFile(file, fromStart: fromStart, debounce: false)
     playerManager.play()
   }
@@ -314,7 +314,7 @@ public struct MainSplitView: View {
       let files = folder.sortedAudioFiles
       guard !files.isEmpty else { return }
 
-      let nextFile: AudioFile?
+      let nextFile: ABFile?
 
       switch playerManager.loopMode {
       case .none, .repeatOne:
@@ -333,7 +333,7 @@ public struct MainSplitView: View {
       case .shuffle:
         // Play random file (different from current if possible)
         if files.count > 1 {
-          var randomFile: AudioFile
+          var randomFile: ABFile
           repeat {
             randomFile = files.randomElement()!
           } while randomFile.id == currentFile.id
@@ -385,7 +385,7 @@ public struct MainSplitView: View {
 
       // Fetch and delete all AudioFiles FIRST (before child entities)
       // This prevents attempting to resolve faults on pdfBookmarkData during deletion
-      let audioFiles = try modelContext.fetch(FetchDescriptor<AudioFile>())
+      let audioFiles = try modelContext.fetch(FetchDescriptor<ABFile>())
       for audioFile in audioFiles {
         modelContext.delete(audioFile)
       }

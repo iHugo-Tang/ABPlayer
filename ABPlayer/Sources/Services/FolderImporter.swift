@@ -155,14 +155,14 @@ final class FolderImporter {
       relativeTo: nil
     )
 
-    let deterministicID = AudioFile.generateDeterministicID(from: bookmarkData)
+    let deterministicID = ABFile.generateDeterministicID(from: bookmarkData)
 
     // 尝试查找已有记录
-    let descriptor = FetchDescriptor<AudioFile>(
-      predicate: #Predicate<AudioFile> { $0.id == deterministicID }
+    let descriptor = FetchDescriptor<ABFile>(
+      predicate: #Predicate<ABFile> { $0.id == deterministicID }
     )
 
-    let audioFile: AudioFile
+    let audioFile: ABFile
     if let existing = try? modelContext.fetch(descriptor).first {
       audioFile = existing
       // 更新文件夹关联（如果需要）
@@ -174,7 +174,7 @@ final class FolderImporter {
       }
     } else {
       // 创建新记录
-      audioFile = AudioFile(
+      audioFile = ABFile(
         id: deterministicID,
         displayName: url.lastPathComponent,
         bookmarkData: bookmarkData,
@@ -249,7 +249,7 @@ final class FolderImporter {
   // MARK: - Pairing
 
   /// 关联字幕文件
-  private func pairSubtitle(at url: URL, with audioFile: AudioFile) throws {
+  private func pairSubtitle(at url: URL, with audioFile: ABFile) throws {
     let bookmarkData = try url.bookmarkData(
       options: [.withSecurityScope],
       includingResourceValuesForKeys: nil,
@@ -273,7 +273,7 @@ final class FolderImporter {
   }
 
   /// 关联 PDF 文件
-  private func pairPDF(at url: URL, with audioFile: AudioFile) throws {
+  private func pairPDF(at url: URL, with audioFile: ABFile) throws {
     let bookmarkData = try url.bookmarkData(
       options: [.withSecurityScope],
       includingResourceValuesForKeys: nil,

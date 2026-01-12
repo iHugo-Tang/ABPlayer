@@ -17,7 +17,7 @@ enum SortOrder: String, CaseIterable {
 
 enum SelectionItem: Hashable {
   case folder(Folder)
-  case audioFile(AudioFile)
+  case audioFile(ABFile)
   case empty
 }
 
@@ -29,10 +29,10 @@ struct FolderNavigationView: View {
   @Query(filter: #Predicate<Folder> { $0.parent == nil }, sort: \Folder.name)
   private var rootFolders: [Folder]
 
-  @Query(filter: #Predicate<AudioFile> { $0.folder == nil }, sort: \AudioFile.createdAt)
-  private var rootAudioFiles: [AudioFile]
+  @Query(filter: #Predicate<ABFile> { $0.folder == nil }, sort: \ABFile.createdAt)
+  private var rootAudioFiles: [ABFile]
 
-  @Binding var selectedFile: AudioFile?
+  @Binding var selectedFile: ABFile?
   @Binding var currentFolder: Folder?
   @Binding var navigationPath: [Folder]
 
@@ -40,7 +40,7 @@ struct FolderNavigationView: View {
   @State private var isDeselecting = false
   @State private var selectionBeforePress: SelectionItem?
 
-  let onSelectFile: (AudioFile) async -> Void
+  let onSelectFile: (ABFile) async -> Void
 
   var body: some View {
     VStack(spacing: 0) {
@@ -217,7 +217,7 @@ struct FolderNavigationView: View {
     return viewModel.sortedFolders(folders)
   }
 
-  private var currentAudioFiles: [AudioFile] {
+  private var currentAudioFiles: [ABFile] {
     guard let viewModel else { return [] }
     let files = currentFolder.map { Array($0.audioFiles) } ?? rootAudioFiles
     return viewModel.sortedAudioFiles(files)
@@ -274,7 +274,7 @@ struct FolderNavigationView: View {
 
   // MARK: - Audio File Row
 
-  private func fileRow(for file: AudioFile) -> some View {
+  private func fileRow(for file: ABFile) -> some View {
     FileRowView(
       file: file,
       isSelected: selectedFile?.id == file.id,

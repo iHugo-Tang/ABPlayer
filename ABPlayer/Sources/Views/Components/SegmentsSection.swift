@@ -6,7 +6,7 @@ struct SegmentsSection: View {
   @Environment(AudioPlayerManager.self) private var playerManager
   @Environment(\.modelContext) private var modelContext
 
-  @Bindable var audioFile: AudioFile
+  @Bindable var audioFile: ABFile
 
   @AppStorage("segmentSortDescendingByStartTime") private var isSegmentSortDescendingByStartTime:
     Bool = true

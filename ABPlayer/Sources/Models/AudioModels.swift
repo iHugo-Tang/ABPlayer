@@ -2,10 +2,25 @@ import CryptoKit
 import Foundation
 import SwiftData
 
+enum FileType: String, Codable {
+  case audio
+  case video
+  
+  var iconName: String {
+    switch self {
+    case .audio:
+      return "music.note"
+    case .video:
+      return "movieclapper"
+    }
+  }
+}
+
 @Model
-final class AudioFile {
+final class ABFile {
   var id: UUID
   var displayName: String
+  var fileType: FileType
 
   @Attribute(.externalStorage)
   var bookmarkData: Data
@@ -50,6 +65,7 @@ final class AudioFile {
   init(
     id: UUID = UUID(),
     displayName: String,
+    fileType: FileType? = nil,
     bookmarkData: Data,
     createdAt: Date = Date(),
     segments: [LoopSegment] = [],
@@ -61,6 +77,7 @@ final class AudioFile {
   ) {
     self.id = id
     self.displayName = displayName
+    self.fileType = fileType ?? Self.inferFileType(from: displayName)
     self.bookmarkData = bookmarkData
     self.createdAt = createdAt
     self.segments = segments
@@ -80,7 +97,7 @@ final class LoopSegment {
   var endTime: Double
   var index: Int
   var createdAt: Date
-  var audioFile: AudioFile?
+  var audioFile: ABFile?
 
   init(
     id: UUID = UUID(),
@@ -89,7 +106,7 @@ final class LoopSegment {
     endTime: Double,
     index: Int,
     createdAt: Date = Date(),
-    audioFile: AudioFile? = nil
+    audioFile: ABFile? = nil
   ) {
     self.id = id
     self.label = label
@@ -101,7 +118,7 @@ final class LoopSegment {
   }
 }
 
-extension AudioFile {
+extension ABFile {
   /// Generate a deterministic UUID from bookmark data
   /// Uses SHA256 hash to ensure the same data always produces the same UUID
   /// This enables transcription data reuse when the same file is re-imported
@@ -150,8 +167,12 @@ extension AudioFile {
 
   static let videoExtensions: Set<String> = ["mp4", "mov", "m4v", "avi", "mkv"]
 
-  var isVideo: Bool {
+  static func inferFileType(from displayName: String) -> FileType {
     let ext = (displayName as NSString).pathExtension.lowercased()
-    return Self.videoExtensions.contains(ext)
+    return videoExtensions.contains(ext) ? .video : .audio
+  }
+
+  var isVideo: Bool {
+    fileType == .video
   }
 }

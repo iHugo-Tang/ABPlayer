@@ -3,7 +3,7 @@ import SwiftUI
 // MARK: - Audio File Row
 
 struct FileRowView: View {
-  let file: AudioFile
+  let file: ABFile
   let isSelected: Bool
   let onDelete: () -> Void
   
@@ -16,7 +16,7 @@ struct FileRowView: View {
       }
       HStack(spacing: 12) {
         if isAvailable {
-          Image(systemName: "movieclapper.fill")
+          Image(systemName: file.fileType.iconName)
             .foregroundStyle(file.isPlaybackComplete ? Color.secondary : Color.blue)
         } else {
           Image(systemName: "exclamationmark.triangle.fill")

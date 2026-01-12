@@ -79,7 +79,7 @@ final class TranscriptionQueueManager {
   }
 
   /// Enqueue a new transcription task
-  func enqueue(audioFile: AudioFile) {
+  func enqueue(audioFile: ABFile) {
     // Don't add if already in queue
     if getTask(for: audioFile.id) != nil {
       return
@@ -276,7 +276,7 @@ final class TranscriptionQueueManager {
     try? context.save()
 
     // Update hasTranscription flag
-    let audioDescriptor = FetchDescriptor<AudioFile>(
+    let audioDescriptor = FetchDescriptor<ABFile>(
       predicate: #Predicate { $0.id == audioFileId }
     )
     if let audioFile = try? context.fetch(audioDescriptor).first {

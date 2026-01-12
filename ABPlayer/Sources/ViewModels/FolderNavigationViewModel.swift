@@ -49,7 +49,7 @@ final class FolderNavigationViewModel {
     }
   }
   
-  func sortedAudioFiles(_ files: [AudioFile]) -> [AudioFile] {
+  func sortedAudioFiles(_ files: [ABFile]) -> [ABFile] {
     switch sortOrder {
     case .nameAZ:
       return files.sorted { $0.displayName < $1.displayName }
@@ -100,7 +100,7 @@ final class FolderNavigationViewModel {
     _ newSelection: SelectionItem?,
     navigationPath: inout [Folder],
     currentFolder: inout Folder?,
-    onSelectFile: @escaping (AudioFile) async -> Void
+    onSelectFile: @escaping (ABFile) async -> Void
   ) {
     guard let newSelection else { return }
     
@@ -152,7 +152,7 @@ final class FolderNavigationViewModel {
   func deleteFolder(
     _ folder: Folder,
     currentFolder: inout Folder?,
-    selectedFile: inout AudioFile?,
+    selectedFile: inout ABFile?,
     navigationPath: inout [Folder]
   ) {
     do {
@@ -194,10 +194,10 @@ final class FolderNavigationViewModel {
   }
   
   func deleteAudioFile(
-    _ file: AudioFile,
+    _ file: ABFile,
     updateSelection: Bool = true,
     checkPlayback: Bool = true,
-    selectedFile: inout AudioFile?
+    selectedFile: inout ABFile?
   ) {
     if checkPlayback {
       do {
@@ -258,7 +258,7 @@ final class FolderNavigationViewModel {
     return false
   }
   
-  private func isSelectedFileInFolder(_ folder: Folder, selectedFile: AudioFile?) -> Bool {
+  private func isSelectedFileInFolder(_ folder: Folder, selectedFile: ABFile?) -> Bool {
     guard let selectedFile else { return false }
     
     if folder.audioFiles.contains(where: { $0.id == selectedFile.id }) {

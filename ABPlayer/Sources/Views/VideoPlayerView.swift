@@ -11,7 +11,7 @@ struct VideoPlayerView: View {
   @Environment(SessionTracker.self) private var sessionTracker
   @Environment(\.modelContext) private var modelContext
 
-  @Bindable var audioFile: AudioFile
+  @Bindable var audioFile: ABFile
 
   @AppStorage("videoPlayerShowContentPanel") private var showContentPanel: Bool = true
 

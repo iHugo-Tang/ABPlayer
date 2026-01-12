@@ -49,7 +49,7 @@ struct ABPlayerApp: App {
       }
 
       let schema = Schema([
-        AudioFile.self,
+        ABFile.self,
         LoopSegment.self,
         ListeningSession.self,
         PlaybackRecord.self,

@@ -3,7 +3,7 @@ import SwiftUI
 
 /// View for transcription display and controls
 struct TranscriptionView: View {
-  let audioFile: AudioFile
+  let audioFile: ABFile
 
   @Environment(TranscriptionManager.self) private var transcriptionManager
   @Environment(TranscriptionQueueManager.self) private var queueManager

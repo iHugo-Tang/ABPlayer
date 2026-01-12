@@ -17,7 +17,7 @@ enum ContentPanelTab: String, CaseIterable, Identifiable {
 
 /// Tab-based content panel showing subtitles or PDF (sidebar only)
 struct ContentPanelView: View {
-  let audioFile: AudioFile
+  let audioFile: ABFile
 
   @State private var selectedTab: ContentPanelTab = .transcription
 
