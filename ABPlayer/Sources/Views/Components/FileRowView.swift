@@ -62,6 +62,8 @@ struct FileRowView: View {
       }
       .padding(.horizontal, 16)
     }
+    .frame(maxWidth: .infinity, alignment: .leading)
+    .frame(maxHeight: .infinity, alignment: .center)
     .contentShape(Rectangle())
     .contextMenu {
       Button(role: .destructive) {

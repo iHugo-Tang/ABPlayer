@@ -14,6 +14,7 @@ final class FolderNavigationViewModel {
   var selection: SelectionItem?
   var isRescanningFolder = false
   var hovering: SelectionItem?
+  var pressing: SelectionItem?
   
   // MARK: - Initialization
   

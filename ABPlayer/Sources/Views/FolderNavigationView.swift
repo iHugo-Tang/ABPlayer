@@ -38,6 +38,7 @@ struct FolderNavigationView: View {
 
   @State private var viewModel: FolderNavigationViewModel?
   @State private var isDeselecting = false
+  @State private var selectionBeforePress: SelectionItem?
 
   let onSelectFile: (AudioFile) async -> Void
 
@@ -127,43 +128,70 @@ struct FolderNavigationView: View {
           if !currentFolders.isEmpty {
             Section {
               ForEach(currentFolders) { folder in
-                folderRow(for: folder)
-                  .tag(SelectionItem.folder(folder))
+                GeometryReader { geometry in
+                  folderRow(for: folder)
+                    .frame(height: 44)
+                    .contentShape(Rectangle())
+                    .gesture(
+                      pressGesture(
+                        for: .folder(folder),
+                        rowSize: geometry.size
+                      )
+                    )
+                }
+                .frame(height: 44)
+                .listRowSeparator(.hidden)
+                .listRowInsets(.init())
+                .listRowBackground(
+                  viewModel.pressing == SelectionItem.folder(folder)
+                    ? Color.red.opacity(0.7)
+                    : .clear
+                )
+                .tag(SelectionItem.folder(folder))
               }
-              .frame(height: 44)
-              .padding(.horizontal, -8)
-              .listRowSeparatorTint(Color.asset.bgPrimary)
-              .listRowInsets(.init(top: 0, leading: 0, bottom: 0, trailing: 0))
             }
           }
 
           if !currentAudioFiles.isEmpty {
             Section {
               ForEach(currentAudioFiles) { file in
-                fileRow(for: file)
-                  .tag(SelectionItem.audioFile(file))
-                  .onHover {
-                    if $0 {
-                      viewModel.hovering = SelectionItem.audioFile(file)
-                    } else {
-                      viewModel.hovering = nil
-                    }
+                GeometryReader { geometry in
+                  fileRow(for: file)
+                    .frame(height: 44)
+                    .contentShape(Rectangle())
+                    .simultaneousGesture(
+                      pressGesture(
+                        for: .audioFile(file),
+                        rowSize: geometry.size
+                      )
+                    )
+                }
+                .frame(height: 44)
+                .listRowSeparator(.hidden)
+                .listRowInsets(.init())
+                .onHover {
+                  if $0 {
+                    viewModel.hovering = SelectionItem.audioFile(file)
+                  } else {
+                    viewModel.hovering = nil
                   }
-                  .listRowBackground(
-                    selectedFile == file
-                    ? Color.asset.listHighlight
-                    : viewModel.hovering == SelectionItem.audioFile(file)
-                      ? Color.asset.listHighlight.opacity(0.5)
-                      : .clear
-                  )
+                }
+                .listRowBackground(
+                  viewModel.pressing == SelectionItem.audioFile(file)
+                    ? Color.asset.listHighlight.opacity(0.6)
+                    : selectedFile == file
+                      ? Color.asset.listHighlight
+                      : viewModel.hovering == SelectionItem.audioFile(file)
+                        ? Color.asset.listHighlight.opacity(0.6)
+                        : .clear
+                )
+                .tag(SelectionItem.audioFile(file))
               }
-              .frame(height: 44)
-              .padding(.horizontal, -8)
-              .listRowSeparatorTint(Color.asset.bgPrimary)
-              .listRowInsets(.init(top: 0, leading: 0, bottom: 0, trailing: 0))
             }
           }
         }
+        .accentColor(.red)
+        .padding(.horizontal, -8)
         .listStyle(.plain)
         .listSectionSeparator(.hidden)
         .scrollContentBackground(.hidden)
@@ -193,6 +221,38 @@ struct FolderNavigationView: View {
     guard let viewModel else { return [] }
     let files = currentFolder.map { Array($0.audioFiles) } ?? rootAudioFiles
     return viewModel.sortedAudioFiles(files)
+  }
+
+  private func pressGesture(for selection: SelectionItem, rowSize: CGSize) -> some Gesture {
+    DragGesture(minimumDistance: 0, coordinateSpace: .local)
+      .onChanged { _ in
+        guard let viewModel else { return }
+        if selectionBeforePress == nil {
+          selectionBeforePress = viewModel.selection
+        }
+        viewModel.pressing = selection
+      }
+      .onEnded { value in
+        let isInsideRow = CGRect(origin: .zero, size: rowSize).contains(value.location)
+        handlePressEnd(for: selection, isInsideRow: isInsideRow)
+      }
+  }
+
+  private func handlePressEnd(for selection: SelectionItem, isInsideRow: Bool) {
+    guard let viewModel else { return }
+
+    viewModel.pressing = nil
+    let previousSelection = selectionBeforePress
+    selectionBeforePress = nil
+
+    guard isInsideRow else {
+      isDeselecting = true
+      viewModel.selection = previousSelection
+      isDeselecting = false
+      return
+    }
+
+    viewModel.selection = selection
   }
 
   // MARK: - Folder Row
