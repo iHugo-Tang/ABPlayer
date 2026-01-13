@@ -4,77 +4,6 @@ import Observation
 import SwiftData
 import SwiftUI
 
-// MARK: - Isolated Progress View (prevents parent re-renders on currentTime updates)
-
-private struct VideoProgressView: View {
-  @Environment(AudioPlayerManager.self) private var playerManager
-
-  @Binding var isSeeking: Bool
-  @Binding var seekValue: Double
-  @Binding var wasPlayingBeforeSeek: Bool
-
-  var body: some View {
-    Slider(
-      value: Binding(
-        get: { isSeeking ? seekValue : playerManager.currentTime },
-        set: { newValue in seekValue = newValue }
-      ),
-      in: 0...(playerManager.duration > 0 ? playerManager.duration : 1),
-      onEditingChanged: { editing in
-        if editing {
-          isSeeking = true
-          wasPlayingBeforeSeek = playerManager.isPlaying
-          if playerManager.isPlaying {
-            playerManager.togglePlayPause()
-          }
-        } else {
-          playerManager.seek(to: seekValue)
-          isSeeking = false
-          if wasPlayingBeforeSeek {
-            playerManager.togglePlayPause()
-          }
-        }
-      }
-    )
-    .controlSize(.small)
-  }
-}
-
-private struct VideoTimeDisplay: View {
-  @Environment(AudioPlayerManager.self) private var playerManager
-
-  let isSeeking: Bool
-  let seekValue: Double
-
-  var body: some View {
-    HStack(spacing: 4) {
-      Text(timeString(from: isSeeking ? seekValue : playerManager.currentTime))
-      Text("/")
-        .foregroundStyle(.secondary)
-      Text(timeString(from: playerManager.duration))
-    }
-    .font(.body.monospacedDigit())
-  }
-
-  private func timeString(from value: Double) -> String {
-    guard value.isFinite, value >= 0 else {
-      return "0:00"
-    }
-
-    let totalSeconds = Int(value.rounded())
-    let minutes = totalSeconds / 60
-    let seconds = totalSeconds % 60
-
-    if minutes >= 60 {
-      let hours = minutes / 60
-      let remainingMinutes = minutes % 60
-      return String(format: "%d:%02d:%02d", hours, remainingMinutes, seconds)
-    }
-
-    return String(format: "%d:%02d", minutes, seconds)
-  }
-}
-
 // MARK: - Video Player View
 
 struct VideoPlayerView: View {
@@ -82,7 +11,7 @@ struct VideoPlayerView: View {
   @Environment(SessionTracker.self) private var sessionTracker
   @Environment(\.modelContext) private var modelContext
 
-  @Bindable var audioFile: AudioFile
+  @Bindable var audioFile: ABFile
 
   @AppStorage("videoPlayerShowContentPanel") private var showContentPanel: Bool = true
 
@@ -100,7 +29,6 @@ struct VideoPlayerView: View {
 
   // Volume Persistence
   @AppStorage("playerVolume") private var playerVolume: Double = 1.0
-  @State private var showVolumePopover: Bool = false
   @State private var volumeDebounceTask: Task<Void, Never>?
 
   // Loop Mode Persistence
@@ -290,7 +218,7 @@ struct VideoPlayerView: View {
           .buttonStyle(.plain)
           .help("Loop mode: \(playerManager.loopMode.displayName)")
 
-          volumeControl
+          VolumeControl(playerVolume: $playerVolume)
         }
 
         Spacer()
@@ -330,51 +258,6 @@ struct VideoPlayerView: View {
         .keyboardShortcut("g", modifiers: [])
       }
     }
-  }
-
-  private var volumeControl: some View {
-    Button {
-      showVolumePopover.toggle()
-    } label: {
-      Image(systemName: playerVolume == 0 ? "speaker.slash" : "speaker.wave.3")
-        .font(.title2)
-        .frame(width: 24, height: 24)
-    }
-    .buttonStyle(.plain)
-    .popover(isPresented: $showVolumePopover, arrowEdge: .bottom) {
-      HStack(spacing: 8) {
-        Slider(value: $playerVolume, in: 0...2) {
-          Text("Volume")
-        }
-        .frame(width: 150)
-
-        HStack(spacing: 2) {
-          Text("\(Int(playerVolume * 100))%")
-          if playerVolume > 1.001 {
-            Image(systemName: "bolt.fill")
-              .foregroundStyle(.orange)
-          }
-        }
-        .frame(width: 50, alignment: .trailing)
-        .font(.caption2)
-        .foregroundStyle(.secondary)
-
-        Button {
-          playerVolume = 1.0
-        } label: {
-          Image(systemName: "arrow.counterclockwise")
-            .font(.caption)
-            .foregroundStyle(.secondary)
-        }
-        .buttonStyle(.plain)
-        .help("Reset volume to 100%")
-      }
-      .padding()
-    }
-    .onAppear {
-      playerManager.setVolume(Float(playerVolume))
-    }
-    .help("Volume")
   }
 
   // MARK: - Layout Helpers

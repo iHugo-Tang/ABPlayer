@@ -17,7 +17,7 @@ enum SortOrder: String, CaseIterable {
 
 enum SelectionItem: Hashable {
   case folder(Folder)
-  case audioFile(AudioFile)
+  case audioFile(ABFile)
   case empty
 }
 
@@ -29,32 +29,52 @@ struct FolderNavigationView: View {
   @Query(filter: #Predicate<Folder> { $0.parent == nil }, sort: \Folder.name)
   private var rootFolders: [Folder]
 
-  @Query(filter: #Predicate<AudioFile> { $0.folder == nil }, sort: \AudioFile.createdAt)
-  private var rootAudioFiles: [AudioFile]
+  @Query(filter: #Predicate<ABFile> { $0.folder == nil }, sort: \ABFile.createdAt)
+  private var rootAudioFiles: [ABFile]
 
-  @Binding var selectedFile: AudioFile?
+  @Binding var selectedFile: ABFile?
   @Binding var currentFolder: Folder?
   @Binding var navigationPath: [Folder]
 
-  @State private var selection: SelectionItem?
-  @AppStorage("folderNavigationSortOrder") private var sortOrder: SortOrder = .nameAZ
-  @State private var isRescanningFolder = false
+  @State private var viewModel: FolderNavigationViewModel?
+  @State private var isDeselecting = false
+  @State private var selectionBeforePress: SelectionItem?
 
-  let onSelectFile: (AudioFile) async -> Void
+  let onSelectFile: (ABFile) async -> Void
 
   var body: some View {
     VStack(spacing: 0) {
       navigationHeader
       fileList
     }
-    .onChange(of: selection) { _, newValue in
-      handleSelectionChange(newValue)
+    .onAppear {
+      if viewModel == nil {
+        viewModel = FolderNavigationViewModel(
+          modelContext: modelContext,
+          playerManager: playerManager
+        )
+        
+        if let savedSortOrder = UserDefaults.standard.string(forKey: "folderNavigationSortOrder"),
+           let sortOrder = SortOrder(rawValue: savedSortOrder) {
+          viewModel?.sortOrder = sortOrder
+        }
+      }
+
+      if let selectedFile {
+        viewModel?.selection = .audioFile(selectedFile)
+      }
     }
-    .onChange(of: selectedFile) {
-      if let file = selectedFile {
-        selection = .audioFile(file)
-      } else {
-        selection = nil
+    .onChange(of: viewModel?.sortOrder) { _, newValue in
+      if let newValue {
+        UserDefaults.standard.set(newValue.rawValue, forKey: "folderNavigationSortOrder")
+      }
+    }
+    .onChange(of: selectedFile) { _, newValue in
+      guard let viewModel else { return }
+      if let newValue {
+        viewModel.selection = .audioFile(newValue)
+      } else if case .audioFile? = viewModel.selection {
+        viewModel.selection = nil
       }
     }
   }
@@ -62,460 +82,226 @@ struct FolderNavigationView: View {
   // MARK: - Navigation Header
 
   private var navigationHeader: some View {
-    HStack {
-      Button {
-        withAnimation(.easeInOut(duration: 0.2)) {
-          navigateBack()
-        }
-      } label: {
-        HStack(spacing: 4) {
-          if !navigationPath.isEmpty {
-            Label("Back", systemImage: "chevron.left")
-              .font(.title2)
-              .labelStyle(.iconOnly)
-          }
-
-          Text(currentFolder?.name ?? "Library")
-            .lineLimit(1)
-        }
+    Group {
+      if let viewModel {
+        FolderNavigationHeaderView(
+          currentFolder: currentFolder,
+          canNavigateBack: viewModel.canNavigateBack(navigationPath: navigationPath),
+          isRescanningFolder: viewModel.isRescanningFolder,
+          sortOrder: viewModel.sortOrder,
+          onNavigateBack: {
+            viewModel.navigateBack(navigationPath: &navigationPath, currentFolder: &currentFolder)
+          },
+          onRescan: {
+            viewModel.rescanCurrentFolder(currentFolder)
+          },
+          onSortChange: { viewModel.sortOrder = $0 }
+        )
       }
-      .buttonStyle(.plain)
-
-      Spacer()
-
-      if isRescanningFolder {
-        ProgressView()
-          .controlSize(.small)
-      } else if currentFolder != nil {
-        // Rescan button
-        Button {
-          rescanCurrentFolder()
-        } label: {
-          Label("Rescan", systemImage: "arrow.2.circlepath")
-            .labelStyle(.iconOnly)
-        }
-        .buttonStyle(.plain)
-        .disabled(isRescanningFolder)
-      }
-
-      // Sort menu
-      Menu {
-        ForEach(SortOrder.allCases, id: \.self) { order in
-          Button {
-            sortOrder = order
-          } label: {
-            HStack {
-              Text(order.rawValue)
-              if sortOrder == order {
-                Image(systemName: "checkmark")
-              }
-            }
-          }
-        }
-      } label: {
-        Label("Sort", systemImage: "arrow.up.arrow.down")
-          .labelStyle(.iconOnly)
-      }
-      .buttonStyle(.plain)
     }
-    .font(.title3)
-    .padding(.horizontal, 12)
-    .padding(.vertical, 8)
-    .background(.bar)
   }
 
   // MARK: - File List
 
   private var fileList: some View {
-    List(selection: $selection) {
-      // Folders section
-      if !currentFolders.isEmpty {
-        Section("Folders") {
-          ForEach(currentFolders) { folder in
-            folderRow(for: folder)
-              .tag(SelectionItem.folder(folder))
+    Group {
+      if let viewModel {
+        List(selection: listSelection) {
+          if !currentFolders.isEmpty {
+            Section {
+              ForEach(currentFolders) { folder in
+                GeometryReader { geometry in
+                  folderRow(for: folder)
+                    .frame(height: 44)
+                    .contentShape(Rectangle())
+                    .gesture(
+                      pressGesture(
+                        for: .folder(folder),
+                        rowSize: geometry.size
+                      )
+                    )
+                }
+                .frame(height: 44)
+                .listRowSeparator(.hidden)
+                .listRowInsets(.init())
+                .listRowBackground(
+                  viewModel.pressing == SelectionItem.folder(folder)
+                    ? Color.red.opacity(0.7)
+                    : .clear
+                )
+                .tag(SelectionItem.folder(folder))
+              }
+            }
           }
-        }
-      }
 
-      // Audio files section
-      if !currentAudioFiles.isEmpty {
-        Section {
-          ForEach(currentAudioFiles) { file in
-            audioFileRow(for: file)
-              .tag(SelectionItem.audioFile(file))
+          if !currentAudioFiles.isEmpty {
+            Section {
+              ForEach(currentAudioFiles) { file in
+                GeometryReader { geometry in
+                  fileRow(for: file)
+                    .frame(height: 44)
+                    .contentShape(Rectangle())
+                    .simultaneousGesture(
+                      pressGesture(
+                        for: .audioFile(file),
+                        rowSize: geometry.size
+                      )
+                    )
+                }
+                .frame(height: 44)
+                .listRowSeparator(.hidden)
+                .listRowInsets(.init())
+                .onHover {
+                  if $0 {
+                    viewModel.hovering = SelectionItem.audioFile(file)
+                  } else {
+                    viewModel.hovering = nil
+                  }
+                }
+                .listRowBackground(audioFileRowBackground(for: file))
+                .tag(SelectionItem.audioFile(file))
+              }
+            }
           }
         }
-      }
-    }
-    // 将 Empty State 放在这里
-    .overlay {
-      // Empty state
-      if currentFolders.isEmpty && currentAudioFiles.isEmpty {
-        ContentUnavailableView(
-          "No Content",
-          systemImage: "folder",
-          description: Text("Import a folder to get started")
-        )
-        .tag(SelectionItem.empty)
+        .padding(.horizontal, -8)
+        .listStyle(.plain)
+        .listSectionSeparator(.hidden)
+        .scrollContentBackground(.hidden)
+        .overlay {
+          if currentFolders.isEmpty && currentAudioFiles.isEmpty {
+            ContentUnavailableView(
+              "No Content",
+              systemImage: "folder",
+              description: Text("Import a folder to get started")
+            )
+            .tag(SelectionItem.empty)
+          }
+        }
       }
     }
   }
 
+  private var listSelection: Binding<SelectionItem?> {
+    Binding(
+      get: {
+        viewModel?.selection
+      },
+      set: { newSelection in
+        guard let newSelection, let viewModel, !isDeselecting else { return }
+        viewModel.selection = newSelection
+        viewModel.handleSelectionChange(
+          newSelection,
+          navigationPath: &navigationPath,
+          currentFolder: &currentFolder,
+          onSelectFile: onSelectFile
+        )
+      }
+    )
+  }
+
+  private func audioFileRowBackground(for file: ABFile) -> Color {
+    guard let viewModel else { return .clear }
+
+    if viewModel.pressing == .audioFile(file) {
+      return Color.asset.listHighlight
+    }
+
+    if viewModel.selection == .audioFile(file) {
+      return Color.asset.listHighlight
+    }
+
+    if viewModel.hovering == .audioFile(file) {
+      return Color.asset.listHighlight.opacity(0.6)
+    }
+
+    return .clear
+  }
+
   // MARK: - Selection Handling
 
-  private func handleSelectionChange(_ newSelection: SelectionItem?) {
-    guard let newSelection else { return }
+  private var currentFolders: [Folder] {
+    guard let viewModel else { return [] }
+    let folders = currentFolder.map { Array($0.subfolders) } ?? rootFolders
+    return viewModel.sortedFolders(folders)
+  }
 
-    switch newSelection {
-    case .folder(let folder):
-      withAnimation(.easeInOut(duration: 0.2)) {
-        navigateInto(folder)
+  private var currentAudioFiles: [ABFile] {
+    guard let viewModel else { return [] }
+    let files = currentFolder.map { Array($0.audioFiles) } ?? rootAudioFiles
+    return viewModel.sortedAudioFiles(files)
+  }
+
+  private func pressGesture(for selection: SelectionItem, rowSize: CGSize) -> some Gesture {
+    DragGesture(minimumDistance: 0, coordinateSpace: .local)
+      .onChanged { _ in
+        guard let viewModel else { return }
+        if selectionBeforePress == nil {
+          selectionBeforePress = viewModel.selection
+        }
+        viewModel.pressing = selection
       }
-    // selection will be synced by onChange(of: currentFolder)
+      .onEnded { value in
+        let isInsideRow = CGRect(origin: .zero, size: rowSize).contains(value.location)
+        handlePressEnd(for: selection, isInsideRow: isInsideRow)
+      }
+  }
 
-    case .audioFile(let file):
-      Task { await onSelectFile(file) }
+  private func handlePressEnd(for selection: SelectionItem, isInsideRow: Bool) {
+    guard let viewModel else { return }
 
-    case .empty:
-      break
+    viewModel.pressing = nil
+    let previousSelection = selectionBeforePress
+    selectionBeforePress = nil
+
+    guard isInsideRow else {
+      isDeselecting = true
+      viewModel.selection = previousSelection
+      isDeselecting = false
+      return
     }
+
+    viewModel.selection = selection
+    viewModel.handleSelectionChange(
+      selection,
+      navigationPath: &navigationPath,
+      currentFolder: &currentFolder,
+      onSelectFile: onSelectFile
+    )
   }
 
   // MARK: - Folder Row
 
   private func folderRow(for folder: Folder) -> some View {
-    HStack {
-      Image(systemName: "folder.fill")
-        .foregroundStyle(.secondary)
-
-      VStack(alignment: .leading) {
-        Text(folder.name)
-          .lineLimit(1)
-          .bodyStyle()
-
-        let count = folder.audioFiles.count + folder.subfolders.count
-        Text("\(count) items")
-          .captionStyle()
+    FolderRowView(
+      folder: folder,
+      onDelete: {
+        guard let viewModel else { return }
+        viewModel.deleteFolder(
+          folder,
+          currentFolder: &currentFolder,
+          selectedFile: &selectedFile,
+          navigationPath: &navigationPath
+        )
       }
-
-      Spacer()
-
-      Image(systemName: "chevron.right")
-        .foregroundStyle(.tertiary)
-        .font(.caption)
-    }
-    .contentShape(Rectangle())
-    .contextMenu {
-      Button(role: .destructive) {
-        deleteFolder(folder)
-      } label: {
-        Label("Delete Folder", systemImage: "trash")
-      }
-    }
+    )
   }
 
   // MARK: - Audio File Row
 
-  private func audioFileRow(for file: AudioFile) -> some View {
-    let isAvailable = file.isBookmarkValid
-    let isSelected = selectedFile?.id == file.id
-
-    return HStack {
-      // 文件图标
-      if isAvailable {
-        Image(systemName: "music.note")
-          .foregroundStyle(file.isPlaybackComplete ? Color.secondary : Color.blue)
-      } else {
-        Image(systemName: "exclamationmark.triangle.fill")
-          .foregroundStyle(.orange)
+  private func fileRow(for file: ABFile) -> some View {
+    FileRowView(
+      file: file,
+      isSelected: viewModel?.selection == .audioFile(file),
+      onDelete: {
+        guard let viewModel else { return }
+        viewModel.deleteAudioFile(
+          file,
+          updateSelection: true,
+          checkPlayback: true,
+          selectedFile: &selectedFile
+        )
       }
-
-      VStack(alignment: .leading) {
-        Text(file.displayName)
-          .lineLimit(1)
-          .strikethrough(!isAvailable, color: .secondary)
-          .foregroundStyle(isSelected ? Color(nsColor: .labelColor) : (isAvailable ? .primary : .secondary))
-          .bodyStyle()
-
-        HStack(spacing: 4) {
-          if !isAvailable {
-            Text("文件不可用")
-              .foregroundStyle(.orange)
-          } else {
-            Text(file.createdAt, style: .date)
-
-            if file.subtitleFile != nil {
-              Text("•")
-              Image(systemName: "text.bubble")
-                .font(.caption2)
-            }
-
-            if file.hasTranscriptionRecord {
-              Text("•")
-              Image(systemName: "waveform")
-                .font(.caption2)
-            }
-
-            if file.pdfBookmarkData != nil {
-              Text("•")
-              Image(systemName: "doc.text")
-                .font(.caption2)
-            }
-          }
-        }
-        .captionStyle()
-        .foregroundStyle(.secondary)
-      }
-    }
-    .contentShape(Rectangle())
-    .contextMenu {
-      Button(role: .destructive) {
-        deleteAudioFile(file)
-      } label: {
-        Label("Delete File", systemImage: "trash")
-      }
-    }
-  }
-
-  // MARK: - Computed Properties
-
-  /// Extracts the leading number from a filename for number-based sorting
-  /// Returns Int.max if the filename doesn't start with a number
-  private func extractLeadingNumber(_ name: String) -> Int {
-    let digits = name.prefix(while: { $0.isNumber })
-    return Int(digits) ?? Int.max
-  }
-
-  private var currentFolders: [Folder] {
-    let folders: [Folder]
-    if let folder = currentFolder {
-      folders = Array(folder.subfolders)
-    } else {
-      folders = rootFolders
-    }
-
-    switch sortOrder {
-    case .nameAZ:
-      return folders.sorted { $0.name < $1.name }
-    case .nameZA:
-      return folders.sorted { $0.name > $1.name }
-    case .numberAsc:
-      return folders.sorted { extractLeadingNumber($0.name) < extractLeadingNumber($1.name) }
-    case .numberDesc:
-      return folders.sorted { extractLeadingNumber($0.name) > extractLeadingNumber($1.name) }
-    case .dateCreatedNewestFirst:
-      return folders.sorted { $0.createdAt > $1.createdAt }
-    case .dateCreatedOldestFirst:
-      return folders.sorted { $0.createdAt < $1.createdAt }
-    }
-  }
-
-  private var currentAudioFiles: [AudioFile] {
-    let files: [AudioFile]
-    if let folder = currentFolder {
-      files = Array(folder.audioFiles)
-    } else {
-      files = rootAudioFiles
-    }
-
-    switch sortOrder {
-    case .nameAZ:
-      return files.sorted { $0.displayName < $1.displayName }
-    case .nameZA:
-      return files.sorted { $0.displayName > $1.displayName }
-    case .numberAsc:
-      return files.sorted {
-        extractLeadingNumber($0.displayName) < extractLeadingNumber($1.displayName)
-      }
-    case .numberDesc:
-      return files.sorted {
-        extractLeadingNumber($0.displayName) > extractLeadingNumber($1.displayName)
-      }
-    case .dateCreatedNewestFirst:
-      return files.sorted { $0.createdAt > $1.createdAt }
-    case .dateCreatedOldestFirst:
-      return files.sorted { $0.createdAt < $1.createdAt }
-    }
-  }
-
-  // MARK: - Navigation Actions
-
-  private func navigateInto(_ folder: Folder) {
-    navigationPath.append(folder)
-    currentFolder = folder
-  }
-
-  private func navigateBack() {
-    guard !navigationPath.isEmpty else { return }
-    navigationPath.removeLast()
-    currentFolder = navigationPath.last
-  }
-
-  /// 重新扫描当前文件夹（用于同步磁盘变更）
-  private func rescanCurrentFolder() {
-    guard let folder = currentFolder else { return }
-
-    // 找到根文件夹
-    let rootFolder = folder.rootFolder
-
-    // 检查根文件夹是否有 bookmark
-    guard let url = try? rootFolder.resolveURL() else {
-      Logger.data.warning("⚠️ No root folder bookmark found")
-      return
-    }
-
-    isRescanningFolder = true
-
-    Task {
-      defer {
-        Task { @MainActor in
-          isRescanningFolder = false
-        }
-      }
-
-      do {
-        let importer = FolderImporter(modelContext: modelContext)
-        _ = try importer.syncFolder(at: url)
-        Logger.data.info("✅ Successfully rescanned folder: \(rootFolder.name)")
-      } catch {
-        Logger.data.error("❌ Failed to rescan folder: \(error.localizedDescription)")
-      }
-    }
-  }
-
-  // MARK: - Deletion Actions
-
-  /// Deletes a folder and all its contents (subfolders and audio files) recursively
-  private func deleteFolder(_ folder: Folder) {
-    // Save any pending changes before deletion to prevent conflicts
-    do {
-      try modelContext.save()
-    } catch {
-      Logger.data.error(
-        "⚠️ Failed to save context before folder deletion: \(error.localizedDescription)")
-    }
-
-    // Check if current file is in this folder (playing or not)
-    if isCurrentFileInFolder(folder) {
-      if playerManager.isPlaying {
-        playerManager.togglePlayPause()
-      }
-      playerManager.currentFile = nil
-    }
-
-    // Check if any file in this folder (or subfolders) is currently selected
-    if isSelectedFileInFolder(folder) {
-      selectedFile = nil
-    }
-
-    // If the folder being deleted is currently selected, navigate back
-    if currentFolder?.id == folder.id {
-      navigateBack()
-    }
-
-    // Recursively delete all subfolders
-    for subfolder in folder.subfolders {
-      deleteFolder(subfolder)
-    }
-
-    // Delete all audio files in this folder (without updating selection since we already handled it)
-    for audioFile in folder.audioFiles {
-      deleteAudioFile(audioFile, updateSelection: false, checkPlayback: false)
-    }
-
-    // Delete the folder itself
-    modelContext.delete(folder)
-  }
-
-  /// Deletes an audio file and all its related data (segments, subtitle, transcription)
-  private func deleteAudioFile(
-    _ file: AudioFile, updateSelection: Bool = true, checkPlayback: Bool = true
-  ) {
-    // Save any pending changes before deletion to prevent conflicts
-    // Only save if this is a user-initiated delete (not recursive)
-    if checkPlayback {
-      do {
-        try modelContext.save()
-      } catch {
-        Logger.data.error(
-          "⚠️ Failed to save context before file deletion: \(error.localizedDescription)")
-      }
-    }
-
-    // If the file being deleted is currently playing, stop playback
-    if checkPlayback && playerManager.isPlaying && playerManager.currentFile?.id == file.id {
-      playerManager.togglePlayPause()
-    }
-
-    // If the file being deleted is currently selected, clear selection and player
-    if updateSelection && selectedFile?.id == file.id {
-      selectedFile = nil
-      playerManager.currentFile = nil
-    }
-
-    // Delete all related loop segments
-    for segment in file.segments {
-      modelContext.delete(segment)
-    }
-
-    // Delete related subtitle file if exists
-    if let subtitleFile = file.subtitleFile {
-      modelContext.delete(subtitleFile)
-    }
-
-    // Delete related transcription if exists
-    let fileIdString = file.id.uuidString
-    let descriptor = FetchDescriptor<Transcription>(
-      predicate: #Predicate<Transcription> { $0.audioFileId == fileIdString }
     )
-    if let transcriptions = try? modelContext.fetch(descriptor) {
-      for transcription in transcriptions {
-        modelContext.delete(transcription)
-      }
-    }
-
-    // Delete the audio file itself
-    modelContext.delete(file)
-  }
-
-  /// Checks if the folder (or any subfolder) contains the current file (playing or paused)
-  private func isCurrentFileInFolder(_ folder: Folder) -> Bool {
-    guard let currentFile = playerManager.currentFile else {
-      return false
-    }
-
-    // Check if current file is in this folder
-    if folder.audioFiles.contains(where: { $0.id == currentFile.id }) {
-      return true
-    }
-
-    // Recursively check subfolders
-    for subfolder in folder.subfolders {
-      if isCurrentFileInFolder(subfolder) {
-        return true
-      }
-    }
-
-    return false
-  }
-
-  /// Checks if the selected file is within the folder (or any subfolder)
-  private func isSelectedFileInFolder(_ folder: Folder) -> Bool {
-    guard let selectedFile else { return false }
-
-    // Check if selected file is in this folder
-    if folder.audioFiles.contains(where: { $0.id == selectedFile.id }) {
-      return true
-    }
-
-    // Recursively check subfolders
-    for subfolder in folder.subfolders {
-      if isSelectedFileInFolder(subfolder) {
-        return true
-      }
-    }
-
-    return false
   }
 }

@@ -20,11 +20,11 @@ final class Folder {
 
   var parent: Folder?
 
-  @Relationship(inverse: \AudioFile.folder)
-  var audioFiles: [AudioFile]
+  @Relationship(inverse: \ABFile.folder)
+  var audioFiles: [ABFile]
 
   /// 按文件名排序的音频文件（用于播放顺序）
-  var sortedAudioFiles: [AudioFile] {
+  var sortedAudioFiles: [ABFile] {
     audioFiles.sorted { $0.displayName < $1.displayName }
   }
 
@@ -35,7 +35,7 @@ final class Folder {
     createdAt: Date = Date(),
     parent: Folder? = nil,
     subfolders: [Folder] = [],
-    audioFiles: [AudioFile] = [],
+    audioFiles: [ABFile] = [],
     bookmarkData: Data? = nil
   ) {
     self.id = id

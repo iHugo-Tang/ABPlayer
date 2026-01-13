@@ -25,7 +25,7 @@ final class SubtitleFile {
   var bookmarkData: Data
 
   var createdAt: Date
-  var audioFile: AudioFile?
+  var audioFile: ABFile?
 
   /// Cached parsed cues (stored as JSON)
   @Attribute(.externalStorage)
@@ -36,7 +36,7 @@ final class SubtitleFile {
     displayName: String,
     bookmarkData: Data,
     createdAt: Date = Date(),
-    audioFile: AudioFile? = nil
+    audioFile: ABFile? = nil
   ) {
     self.id = id
     self.displayName = displayName

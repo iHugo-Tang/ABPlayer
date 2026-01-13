@@ -73,7 +73,7 @@ final class AudioPlayerManager {
   // Track the ID of the file currently being loaded
   private var loadingFileID: UUID?
 
-  var currentFile: AudioFile?
+  var currentFile: ABFile?
   var sessionTracker: SessionTracker?
 
   var avPlayer: AVPlayer? {
@@ -101,7 +101,7 @@ final class AudioPlayerManager {
   var onSegmentSaved: ((LoopSegment) -> Void)?
 
   /// Callback when playback ends (used for repeat all / shuffle)
-  var onPlaybackEnded: ((AudioFile?) -> Void)?
+  var onPlaybackEnded: ((ABFile?) -> Void)?
 
   private var lastPersistedTime: Double = 0
   private var endOfFileObserver: Any?
@@ -141,7 +141,7 @@ final class AudioPlayerManager {
 
   // MARK: - Public API
 
-  func load(audioFile: AudioFile, fromStart: Bool = false) async {
+  func load(audioFile: ABFile, fromStart: Bool = false) async {
     // 使用缓存的时长立即显示 UI
     if let cached = audioFile.cachedDuration, cached > 0 {
       duration = cached

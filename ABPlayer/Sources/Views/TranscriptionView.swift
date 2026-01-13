@@ -3,7 +3,7 @@ import SwiftUI
 
 /// View for transcription display and controls
 struct TranscriptionView: View {
-  let audioFile: AudioFile
+  let audioFile: ABFile
 
   @Environment(TranscriptionManager.self) private var transcriptionManager
   @Environment(TranscriptionQueueManager.self) private var queueManager
@@ -15,8 +15,11 @@ struct TranscriptionView: View {
 
   @State private var cachedCues: [SubtitleCue] = []
   @State private var hasCheckedCache = false
+  @State private var isLoadingCache = false
   /// Countdown seconds for pause highlight/scroll (nil when not paused)
   @State private var pauseCountdown: Int?
+
+  @State private var loadCachedTask: Task<(), Never>?
 
   /// Current file's task from the queue
   private var currentTask: TranscriptionTask? {
@@ -32,7 +35,9 @@ struct TranscriptionView: View {
         // Original logic for non-queued state
         switch transcriptionManager.state {
         case .idle:
-          if cachedCues.isEmpty && hasCheckedCache {
+          if isLoadingCache {
+            loadingCacheView
+          } else if cachedCues.isEmpty && hasCheckedCache {
             noTranscriptionView
           } else if !cachedCues.isEmpty {
             transcriptionContentView
@@ -74,6 +79,7 @@ struct TranscriptionView: View {
       // Reset when audio file changes
       cachedCues = []
       hasCheckedCache = false
+      isLoadingCache = false
       transcriptionManager.reset()
       Task {
         await loadCachedTranscription()
@@ -427,32 +433,41 @@ struct TranscriptionView: View {
   // MARK: - Cache Operations
 
   private func loadCachedTranscription() async {
-    // 1. 优先检查SRT文件 (先检查数据库标志位，如果不一致再尝试文件系统作为容错)
-    if audioFile.hasTranscriptionRecord
-      || FileManager.default.fileExists(atPath: audioFile.srtFileURL?.path ?? "")
-    {
-      if let srtCues = loadSRTFile() {
-        cachedCues = srtCues
-        hasCheckedCache = true
+    loadCachedTask?.cancel()
+    loadCachedTask = Task {
+      isLoadingCache = true
+      defer { isLoadingCache = false }
 
-        return
+      try? await Task.sleep(nanoseconds: 1_000_000_000)
+      guard !Task.isCancelled else { return }
+
+      // 1. 优先检查SRT文件 (先检查数据库标志位，如果不一致再尝试文件系统作为容错)
+      if audioFile.hasTranscriptionRecord
+        || FileManager.default.fileExists(atPath: audioFile.srtFileURL?.path ?? "")
+      {
+        guard !Task.isCancelled else { return }
+        if let srtCues = await loadSRTFile() {
+          cachedCues = srtCues
+          hasCheckedCache = true
+          return
+        }
       }
-    }
 
-    // 2. 回退到数据库缓存
-    // audioFileId  String  "74FB0384-C8CB-4059-B3F9-42B986FF94EB"
-    let audioFileId = audioFile.id.uuidString
-    let descriptor = FetchDescriptor<Transcription>(
-      predicate: #Predicate { $0.audioFileId == audioFileId }
-    )
+      // 2. 回退到数据库缓存
+      let audioFileId = audioFile.id.uuidString
+      let descriptor = FetchDescriptor<Transcription>(
+        predicate: #Predicate { $0.audioFileId == audioFileId }
+      )
 
-    if let cached = try? modelContext.fetch(descriptor).first {
-      cachedCues = cached.cues
+      guard !Task.isCancelled else { return }
+      if let cached = try? modelContext.fetch(descriptor).first {
+        cachedCues = cached.cues
+      }
+      hasCheckedCache = true
     }
-    hasCheckedCache = true
   }
 
-  private func loadSRTFile() -> [SubtitleCue]? {
+  private func loadSRTFile() async -> [SubtitleCue]? {
     guard let srtURL = audioFile.srtFileURL else { return nil }
 
     // 需要security-scoped access
@@ -461,7 +476,9 @@ struct TranscriptionView: View {
     let gotAccess = audioURL.startAccessingSecurityScopedResource()
     defer { if gotAccess { audioURL.stopAccessingSecurityScopedResource() } }
 
-    return try? SubtitleParser.parse(from: srtURL)
+    return try? await Task.detached {
+      try SubtitleParser.parse(from: srtURL)
+    }.value
   }
 
   private func startTranscription() {

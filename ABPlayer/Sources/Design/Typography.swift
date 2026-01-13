@@ -39,6 +39,11 @@ import SwiftUI
 //  static let monospacedTime = Font.system(size: 11, design: .monospaced).weight(.medium)
 //}
 
+extension Font {
+  static let xs = Font.callout                              //12
+  static let sm = Font.system(size: 14, design: .default)
+}
+
 // MARK: - Text Styles (Semantic)
 
 extension View {
@@ -51,11 +56,12 @@ extension View {
   }
 
   func bodyStyle() -> some View {
-    self.font(.body)
+    self.font(.sm)
+      .foregroundStyle(Color.asset.textPrimary)
   }
 
   func captionStyle() -> some View {
-    self.font(.subheadline)
-      .foregroundStyle(.secondary)
+    self.font(.callout)
+      .foregroundStyle(Color.asset.textTertiary)
   }
 }

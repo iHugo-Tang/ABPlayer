@@ -1,3 +1,21 @@
+## [0.2.9.48] - 2026-01-12
+
+### Improvements
+- extract views
+
+### Other
+- feat(ui): improve footer design and add feedback link
+- refactor(ui): improve selection animations and async transcription caching
+- refactor(ui): simplify folder navigation and update typography color system
+- refactor(models): rename AudioFile to ABFile and add FileType support
+- feat(ui): implement press gesture with auto-deselect and improved list layout
+- feat(ui): improve list styling and add auto-deselect behavior
+- refactor(navigation): extract FolderNavigationViewModel and component views
+- refactor(files): update style of file view
+- refactor(content-panel): disable bar background for narrow layouts
+- Merge pull request #73 from sunset-valley/refactor/subtitle
+
+
 ## [0.2.8.47] - 2026-01-07
 
 ### Bug Fixes

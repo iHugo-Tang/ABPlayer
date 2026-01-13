@@ -75,3 +75,4 @@ build_output.log
 .env
 buildServer.json
 .keys/
+.nvim/

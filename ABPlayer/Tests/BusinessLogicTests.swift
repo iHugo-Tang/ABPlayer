@@ -319,7 +319,7 @@ struct SubtitleParserTests {
 struct FolderImportLogicTests {
 
   @Test
-  func testAudioFileExtensionMatching() {
+  func testABFileExtensionMatching() {
     let audioExtensions: Set<String> = ["mp3", "m4a", "wav", "aac"]
 
     #expect(audioExtensions.contains("mp3"))
@@ -702,7 +702,7 @@ struct AudioPlayerManagerIntegrationTests {
     let manager = AudioPlayerManager(engine: mockEngine)
 
     // Setup dummy file A
-    let fileA = AudioFile(displayName: "A.mp3", bookmarkData: Data("A".utf8))
+    let fileA = ABFile(displayName: "A.mp3", bookmarkData: Data("A".utf8))
 
     // Begin playing file A (manually set state since logic handles UI update immediately)
     // We simulate "play" has happened
@@ -713,7 +713,7 @@ struct AudioPlayerManagerIntegrationTests {
     #expect(manager.isPlaying == true)
 
     // When: Loading file B
-    let fileB = AudioFile(displayName: "B.mp3", bookmarkData: Data("B".utf8))
+    let fileB = ABFile(displayName: "B.mp3", bookmarkData: Data("B".utf8))
     await manager.load(audioFile: fileB)
 
     // Then: Manager should have stopped playing immediately upon load starts
@@ -728,8 +728,8 @@ struct AudioPlayerManagerIntegrationTests {
     let mockEngine = MockAudioPlayerEngine()
     let manager = AudioPlayerManager(engine: mockEngine)
 
-    let fileA = AudioFile(displayName: "A.mp3", bookmarkData: Data("A".utf8))
-    let fileB = AudioFile(displayName: "B.mp3", bookmarkData: Data("B".utf8))
+    let fileA = ABFile(displayName: "A.mp3", bookmarkData: Data("A".utf8))
+    let fileB = ABFile(displayName: "B.mp3", bookmarkData: Data("B".utf8))
 
     // When: Switch A -> B
     await manager.load(audioFile: fileA)
@@ -753,8 +753,8 @@ struct AudioPlayerManagerIntegrationTests {
     await mockEngine.setDelay(100_000_000)
 
     let manager = AudioPlayerManager(engine: mockEngine)
-    let fileA = AudioFile(displayName: "A.mp3", bookmarkData: Data("A".utf8))
-    let fileB = AudioFile(displayName: "B.mp3", bookmarkData: Data("B".utf8))
+    let fileA = ABFile(displayName: "A.mp3", bookmarkData: Data("A".utf8))
+    let fileB = ABFile(displayName: "B.mp3", bookmarkData: Data("B".utf8))
 
     // When: Call load A then load B immediately
     // We use Task to launch them potentially concurrently, but Manager is MainActor protected.
@@ -800,8 +800,8 @@ struct AudioPlayerManagerIntegrationTests {
     // Set a delay to simulate async loading
     await mockEngine.setDelay(50_000_000)  // 50ms
 
-    let fileA = AudioFile(displayName: "A.mp3", bookmarkData: Data("A".utf8))
-    let fileB = AudioFile(displayName: "B.mp3", bookmarkData: Data("B".utf8))
+    let fileA = ABFile(displayName: "A.mp3", bookmarkData: Data("A".utf8))
+    let fileB = ABFile(displayName: "B.mp3", bookmarkData: Data("B".utf8))
 
     // When: Start loading A, then immediately load B
     // We launch them in parallel tasks but they will hit the actor sequentially or concurrently depending on scheduling,

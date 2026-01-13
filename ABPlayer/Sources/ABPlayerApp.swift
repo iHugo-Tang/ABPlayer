@@ -49,7 +49,7 @@ struct ABPlayerApp: App {
       }
 
       let schema = Schema([
-        AudioFile.self,
+        ABFile.self,
         LoopSegment.self,
         ListeningSession.self,
         PlaybackRecord.self,
@@ -143,6 +143,8 @@ struct ABPlayerApp: App {
   var body: some Scene {
     WindowGroup {
       MainSplitView()
+        .containerBackground(Color.asset.bgSecondary, for: .window)
+        .toolbarBackground(Color.asset.bgTertiary, for: .automatic)
         .focusEffectDisabled()
         .environment(playerManager)
         .environment(sessionTracker)

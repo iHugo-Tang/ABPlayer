@@ -1,0 +1,78 @@
+import SwiftUI
+
+// MARK: - Audio File Row
+
+struct FileRowView: View {
+  let file: ABFile
+  let isSelected: Bool
+  let onDelete: () -> Void
+
+  private var isAvailable: Bool {
+    file.isBookmarkValid
+  }
+
+  var body: some View {
+    ZStack(alignment: .leading) {
+      Color.asset.accent
+        .frame(width: 3)
+        .scaleEffect(y: isSelected ? 1 : 0, anchor: .center)
+        .opacity(isSelected ? 1 : 0)
+        .animation(.spring(response: 0.3, dampingFraction: 0.7), value: isSelected)
+      HStack(spacing: 12) {
+        if isAvailable {
+          Image(systemName: file.fileType.iconName)
+            .foregroundStyle(isSelected ? Color.accentColor : Color.secondary)
+        } else {
+          Image(systemName: "exclamationmark.triangle.fill")
+            .foregroundStyle(.orange)
+        }
+        
+        VStack(alignment: .leading) {
+          Text(file.displayName)
+            .lineLimit(1)
+            .strikethrough(!isAvailable, color: .secondary)
+            .bodyStyle()
+          
+          HStack(spacing: 4) {
+            if !isAvailable {
+              Text("文件不可用")
+                .foregroundStyle(.orange)
+            } else if let duration = file.cachedDuration, duration > 0 {
+              Text(timeString(from: duration))
+            }
+          }
+          .captionStyle()
+        }
+      }
+      .padding(.horizontal, 16)
+    }
+    .frame(maxWidth: .infinity, alignment: .leading)
+    .frame(maxHeight: .infinity, alignment: .center)
+    .contentShape(Rectangle())
+    .contextMenu {
+      Button(role: .destructive) {
+        onDelete()
+      } label: {
+        Label("Delete File", systemImage: "trash")
+      }
+    }
+  }
+
+  private func timeString(from value: Double) -> String {
+    guard value.isFinite, value >= 0 else {
+      return "0:00"
+    }
+
+    let totalSeconds = Int(value.rounded())
+    let minutes = totalSeconds / 60
+    let seconds = totalSeconds % 60
+
+    if minutes >= 60 {
+      let hours = minutes / 60
+      let remainingMinutes = minutes % 60
+      return String(format: "%d:%02d:%02d", hours, remainingMinutes, seconds)
+    }
+
+    return String(format: "%d:%02d", minutes, seconds)
+  }
+}

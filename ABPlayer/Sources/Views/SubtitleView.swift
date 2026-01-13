@@ -25,7 +25,6 @@ struct SubtitleView: View {
   /// Tracks if playback was playing before word interaction (for cross-row dismiss)
   @State private var wasPlayingBeforeWordInteraction = false
   @State private var vocabularyMap: [String: Vocabulary] = [:]
-  @State private var showFPSMonitor = false
   @State private var vocabularyVersion = 0
   @State private var tappedCueID: UUID?
 
@@ -88,11 +87,6 @@ struct SubtitleView: View {
       }
 
       VStack(alignment: .trailing, spacing: 8) {
-        if showFPSMonitor {
-          FPSOverlay()
-            .transition(.move(edge: .top).combined(with: .opacity))
-        }
-        
         if let countdown = countdownSeconds {
           CountdownRingView(countdown: countdown, total: Self.pauseDuration)
             .transition(.scale.combined(with: .opacity))
@@ -101,12 +95,6 @@ struct SubtitleView: View {
       .padding(12)
     }
     .animation(.easeInOut(duration: 0.2), value: countdownSeconds != nil)
-    .animation(.easeInOut(duration: 0.2), value: showFPSMonitor)
-    .onAppear {
-      #if DEBUG
-      showFPSMonitor = true
-      #endif
-    }
     .task {
       await trackCurrentCue()
     }

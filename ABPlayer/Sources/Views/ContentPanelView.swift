@@ -17,7 +17,7 @@ enum ContentPanelTab: String, CaseIterable, Identifiable {
 
 /// Tab-based content panel showing subtitles or PDF (sidebar only)
 struct ContentPanelView: View {
-  let audioFile: AudioFile
+  let audioFile: ABFile
 
   @State private var selectedTab: ContentPanelTab = .transcription
 
@@ -40,7 +40,6 @@ struct ContentPanelView: View {
     }
     .padding(.horizontal, 8)
     .padding(.vertical, 4)
-    .background(.bar)
   }
 
   private func tabButton(for tab: ContentPanelTab) -> some View {

@@ -12,14 +12,15 @@ public struct MainSplitView: View {
   @Environment(AudioPlayerManager.self) private var playerManager
   @Environment(SessionTracker.self) private var sessionTracker
   @Environment(\.modelContext) private var modelContext
+  @Environment(\.openURL) private var openURL
 
-  @Query(sort: \AudioFile.createdAt, order: .forward)
-  private var allAudioFiles: [AudioFile]
+  @Query(sort: \ABFile.createdAt, order: .forward)
+  private var allAudioFiles: [ABFile]
 
   @Query(sort: \Folder.name)
   private var allFolders: [Folder]
 
-  @State private var selectedFile: AudioFile?
+  @State private var selectedFile: ABFile?
   @State private var currentFolder: Folder?
   @State private var navigationPath: [Folder] = []
   @State private var isImportingFile: Bool = false
@@ -36,6 +37,7 @@ public struct MainSplitView: View {
     NavigationSplitView {
       sidebar
         .navigationSplitViewColumnWidth(min: 200, ideal: 300, max: 400)
+        .background(Color.asset.bgPrimary)
     } detail: {
       if let selectedFile {
         if selectedFile.isVideo {
@@ -105,7 +107,6 @@ public struct MainSplitView: View {
         )
       }
     }
-    .navigationTitle("ABPlayer")
     .toolbar {
       ToolbarItemGroup(placement: .primaryAction) {
         Menu {
@@ -136,17 +137,29 @@ public struct MainSplitView: View {
       }
     }
     .safeAreaInset(edge: .bottom) {
-      versionFooter
+      VStack(spacing: 0) {
+        Divider()
+        versionFooter
+      }
     }
   }
 
   private var versionFooter: some View {
-    Text("Version \(bundleShortVersion) • Build \(bundleVersion)")
-      .font(.caption2)
-      .foregroundStyle(.secondary)
-      .frame(maxWidth: .infinity, alignment: .leading)
-      .padding(.horizontal, 12)
-      .padding(.bottom, 8)
+    HStack {
+      Text("v\(bundleShortVersion)(\(bundleVersion))")
+      
+      Spacer()
+      
+      Button("Feedback", systemImage: "bubble.left.and.exclamationmark.bubble.right") {
+        if let url = URL(string: "https://github.com/sunset-valley/ABPlayer/issues/new") {
+          openURL(url)
+        }
+      }
+      .buttonStyle(.plain)
+    }
+    .captionStyle()
+    .padding(.horizontal, 16)
+    .padding(.vertical)
   }
 
   private var bundleShortVersion: String {
@@ -188,9 +201,9 @@ public struct MainSplitView: View {
       )
 
       let displayName = url.lastPathComponent
-      let deterministicID = AudioFile.generateDeterministicID(from: bookmarkData)
+      let deterministicID = ABFile.generateDeterministicID(from: bookmarkData)
 
-      let audioFile = AudioFile(
+      let audioFile = ABFile(
         id: deterministicID,
         displayName: displayName,
         bookmarkData: bookmarkData,
@@ -222,7 +235,7 @@ public struct MainSplitView: View {
 
   // MARK: - Selection
 
-  private func selectFile(_ file: AudioFile, fromStart: Bool = false, debounce: Bool = true) async {
+  private func selectFile(_ file: ABFile, fromStart: Bool = false, debounce: Bool = true) async {
     lastSelectedAudioFileID = file.id.uuidString
     lastFolderID = file.folder?.id.uuidString
 
@@ -241,7 +254,6 @@ public struct MainSplitView: View {
     if debounce {
       loadAudioTask = Task {
         await playerManager.clearPlayer()
-        try? await Task.sleep(for: .milliseconds(250))
         if !Task.isCancelled {
           await playerManager.load(audioFile: file, fromStart: fromStart)
         }
@@ -251,7 +263,7 @@ public struct MainSplitView: View {
     }
   }
 
-  private func playFile(_ file: AudioFile, fromStart: Bool = false) async {
+  private func playFile(_ file: ABFile, fromStart: Bool = false) async {
     await selectFile(file, fromStart: fromStart, debounce: false)
     playerManager.play()
   }
@@ -314,7 +326,7 @@ public struct MainSplitView: View {
       let files = folder.sortedAudioFiles
       guard !files.isEmpty else { return }
 
-      let nextFile: AudioFile?
+      let nextFile: ABFile?
 
       switch playerManager.loopMode {
       case .none, .repeatOne:
@@ -333,7 +345,7 @@ public struct MainSplitView: View {
       case .shuffle:
         // Play random file (different from current if possible)
         if files.count > 1 {
-          var randomFile: AudioFile
+          var randomFile: ABFile
           repeat {
             randomFile = files.randomElement()!
           } while randomFile.id == currentFile.id
@@ -385,7 +397,7 @@ public struct MainSplitView: View {
 
       // Fetch and delete all AudioFiles FIRST (before child entities)
       // This prevents attempting to resolve faults on pdfBookmarkData during deletion
-      let audioFiles = try modelContext.fetch(FetchDescriptor<AudioFile>())
+      let audioFiles = try modelContext.fetch(FetchDescriptor<ABFile>())
       for audioFile in audioFiles {
         modelContext.delete(audioFile)
       }
