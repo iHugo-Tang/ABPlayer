@@ -112,7 +112,6 @@ struct FolderNavigationView: View {
               ForEach(currentFolders) { folder in
                 GeometryReader { geometry in
                   folderRow(for: folder)
-                    .frame(height: 44)
                     .contentShape(Rectangle())
                     .gesture(
                       pressGesture(
@@ -139,7 +138,6 @@ struct FolderNavigationView: View {
               ForEach(currentAudioFiles) { file in
                 GeometryReader { geometry in
                   fileRow(for: file)
-                    .frame(height: 44)
                     .contentShape(Rectangle())
                     .simultaneousGesture(
                       pressGesture(
@@ -148,7 +146,7 @@ struct FolderNavigationView: View {
                       )
                     )
                 }
-                .frame(height: 44)
+                .frame(height: 60)
                 .listRowSeparator(.hidden)
                 .listRowInsets(.init())
                 .onHover {

@@ -10,6 +10,9 @@ struct FileRowView: View {
   private var isAvailable: Bool {
     file.isBookmarkValid
   }
+  private var hasPlayed: Bool {
+    file.currentPlaybackPosition > 0
+  }
 
   var body: some View {
     ZStack(alignment: .leading) {
@@ -39,6 +42,9 @@ struct FileRowView: View {
                 .foregroundStyle(.orange)
             } else if let duration = file.cachedDuration, duration > 0 {
               Text(timeString(from: duration))
+              if !hasPlayed {
+                Circle().frame(width: 6)
+              }
             }
           }
           .captionStyle()

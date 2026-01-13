@@ -141,6 +141,7 @@ public struct MainSplitView: View {
         Divider()
         versionFooter
       }
+      .background(Color.asset.bgPrimary)
     }
   }
 
