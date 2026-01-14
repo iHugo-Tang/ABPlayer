@@ -1,3 +1,14 @@
+## [0.2.9.49] - 2026-01-13
+
+### Bug Fixes
+- tests
+
+### Other
+- feat(import): convert importer to async actor and load duration metadata
+- feat(ui): add unplayed indicator and adjust row heights
+- Merge pull request #74 from sunset-valley/feat/ui-file-list
+
+
 ## [0.2.9.48] - 2026-01-12
 
 ### Improvements

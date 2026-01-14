@@ -1,16 +1,13 @@
+import AVFoundation
 import Foundation
+import OSLog
 import SwiftData
 import UniformTypeIdentifiers
 
 /// Handles recursive folder import with automatic file pairing
 /// Supports idempotent sync operations (safe to call multiple times)
-@MainActor
-final class FolderImporter {
-  private let modelContext: ModelContext
-
-  init(modelContext: ModelContext) {
-    self.modelContext = modelContext
-  }
+@ModelActor
+actor FolderImporter {
 
   /// Supported file extensions
   static let audioExtensions: Set<String> = [
@@ -23,8 +20,8 @@ final class FolderImporter {
 
   /// 同步文件夹（支持首次导入和重新扫描）
   /// - Parameter url: 根文件夹 URL
-  /// - Returns: 同步后的根 Folder
-  func syncFolder(at url: URL) throws -> Folder? {
+  /// - Returns: 同步后的根 Folder ID
+  func syncFolder(at url: URL) async throws -> PersistentIdentifier? {
     guard url.startAccessingSecurityScopedResource() else {
       throw ImportError.accessDenied
     }
@@ -41,18 +38,21 @@ final class FolderImporter {
     )
 
     let rootPath = url.lastPathComponent
-    let folder = try processDirectory(at: url, relativePath: rootPath, parent: nil)
+    let folder = try await processDirectory(at: url, relativePath: rootPath, parent: nil)
 
     // 仅根文件夹存储 bookmark
     folder.bookmarkData = bookmarkData
+    
+    // Save context before returning to avoid deinitialization warning
+    try modelContext.save()
 
-    return folder
+    return folder.persistentModelID
   }
 
   // MARK: - Directory Processing
 
   /// 处理目录及其内容（递归）
-  private func processDirectory(at url: URL, relativePath: String, parent: Folder?) throws
+  private func processDirectory(at url: URL, relativePath: String, parent: Folder?) async throws
     -> Folder
   {
     let folder = findOrCreateFolder(at: url, relativePath: relativePath)
@@ -98,7 +98,7 @@ final class FolderImporter {
 
     // 处理音频文件（Insert-or-Update）
     for audioURL in audioFiles {
-      try processAudioFile(
+      try await processAudioFile(
         at: audioURL,
         folder: folder,
         subtitleFiles: subtitleFiles,
@@ -109,7 +109,7 @@ final class FolderImporter {
     // 递归处理子目录
     for dirURL in directories {
       let subPath = "\(relativePath)/\(dirURL.lastPathComponent)"
-      _ = try processDirectory(at: dirURL, relativePath: subPath, parent: folder)
+      _ = try await processDirectory(at: dirURL, relativePath: subPath, parent: folder)
     }
 
     return folder
@@ -148,7 +148,7 @@ final class FolderImporter {
     folder: Folder,
     subtitleFiles: [URL],
     pdfFiles: [URL]
-  ) throws {
+  ) async throws {
     let bookmarkData = try url.bookmarkData(
       options: [.withSecurityScope],
       includingResourceValuesForKeys: nil,
@@ -190,7 +190,7 @@ final class FolderImporter {
     // 1. Sync Subtitle File
     if let subtitleURL = findMatchingFile(baseName: baseName, in: subtitleFiles) {
       if audioFile.subtitleFile == nil {
-        try pairSubtitle(at: subtitleURL, with: audioFile)
+        try await pairSubtitle(at: subtitleURL, with: audioFile)
       }
       // If needed we could update existing subtitle file content here
     } else {
@@ -221,17 +221,13 @@ final class FolderImporter {
       predicate: #Predicate { $0.audioFileId == audioFileIdString }
     )
 
-    // Check if transcription record exists
-    if (try? modelContext.fetch(transcriptionDescriptor).first) != nil {
-      if !audioFile.hasTranscriptionRecord {
-        audioFile.hasTranscriptionRecord = true
-      }
-    } else {
-      // Only clear if true (avoid unnecessary writes)
-      if audioFile.hasTranscriptionRecord {
-        audioFile.hasTranscriptionRecord = false
-      }
+    let hasTranscriptionRecord = (try? modelContext.fetch(transcriptionDescriptor).first) != nil
+    if audioFile.hasTranscriptionRecord != hasTranscriptionRecord {
+      audioFile.hasTranscriptionRecord = hasTranscriptionRecord
     }
+
+    // 4. Load and cache duration metadata (audio + video)
+    audioFile.cachedDuration = await loadDuration(from: url)
 
     // Auto-save happens at end of batch usually, but we can save here if precise state needed immediately
     // modelContext.save() will be called by caller or auto-save
@@ -249,7 +245,7 @@ final class FolderImporter {
   // MARK: - Pairing
 
   /// 关联字幕文件
-  private func pairSubtitle(at url: URL, with audioFile: ABFile) throws {
+  private func pairSubtitle(at url: URL, with audioFile: ABFile) async throws {
     let bookmarkData = try url.bookmarkData(
       options: [.withSecurityScope],
       includingResourceValuesForKeys: nil,
@@ -284,6 +280,37 @@ final class FolderImporter {
   }
 
   // MARK: - Helpers
+
+  /// Load duration metadata from audio/video file
+  /// - Parameter url: File URL (must be accessible)
+  /// - Returns: Duration in seconds, or nil if loading fails
+  private func loadDuration(from url: URL) async -> Double? {
+    guard url.startAccessingSecurityScopedResource() else {
+      Logger.data.warning("[FolderImporter] Cannot access file for duration: \(url.lastPathComponent)")
+      return nil
+    }
+    
+    defer {
+      url.stopAccessingSecurityScopedResource()
+    }
+    
+    let asset = AVURLAsset(url: url)
+    
+    do {
+      let time = try await asset.load(.duration)
+      let seconds = CMTimeGetSeconds(time)
+      
+      guard seconds.isFinite, seconds > 0 else {
+        Logger.data.warning("[FolderImporter] Invalid duration for: \(url.lastPathComponent)")
+        return nil
+      }
+      
+      return seconds
+    } catch {
+      Logger.data.error("[FolderImporter] Failed to load duration for \(url.lastPathComponent): \(error.localizedDescription)")
+      return nil
+    }
+  }
 
   private func getFileCreationDate(from url: URL) -> Date {
     let attributes = try? FileManager.default.attributesOfItem(atPath: url.path)

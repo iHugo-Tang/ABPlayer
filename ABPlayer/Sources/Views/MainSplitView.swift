@@ -141,6 +141,7 @@ public struct MainSplitView: View {
         Divider()
         versionFooter
       }
+      .background(Color.asset.bgPrimary)
     }
   }
 
@@ -219,17 +220,26 @@ public struct MainSplitView: View {
   }
 
   private func importFolder(from url: URL) {
-    let importer = FolderImporter(modelContext: modelContext)
+    Task {
+      let importer = FolderImporter(modelContainer: modelContext.container)
 
-    do {
-      if let folder = try importer.syncFolder(at: url) {
-        // Select first audio file if available
-        if let firstFile = folder.audioFiles.first {
-          Task { await selectFile(firstFile) }
+      do {
+        if let folderID = try await importer.syncFolder(at: url) {
+          // Select first audio file if available
+          await MainActor.run {
+            if let folder = modelContext.model(for: folderID) as? Folder,
+               let firstFile = folder.audioFiles.first {
+              Task {
+                await selectFile(firstFile)
+              }
+            }
+          }
+        }
+      } catch {
+        await MainActor.run {
+          importErrorMessage = "Failed to import folder: \(error.localizedDescription)"
         }
       }
-    } catch {
-      importErrorMessage = "Failed to import folder: \(error.localizedDescription)"
     }
   }
 
