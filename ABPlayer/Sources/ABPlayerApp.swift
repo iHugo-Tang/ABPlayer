@@ -1,3 +1,4 @@
+import FirebaseCore
 import KeyboardShortcuts
 import OSLog
 import Sentry
@@ -12,6 +13,12 @@ extension Logger {
   static let ui = Logger(subsystem: subsystem, category: "ui")
   static let data = Logger(subsystem: subsystem, category: "data")
   static let general = Logger(subsystem: subsystem, category: "general")
+}
+
+class AppDelegate: NSObject, NSApplicationDelegate {
+  func applicationDidFinishLaunching(_ notification: Notification) {
+    FirebaseApp.configure()
+  }
 }
 
 @MainActor
@@ -30,6 +37,8 @@ final class SparkleUpdater: ObservableObject {
 
 @main
 struct ABPlayerApp: App {
+  @NSApplicationDelegateAdaptor(AppDelegate.self) var delegate
+
   private let modelContainer: ModelContainer
   private let playerManager = AudioPlayerManager()
   private let sessionTracker = SessionTracker()
@@ -44,7 +53,7 @@ struct ABPlayerApp: App {
       SentrySDK.start { (options: Sentry.Options) in
         options.dsn =
           "https://0e00826ef2b3fbc195fb428a468fd995@o4504292283580416.ingest.us.sentry.io/4510502660341760"
-        options.debug = false  // Enabling debug when first installing is always helpful
+        options.debug = false
         options.sendDefaultPii = true
       }
 
@@ -73,14 +82,12 @@ struct ABPlayerApp: App {
       modelContainer = try ModelContainer(for: schema, configurations: modelConfiguration)
       modelContainer.mainContext.autosaveEnabled = true
 
-      // Initialize queue manager with dependencies
       queueManager = TranscriptionQueueManager(
         transcriptionManager: transcriptionManager,
         settings: transcriptionSettings
       )
       queueManager.modelContext = modelContainer.mainContext
 
-      // Register Shortcut Listeners
       KeyboardShortcuts.onKeyUp(for: .playPause) { [playerManager] in
         Task { @MainActor in
           playerManager.togglePlayPause()

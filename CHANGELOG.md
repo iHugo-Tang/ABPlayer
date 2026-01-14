@@ -1,3 +1,11 @@
+## [0.2.9.50] - 2026-01-13
+
+### Other
+- feat(firebase): integrate Firebase for analytics and auth
+- Merge pull request #75 from sunset-valley/feat/load-duration-file
+- chore(agent): add github-release skill for release automation
+
+
 ## [0.2.9.49] - 2026-01-13
 
 ### Bug Fixes
