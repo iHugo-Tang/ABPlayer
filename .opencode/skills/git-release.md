@@ -20,7 +20,10 @@
         3. Creates a local git commit with message format `ci(release_sh): VERSION-BUILD`.
 
         Post-Action:
-        - Sumarrize the result of these operations.
+        - Create a branch which name based on current commits and push it.
+        - Create a PR.
+        - Enable auto-merge of the PR.
+        - Output summary.
     </instructions>
 
 </skill>
