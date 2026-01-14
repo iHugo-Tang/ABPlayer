@@ -1,10 +1,10 @@
-import FirebaseCore
 import KeyboardShortcuts
 import OSLog
 import Sentry
 import Sparkle
 import SwiftData
 import SwiftUI
+import TelemetryDeck
 
 extension Logger {
   private static let subsystem = Bundle.main.bundleIdentifier ?? "cc.ihugo.ABPlayer"
@@ -13,12 +13,6 @@ extension Logger {
   static let ui = Logger(subsystem: subsystem, category: "ui")
   static let data = Logger(subsystem: subsystem, category: "data")
   static let general = Logger(subsystem: subsystem, category: "general")
-}
-
-class AppDelegate: NSObject, NSApplicationDelegate {
-  func applicationDidFinishLaunching(_ notification: Notification) {
-    FirebaseApp.configure()
-  }
 }
 
 @MainActor
@@ -37,8 +31,6 @@ final class SparkleUpdater: ObservableObject {
 
 @main
 struct ABPlayerApp: App {
-  @NSApplicationDelegateAdaptor(AppDelegate.self) var delegate
-
   private let modelContainer: ModelContainer
   private let playerManager = AudioPlayerManager()
   private let sessionTracker = SessionTracker()
@@ -49,6 +41,9 @@ struct ABPlayerApp: App {
   private let updater = SparkleUpdater()
 
   init() {
+    let config = TelemetryDeck.Config(appID: "A4A99FD4-3F84-49FA-AF97-0806D61D0539")
+    TelemetryDeck.initialize(config: config)
+
     do {
       SentrySDK.start { (options: Sentry.Options) in
         options.dsn =

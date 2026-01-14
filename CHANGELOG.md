@@ -1,3 +1,11 @@
+## [0.2.9.51] - 2026-01-13
+
+### Other
+- refactor(analytics): replace Firebase with TelemetryDeck
+- feat(opencode): update github-release
+- Merge pull request #76 from sunset-valley/release/0.2.9-50
+
+
 ## [0.2.9.50] - 2026-01-13
 
 ### Other

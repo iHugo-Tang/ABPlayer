@@ -1,6 +1,6 @@
 import ProjectDescription
 
-let buildVersionString = "50"
+let buildVersionString = "51"
 let shortVersionString = "0.2.9"
 let project = Project(
   name: "ABPlayer",
@@ -38,10 +38,7 @@ let project = Project(
         .external(name: "WhisperKit"),
         .external(name: "KeyboardShortcuts"),
         .external(name: "Sparkle"),
-        .external(name: "FirebaseCore"),
-        .external(name: "FirebaseAnalytics"),
-        .external(name: "FirebaseAuth"),
-        .external(name: "FirebaseFirestore"),
+        .external(name: "TelemetryDeck"),
       ],
     ),
     .target(
@@ -68,10 +65,7 @@ let project = Project(
         .external(name: "WhisperKit"),
         .external(name: "KeyboardShortcuts"),
         .external(name: "Sparkle"),
-        .external(name: "FirebaseCore"),
-        .external(name: "FirebaseAnalytics"),
-        .external(name: "FirebaseAuth"),
-        .external(name: "FirebaseFirestore"),
+        .external(name: "TelemetryDeck"),
       ],
     ),
     .target(
