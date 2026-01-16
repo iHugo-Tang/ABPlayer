@@ -18,12 +18,10 @@
         1. Updates `Project.swift` (increments `buildVersionString` or sets new `shortVersionString`).
         2. Generates new `CHANGELOG.md` entry from recent commits.
         3. Creates a local git commit with message format `ci(release_sh): VERSION-BUILD`.
-
-        Post-Action:
-        - Create a branch which name based on current commits and push it.
-        - Create a PR.
-        - Enable auto-merge of the PR.
-        - Output summary.
+        4. Create a branch which name based on current commits and push it.
+        5. Create a PR.
+        6. Enable auto-merge of the PR using `gh pr merge <CURRENT PR> --auto --merge`.
+        7. Output summary.
     </instructions>
 
 </skill>
