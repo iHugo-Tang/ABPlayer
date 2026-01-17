@@ -309,4 +309,105 @@ struct SubtitleViewModelTests {
     #expect(seekTime == 10.0)
     #expect(viewModel.scrollState == .autoScrolling)
   }
+  
+  @Test
+  @MainActor
+  func testTrackPlaybackWithInvalidTime() async {
+    let viewModel = SubtitleViewModel()
+    let cues = [
+      SubtitleCue(startTime: 0.0, endTime: 2.0, text: "First")
+    ]
+    
+    var callCount = 0
+    let trackingTask = Task {
+      await viewModel.trackPlayback(
+        timeProvider: {
+          callCount += 1
+          if callCount < 3 {
+            return Double.nan
+          } else {
+            return 1.0
+          }
+        },
+        cues: cues
+      )
+    }
+    
+    try? await Task.sleep(for: .milliseconds(500))
+    trackingTask.cancel()
+    
+    #expect(callCount > 0)
+  }
+  
+  @Test
+  @MainActor
+  func testTrackPlaybackWithEmptyCues() async {
+    let viewModel = SubtitleViewModel()
+    
+    let trackingTask = Task {
+      await viewModel.trackPlayback(
+        timeProvider: { 0.0 },
+        cues: []
+      )
+    }
+    
+    try? await Task.sleep(for: .milliseconds(100))
+    trackingTask.cancel()
+    
+    #expect(viewModel.currentCueID == nil)
+  }
+  
+  @Test
+  @MainActor
+  func testCountdownAsyncStream() async {
+    let viewModel = SubtitleViewModel()
+    
+    viewModel.handleUserScroll()
+    
+    if case .userScrolling(let countdown) = viewModel.scrollState {
+      #expect(countdown == 3)
+    } else {
+      Issue.record("Expected userScrolling state")
+    }
+    
+    try? await Task.sleep(for: .seconds(1.2))
+    
+    if case .userScrolling(let countdown) = viewModel.scrollState {
+      #expect(countdown < 3)
+    }
+  }
+  
+  @Test
+  func testAttributedStringBuilderWithEmptyWords() {
+    let builder = AttributedStringBuilder(
+      fontSize: 16.0,
+      defaultTextColor: .labelColor,
+      difficultyLevelProvider: { _ in nil }
+    )
+    
+    let result = builder.build(words: [])
+    
+    #expect(result.wordRanges.isEmpty)
+    #expect(result.attributedString.string.isEmpty)
+  }
+  
+  @Test
+  @MainActor
+  func testWordLayoutManagerBoundingRectWithMissingTextContainer() {
+    let layoutManager = WordLayoutManager()
+    
+    let mockTextView = NSTextView(frame: .zero)
+    mockTextView.layoutManager?.removeTextContainer(at: 0)
+    
+    let wordRanges: [NSRange] = [NSRange(location: 0, length: 5)]
+    
+    let rect = layoutManager.boundingRect(
+      forWordAt: 0,
+      wordRanges: wordRanges,
+      in: mockTextView
+    )
+    
+    #expect(rect == nil)
+  }
 }
+

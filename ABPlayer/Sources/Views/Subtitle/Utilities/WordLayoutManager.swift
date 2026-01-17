@@ -42,8 +42,11 @@ class WordLayoutManager {
     }
     
     if !wordFrames.isEmpty && wordFrames.count == wordRanges.count {
+      assert(wordFrames.count == wordRanges.count, "Cached frames count must match word ranges")
+      
       for (index, frame) in wordFrames.enumerated() {
         if frame.contains(point) {
+          assert(index < wordRanges.count, "Found index must be within word ranges")
           return index
         }
       }
@@ -62,7 +65,11 @@ class WordLayoutManager {
     
     guard characterIndex < textStorage.length else { return nil }
     
-    return textStorage.attribute(NSAttributedString.Key("wordIndex"), at: characterIndex, effectiveRange: nil) as? Int
+    let wordIndex = textStorage.attribute(NSAttributedString.Key("wordIndex"), at: characterIndex, effectiveRange: nil) as? Int
+    if let wordIndex {
+      assert(wordIndex >= 0 && wordIndex < wordRanges.count, "Word index from attribute must be valid")
+    }
+    return wordIndex
   }
   
   /// Get bounding rect for word at index
@@ -71,6 +78,9 @@ class WordLayoutManager {
     wordRanges: [NSRange],
     in textView: NSTextView
   ) -> CGRect? {
+    assert(index >= 0, "Word index must be non-negative")
+    assert(index < wordRanges.count, "Word index must be within range")
+    
     guard index < wordRanges.count,
           let layoutManager = textView.layoutManager,
           let textContainer = textView.textContainer else {
@@ -82,6 +92,8 @@ class WordLayoutManager {
     var rect = layoutManager.boundingRect(forGlyphRange: glyphRange, in: textContainer)
     rect.origin.x += textView.textContainerInset.width
     rect.origin.y += textView.textContainerInset.height
+    
+    assert(rect.width >= 0 && rect.height >= 0, "Bounding rect must have non-negative dimensions")
     return rect
   }
   

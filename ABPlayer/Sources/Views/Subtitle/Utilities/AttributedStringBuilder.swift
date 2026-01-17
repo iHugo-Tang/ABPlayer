@@ -21,6 +21,8 @@ struct AttributedStringBuilder {
     let font = NSFont.systemFont(ofSize: fontSize)
     
     for (index, word) in words.enumerated() {
+      assert(!word.isEmpty, "Words should not be empty")
+      
       let attributes: [NSAttributedString.Key: Any] = [
         .font: font,
         .foregroundColor: colorForWord(word),
@@ -32,13 +34,16 @@ struct AttributedStringBuilder {
       result.append(wordString)
       let endLocation = result.length
       
-      wordRanges.append(NSRange(location: startLocation, length: endLocation - startLocation))
+      let range = NSRange(location: startLocation, length: endLocation - startLocation)
+      assert(range.length > 0, "Word range should have positive length")
+      wordRanges.append(range)
       
       if index < words.count - 1 {
         result.append(NSAttributedString(string: " ", attributes: [.font: font]))
       }
     }
     
+    assert(wordRanges.count == words.count, "Word ranges count must match words count")
     return Result(attributedString: result, wordRanges: wordRanges)
   }
   
