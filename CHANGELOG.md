@@ -1,3 +1,22 @@
+## [0.2.9.53] - 2026-01-17
+
+### Features
+- implement VocabularyService and refactor SubtitleView for better state management
+
+### Bug Fixes
+- resolve compiler warnings, concurrency issues, and asset naming conflicts
+
+### Improvements
+- improve robustness with logging, assertions, and async-stream countdown
+- extract layout and string building logic into dedicated utilities and add tests
+- extract logic to SubtitleViewModel and modularize sub-components
+- exclude merge commits and support scoped commits in changelog
+
+### Chores
+- add architecture diagram for subtitle system
+- convert videos
+
+
 ## [0.2.9.52] - 2026-01-16
 
 ### Other
