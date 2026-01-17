@@ -1,0 +1,307 @@
+{
+  "nodes": [
+    {
+      "id": "group-ui",
+      "type": "group",
+      "x": -60,
+      "y": -40,
+      "width": 920,
+      "height": 520,
+      "label": "UI Layer (SwiftUI + AppKit Wrapper)",
+      "color": "4"
+    },
+    {
+      "id": "subtitle-view",
+      "type": "text",
+      "x": 0,
+      "y": 30,
+      "width": 400,
+      "height": 260,
+      "color": "4",
+      "text": "**SubtitleView**\n`ABPlayer/Sources/Views/SubtitleView.swift`\n\n- `@Environment(AudioPlayerManager)`\n- `@Environment(VocabularyService)`\n- `@State private var viewModel = SubtitleViewModel()`\n- Renders `ForEach(cues) -> SubtitleCueRow`\n- `.task { await viewModel.trackPlayback(timeProvider:, cues:) }`\n- `onChange(currentCueID|tappedCueID)` -> `ScrollViewReader.scrollTo()`\n- `onScrollPhaseChange(.interacting)` -> `viewModel.handleUserScroll()`"
+    },
+    {
+      "id": "subtitle-cue-row",
+      "type": "text",
+      "x": 440,
+      "y": 30,
+      "width": 380,
+      "height": 260,
+      "color": "4",
+      "text": "**SubtitleCueRow**\n`ABPlayer/Sources/Views/Subtitle/SubtitleCueRow.swift`\n\n- Input: `SubtitleCue`, `isActive`, `isScrolling`, `selectedWordIndex`\n- Tap: `onTapGesture` -> `onTap()` (cue jump)\n- Word selection: forwards `onWordSelected(index?)`\n- Queries + mutates `VocabularyService` (difficulty / forgot / remembered / remove)\n- Hosts popover `WordMenuView`"
+    },
+    {
+      "id": "interactive-attributed-text-view",
+      "type": "text",
+      "x": 440,
+      "y": 310,
+      "width": 380,
+      "height": 150,
+      "color": "4",
+      "text": "**InteractiveAttributedTextView** (NSViewRepresentable)\n`ABPlayer/Sources/Views/Subtitle/Components/InteractiveAttributedTextView.swift`\n\n- AppKit text rendering + per-word hit-testing\n- Uses `Coordinator` to cache attributed string + selection/hover ranges\n- Takes providers + callbacks from `SubtitleCueRow`\n- Receives `vocabularyVersion` to re-render highlights"
+    },
+    {
+      "id": "group-logic",
+      "type": "group",
+      "x": -60,
+      "y": 520,
+      "width": 920,
+      "height": 380,
+      "label": "Logic Layer (ViewModel / State Machine)",
+      "color": "6"
+    },
+    {
+      "id": "subtitle-view-model",
+      "type": "text",
+      "x": 0,
+      "y": 590,
+      "width": 820,
+      "height": 280,
+      "color": "6",
+      "text": "**SubtitleViewModel** (`@Observable`)\n`ABPlayer/Sources/Views/Subtitle/SubtitleViewModel.swift`\n\nState:\n- `currentCueID: UUID?`\n- `tappedCueID: UUID?`\n- `scrollState: ScrollState` (`autoScrolling` | `userScrolling(countdown:)`)\n- `wordSelection: WordSelectionState` (`none` | `selected(cueID, wordIndex)`)\n\nCore methods:\n- `trackPlayback(timeProvider:, cues:)` (loop; 100ms sleep)\n- `findActiveCue(at:in:)` (binary search)\n- `handleCueTap(cueID:onSeek:cueStartTime:)`\n- `handleUserScroll()` (starts countdown task)\n- `handleWordSelection(wordIndex:cueID:isPlaying:onPause:)`\n- `reset()`"
+    },
+    {
+      "id": "group-data",
+      "type": "group",
+      "x": 900,
+      "y": -40,
+      "width": 780,
+      "height": 940,
+      "label": "Data Layer (SwiftData Model + Parsing)",
+      "color": "3"
+    },
+    {
+      "id": "subtitle-parser",
+      "type": "text",
+      "x": 940,
+      "y": 30,
+      "width": 340,
+      "height": 200,
+      "color": "3",
+      "text": "**SubtitleParser**\n`ABPlayer/Sources/Models/SubtitleFile.swift`\n\n- `detectFormat(from:)` -> `srt|vtt|unknown`\n- `parse(from:)` -> `[SubtitleCue]`\n- `parseSRT(_:)` / `parseVTT(_:)`\n- `writeSRT(cues:to:)`"
+    },
+    {
+      "id": "subtitle-cue",
+      "type": "text",
+      "x": 1320,
+      "y": 30,
+      "width": 320,
+      "height": 200,
+      "color": "3",
+      "text": "**SubtitleCue** (value type)\n`ABPlayer/Sources/Models/SubtitleFile.swift`\n\n- `id: UUID`\n- `startTime: Double`\n- `endTime: Double`\n- `text: String`\n\nUsed by UI + ViewModel for:\n- rendering\n- binary search for active cue"
+    },
+    {
+      "id": "subtitle-file-model",
+      "type": "text",
+      "x": 940,
+      "y": 260,
+      "width": 700,
+      "height": 220,
+      "color": "3",
+      "text": "**SubtitleFile** (SwiftData `@Model`)\n`ABPlayer/Sources/Models/SubtitleFile.swift`\n\n- Metadata: `id`, `displayName`, `bookmarkData`, `createdAt`, `audioFile` relationship\n- Cache: `cachedCuesData` (`@Attribute(.externalStorage)`) stores JSON\n- Computed: `cues: [SubtitleCue]` (encode/decode JSON)\n\nUpstream loaders may set `subtitleFile.cues = try SubtitleParser.parse(url)`"
+    },
+    {
+      "id": "group-services",
+      "type": "group",
+      "x": -60,
+      "y": 920,
+      "width": 1740,
+      "height": 360,
+      "label": "Services (Injected via @Environment)",
+      "color": "5"
+    },
+    {
+      "id": "audio-player-manager",
+      "type": "text",
+      "x": 0,
+      "y": 990,
+      "width": 820,
+      "height": 240,
+      "color": "5",
+      "text": "**AudioPlayerManager** (`@Observable`, `@MainActor`)\n`ABPlayer/Sources/Services/AudioPlayerManager.swift`\n\nProvides:\n- `currentTime: Double`\n- `isPlaying: Bool`\n- Controls: `play()`, `pause()`, `seek(to:)`, `load(...)`\n\nUsed by subtitle UI for:\n- time source (highlight + auto-scroll)\n- tap-to-seek\n- pause during word selection"
+    },
+    {
+      "id": "vocabulary-service",
+      "type": "text",
+      "x": 860,
+      "y": 990,
+      "width": 760,
+      "height": 240,
+      "color": "5",
+      "text": "**VocabularyService** (`@Observable`, `@MainActor`)\n`ABPlayer/Sources/Services/VocabularyService.swift`\n\n- Lookup: `difficultyLevel(for:)`, counts, `createdAt(for:)`\n- Mutations: `incrementForgotCount`, `incrementRememberedCount`, `removeVocabulary`\n- `version` increments for UI invalidation\n\nUsed by subtitle row/text to color + update vocabulary stats."
+    },
+    {
+      "id": "legend",
+      "type": "text",
+      "x": 1680,
+      "y": -40,
+      "width": 360,
+      "height": 240,
+      "text": "**Legend**\n\nArrow labels indicate relationship type:\n- **Data Flow**: produces / consumes data\n- **Observation**: view reacts to state changes\n- **Ownership**: stored reference / lifecycle\n- **Callbacks**: closures passed across layers"
+    }
+  ],
+  "edges": [
+    {
+      "id": "e-parser-produces-cues",
+      "fromNode": "subtitle-parser",
+      "fromSide": "right",
+      "toNode": "subtitle-cue",
+      "toSide": "left",
+      "toEnd": "arrow",
+      "label": "Data Flow: parse() produces [SubtitleCue]"
+    },
+    {
+      "id": "e-file-contains-cues",
+      "fromNode": "subtitle-file-model",
+      "fromSide": "right",
+      "toNode": "subtitle-cue",
+      "toSide": "bottom",
+      "toEnd": "arrow",
+      "label": "Data: cached cues JSON -> [SubtitleCue]"
+    },
+    {
+      "id": "e-cues-to-subtitle-view",
+      "fromNode": "subtitle-cue",
+      "fromSide": "left",
+      "toNode": "subtitle-view",
+      "toSide": "right",
+      "toEnd": "arrow",
+      "label": "Data Flow: `cues: [SubtitleCue]` input"
+    },
+    {
+      "id": "e-subtitle-view-owns-viewmodel",
+      "fromNode": "subtitle-view",
+      "fromSide": "bottom",
+      "toNode": "subtitle-view-model",
+      "toSide": "top",
+      "toEnd": "arrow",
+      "label": "Ownership: `@State SubtitleViewModel()`"
+    },
+    {
+      "id": "e-subtitle-view-renders-row",
+      "fromNode": "subtitle-view",
+      "fromSide": "right",
+      "toNode": "subtitle-cue-row",
+      "toSide": "left",
+      "toEnd": "arrow",
+      "label": "UI: ForEach(cues) -> SubtitleCueRow"
+    },
+    {
+      "id": "e-row-renders-interactive-text",
+      "fromNode": "subtitle-cue-row",
+      "fromSide": "bottom",
+      "toNode": "interactive-attributed-text-view",
+      "toSide": "top",
+      "toEnd": "arrow",
+      "label": "UI: word-level rendering + callbacks"
+    },
+    {
+      "id": "e-subtitle-view-observes-viewmodel",
+      "fromNode": "subtitle-view-model",
+      "fromSide": "left",
+      "toNode": "subtitle-view",
+      "toSide": "bottom",
+      "toEnd": "arrow",
+      "label": "Observation: currentCueID / tappedCueID / scrollState"
+    },
+    {
+      "id": "e-viewmodel-consumes-cues",
+      "fromNode": "subtitle-cue",
+      "fromSide": "bottom",
+      "toNode": "subtitle-view-model",
+      "toSide": "right",
+      "toEnd": "arrow",
+      "label": "Logic: binary search findActiveCue(in cues)"
+    },
+    {
+      "id": "e-audio-time-to-trackPlayback",
+      "fromNode": "audio-player-manager",
+      "fromSide": "top",
+      "toNode": "subtitle-view-model",
+      "toSide": "bottom",
+      "toEnd": "arrow",
+      "label": "Playback Loop: timeProvider -> currentTime"
+    },
+    {
+      "id": "e-trackPlayback-to-currentCueID",
+      "fromNode": "subtitle-view-model",
+      "fromSide": "top",
+      "toNode": "subtitle-view",
+      "toSide": "left",
+      "toEnd": "arrow",
+      "label": "Playback Loop: currentCueID -> highlight + auto-scroll"
+    },
+    {
+      "id": "e-row-tap-to-handleCueTap",
+      "fromNode": "subtitle-cue-row",
+      "fromSide": "left",
+      "toNode": "subtitle-view-model",
+      "toSide": "right",
+      "toEnd": "arrow",
+      "label": "User Interaction: tap -> handleCueTap()"
+    },
+    {
+      "id": "e-handleCueTap-seeks-audio",
+      "fromNode": "subtitle-view-model",
+      "fromSide": "bottom",
+      "toNode": "audio-player-manager",
+      "toSide": "bottom",
+      "toEnd": "arrow",
+      "label": "User Interaction: onSeek closure -> seek(to:)"
+    },
+    {
+      "id": "e-word-selection-to-viewmodel",
+      "fromNode": "interactive-attributed-text-view",
+      "fromSide": "left",
+      "toNode": "subtitle-view-model",
+      "toSide": "right",
+      "toEnd": "arrow",
+      "label": "Callbacks: onWordSelected -> handleWordSelection()"
+    },
+    {
+      "id": "e-word-selection-pauses-audio",
+      "fromNode": "subtitle-view-model",
+      "fromSide": "bottom",
+      "toNode": "audio-player-manager",
+      "toSide": "top",
+      "toEnd": "arrow",
+      "label": "Callbacks: onPause/onPlay -> pause()/play()"
+    },
+    {
+      "id": "e-row-uses-vocab",
+      "fromNode": "subtitle-cue-row",
+      "fromSide": "right",
+      "toNode": "vocabulary-service",
+      "toSide": "left",
+      "toEnd": "arrow",
+      "label": "Vocabulary: queries + increment/remove"
+    },
+    {
+      "id": "e-vocab-version-invalidates-text",
+      "fromNode": "vocabulary-service",
+      "fromSide": "top",
+      "toNode": "interactive-attributed-text-view",
+      "toSide": "right",
+      "toEnd": "arrow",
+      "label": "Observation: `version` -> re-render highlights"
+    },
+    {
+      "id": "e-subtitle-view-environment-audio",
+      "fromNode": "subtitle-view",
+      "fromSide": "bottom",
+      "toNode": "audio-player-manager",
+      "toSide": "left",
+      "toEnd": "arrow",
+      "label": "DI: `@Environment(AudioPlayerManager)`"
+    },
+    {
+      "id": "e-subtitle-view-environment-vocab",
+      "fromNode": "subtitle-view",
+      "fromSide": "right",
+      "toNode": "vocabulary-service",
+      "toSide": "top",
+      "toEnd": "arrow",
+      "label": "DI: `@Environment(VocabularyService)`"
+    }
+  ]
+}
