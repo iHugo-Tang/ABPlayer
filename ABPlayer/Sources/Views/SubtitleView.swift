@@ -5,28 +5,19 @@ import SwiftUI
 /// Displays synchronized subtitles with current playback position highlighted
 struct SubtitleView: View {
   @Environment(AudioPlayerManager.self) private var playerManager
-  @Query private var vocabularies: [Vocabulary]
+  @Environment(VocabularyService.self) private var vocabularyService
 
   let cues: [SubtitleCue]
-  /// Binding to expose countdown seconds to parent (nil when not paused)
   @Binding var countdownSeconds: Int?
-  /// Font size for subtitle text
   let fontSize: Double
 
-  /// Duration for resume countdown in seconds
   private static let pauseDuration = 3
 
   @State private var currentCueID: UUID?
-  /// Indicates user is manually scrolling; pauses auto-scroll and highlight tracking
   @State private var isUserScrolling = false
-  /// Task to handle countdown and resume tracking
   @State private var scrollResumeTask: Task<Void, Never>?
-  /// Currently selected word info (cueID, wordIndex) - lifted to parent for cross-row dismiss
   @State private var selectedWord: (cueID: UUID, wordIndex: Int)?
-  /// Tracks if playback was playing before word interaction (for cross-row dismiss)
   @State private var wasPlayingBeforeWordInteraction = false
-  @State private var vocabularyMap: [String: Vocabulary] = [:]
-  @State private var vocabularyVersion = 0
   @State private var tappedCueID: UUID?
 
   var body: some View {
@@ -40,8 +31,6 @@ struct SubtitleView: View {
                 isActive: cue.id == currentCueID,
                 isScrolling: isUserScrolling,
                 fontSize: fontSize,
-                vocabularyMap: vocabularyMap,
-                vocabularyVersion: vocabularyVersion,
                 selectedWordIndex: selectedWord?.cueID == cue.id ? selectedWord?.wordIndex : nil,
                 onWordSelected: { wordIndex in
                   handleWordSelection(wordIndex: wordIndex, cueID: cue.id)
@@ -99,18 +88,6 @@ struct SubtitleView: View {
     .task {
       await trackCurrentCue()
     }
-    .onAppear {
-      updateVocabularyMap()
-    }
-    .onChange(of: vocabularies) { _, _ in
-      updateVocabularyMap()
-    }
-  }
-
-  private func updateVocabularyMap() {
-    vocabularyMap = Dictionary(
-      vocabularies.map { ($0.word, $0) }, uniquingKeysWith: { first, _ in first })
-    vocabularyVersion += 1
   }
 
   private func handleWordSelection(wordIndex: Int?, cueID: UUID) {
@@ -127,12 +104,10 @@ struct SubtitleView: View {
     }
   }
 
-  /// Only hides the popover without resuming playback
   private func hidePopover() {
     selectedWord = nil
   }
 
-  /// Hides the popover and resumes playback if it was paused by word click
   private func dismissWord() {
     guard selectedWord != nil else { return }
     selectedWord = nil
@@ -226,14 +201,12 @@ struct SubtitleView: View {
 // MARK: - Cue Row
 
 private struct SubtitleCueRow: View {
-  @Environment(\.modelContext) private var modelContext
+  @Environment(VocabularyService.self) private var vocabularyService
 
   let cue: SubtitleCue
   let isActive: Bool
   let isScrolling: Bool
   let fontSize: Double
-  let vocabularyMap: [String: Vocabulary]
-  let vocabularyVersion: Int
   let selectedWordIndex: Int?
   let onWordSelected: (Int?) -> Void
   let onHidePopover: () -> Void
@@ -251,8 +224,6 @@ private struct SubtitleCueRow: View {
     isActive: Bool,
     isScrolling: Bool,
     fontSize: Double,
-    vocabularyMap: [String: Vocabulary],
-    vocabularyVersion: Int,
     selectedWordIndex: Int?,
     onWordSelected: @escaping (Int?) -> Void,
     onHidePopover: @escaping () -> Void,
@@ -262,8 +233,6 @@ private struct SubtitleCueRow: View {
     self.isActive = isActive
     self.isScrolling = isScrolling
     self.fontSize = fontSize
-    self.vocabularyMap = vocabularyMap
-    self.vocabularyVersion = vocabularyVersion
     self.selectedWordIndex = selectedWordIndex
     self.onWordSelected = onWordSelected
     self.onHidePopover = onHidePopover
@@ -272,63 +241,24 @@ private struct SubtitleCueRow: View {
   }
 
 
-  /// Normalize a word for vocabulary lookup (lowercase, trim punctuation)
-  private func normalize(_ word: String) -> String {
-    word.lowercased().trimmingCharacters(in: .punctuationCharacters)
-  }
-
-  /// Find vocabulary entry for a word
-  private func findVocabulary(for word: String) -> Vocabulary? {
-    let normalized = normalize(word)
-    return vocabularyMap[normalized]
-  }
-
   /// Get difficulty level for a word (nil if not in vocabulary or level is 0)
   private func difficultyLevel(for word: String) -> Int? {
-    guard let vocab = findVocabulary(for: word), vocab.difficultyLevel > 0 else {
-      return nil
-    }
-    return vocab.difficultyLevel
-  }
-
-  /// Increment forgot count for a word (creates new entry if not exists)
-  private func incrementForgotCount(for word: String) {
-    if let vocab = findVocabulary(for: word) {
-      vocab.forgotCount += 1
-    } else {
-      let newVocab = Vocabulary(word: normalize(word), forgotCount: 1)
-      modelContext.insert(newVocab)
-    }
-  }
-
-  /// Increment remembered count for a word (only if already in vocabulary)
-  private func incrementRememberedCount(for word: String) {
-    // Only increment if word exists - you can't "remember" a word you never "forgot"
-    if let vocab = findVocabulary(for: word) {
-      vocab.rememberedCount += 1
-    }
-  }
-
-  /// Remove vocabulary entry for a word
-  private func removeVocabulary(for word: String) {
-    if let vocab = findVocabulary(for: word) {
-      modelContext.delete(vocab)
-    }
+    vocabularyService.difficultyLevel(for: word)
   }
 
   /// Get forgot count for a word (0 if not in vocabulary)
   private func forgotCount(for word: String) -> Int {
-    findVocabulary(for: word)?.forgotCount ?? 0
+    vocabularyService.forgotCount(for: word)
   }
 
   /// Get remembered count for a word (0 if not in vocabulary)
   private func rememberedCount(for word: String) -> Int {
-    findVocabulary(for: word)?.rememberedCount ?? 0
+    vocabularyService.rememberedCount(for: word)
   }
 
   /// Get creation date for a word (nil if not in vocabulary)
   private func createdAt(for word: String) -> Date? {
-    findVocabulary(for: word)?.createdAt
+    vocabularyService.createdAt(for: word)
   }
 
 
@@ -351,7 +281,7 @@ private struct SubtitleCueRow: View {
             defaultTextColor: isActive ? NSColor(Color.primary) : NSColor(Color.secondary),
             selectedWordIndex: selectedWordIndex,
             difficultyLevelProvider: { difficultyLevel(for: $0) },
-            vocabularyVersion: vocabularyVersion,
+            vocabularyVersion: vocabularyService.version,
             onWordSelected: { index in
               isWordInteracting = true
               onWordSelected(selectedWordIndex == index ? nil : index)
@@ -364,13 +294,13 @@ private struct SubtitleCueRow: View {
               onWordSelected(nil)
             },
             onForgot: { word in
-              incrementForgotCount(for: word)
+              vocabularyService.incrementForgotCount(for: word)
             },
             onRemembered: { word in
-              incrementRememberedCount(for: word)
+              vocabularyService.incrementRememberedCount(for: word)
             },
             onRemove: { word in
-              removeVocabulary(for: word)
+              vocabularyService.removeVocabulary(for: word)
             },
             onWordRectChanged: { rect in
               if popoverSourceRect != rect {
@@ -409,9 +339,9 @@ private struct SubtitleCueRow: View {
               WordMenuView(
                 word: words[selectedIndex],
                 onDismiss: { onWordSelected(nil) },
-                onForgot: { incrementForgotCount(for: $0) },
-                onRemembered: { incrementRememberedCount(for: $0) },
-                onRemove: { removeVocabulary(for: $0) },
+                onForgot: { vocabularyService.incrementForgotCount(for: $0) },
+                onRemembered: { vocabularyService.incrementRememberedCount(for: $0) },
+                onRemove: { vocabularyService.removeVocabulary(for: $0) },
                 forgotCount: forgotCount(for: words[selectedIndex]),
                 rememberedCount: rememberedCount(for: words[selectedIndex]),
                 createdAt: createdAt(for: words[selectedIndex])

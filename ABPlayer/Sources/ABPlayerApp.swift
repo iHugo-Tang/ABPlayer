@@ -36,6 +36,7 @@ struct ABPlayerApp: App {
   private let sessionTracker = SessionTracker()
   private let transcriptionManager = TranscriptionManager()
   private let transcriptionSettings = TranscriptionSettings()
+  private let vocabularyService: VocabularyService
 
   private let queueManager: TranscriptionQueueManager
   private let updater = SparkleUpdater()
@@ -77,6 +78,8 @@ struct ABPlayerApp: App {
       modelContainer = try ModelContainer(for: schema, configurations: modelConfiguration)
       modelContainer.mainContext.autosaveEnabled = true
 
+      vocabularyService = VocabularyService(modelContext: modelContainer.mainContext)
+      
       queueManager = TranscriptionQueueManager(
         transcriptionManager: transcriptionManager,
         settings: transcriptionSettings
@@ -153,6 +156,7 @@ struct ABPlayerApp: App {
         .environment(transcriptionManager)
         .environment(transcriptionSettings)
         .environment(queueManager)
+        .environment(vocabularyService)
     }
     .defaultSize(width: 1600, height: 900)
     .windowResizability(.contentSize)
