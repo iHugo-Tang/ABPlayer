@@ -1,3 +1,4 @@
+import OSLog
 import SwiftData
 import SwiftUI
 
@@ -241,6 +242,7 @@ private struct SubtitleCueRow: View {
   @State private var isHovered = false
   @State private var popoverSourceRect: CGRect?
   @State private var isWordInteracting = false
+  @State private var contentHeight: CGFloat = 0
 
   private let words: [String]
 
@@ -331,90 +333,99 @@ private struct SubtitleCueRow: View {
 
 
   var body: some View {
-    HStack(alignment: .firstTextBaseline, spacing: 12) {
-      Text(timeString(from: cue.startTime))
-        .font(.system(size: max(11, fontSize - 4), design: .monospaced))
-        .foregroundStyle(isActive ? Color.primary : Color.secondary)
-        .frame(width: 52, alignment: .trailing)
+    GeometryReader { geometry in
+      let availableWidth = geometry.size.width
+      let textWidth = availableWidth - 52 - 12
+      
+      HStack(alignment: .firstTextBaseline, spacing: 12) {
+        Text(timeString(from: cue.startTime))
+          .font(.system(size: max(11, fontSize - 4), design: .monospaced))
+          .foregroundStyle(isActive ? Color.primary : Color.secondary)
+          .frame(width: 52, alignment: .trailing)
 
-      InteractiveAttributedTextView(
-          cueID: cue.id,
-          isScrolling: isScrolling,
-          words: words,
-          fontSize: fontSize,
-          defaultTextColor: isActive ? .labelColor : .secondaryLabelColor,
-          selectedWordIndex: selectedWordIndex,
-          difficultyLevelProvider: { difficultyLevel(for: $0) },
-          vocabularyVersion: vocabularyVersion,
-          onWordSelected: { index in
-            // Set flag to prevent row tap gesture from dismissing the popover
-            isWordInteracting = true
-            onWordSelected(selectedWordIndex == index ? nil : index)
-            // Clear flag after a short delay to allow proper tap gesture handling
-            Task { @MainActor in
-              try? await Task.sleep(nanoseconds: 100_000_000) // 0.1 seconds
-              isWordInteracting = false
-            }
-          },
-          onDismiss: {
-            onWordSelected(nil)
-          },
-          onForgot: { word in
-            incrementForgotCount(for: word)
-          },
-          onRemembered: { word in
-            incrementRememberedCount(for: word)
-          },
-          onRemove: { word in
-            removeVocabulary(for: word)
-          },
-          onWordRectChanged: { rect in
-            if popoverSourceRect != rect {
-              popoverSourceRect = rect
-            }
-          },
-          forgotCount: { forgotCount(for: $0) },
-          rememberedCount: { rememberedCount(for: $0) },
-          createdAt: { createdAt(for: $0) }
-        )
-        .alignmentGuide(.firstTextBaseline) { context in
-          let font = NSFont.systemFont(ofSize: fontSize)
-          let lineHeight = font.ascender + font.leading //- font.descender
-          return lineHeight
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .popover(
-          isPresented: Binding(
-            get: { popoverSourceRect != nil },
-            set: {
-              if !$0 {
-                popoverSourceRect = nil
-                onWordSelected(nil)
+        InteractiveAttributedTextView(
+            cueID: cue.id,
+            isScrolling: isScrolling,
+            words: words,
+            fontSize: fontSize,
+            defaultTextColor: isActive ? NSColor(Color.primary) : NSColor(Color.secondary),
+            selectedWordIndex: selectedWordIndex,
+            difficultyLevelProvider: { difficultyLevel(for: $0) },
+            vocabularyVersion: vocabularyVersion,
+            onWordSelected: { index in
+              isWordInteracting = true
+              onWordSelected(selectedWordIndex == index ? nil : index)
+              Task { @MainActor in
+                try? await Task.sleep(nanoseconds: 100_000_000)
+                isWordInteracting = false
               }
-            }
-          ),
-          attachmentAnchor: .rect(.rect(popoverSourceRect ?? .zero)),
-          arrowEdge: .bottom
-        ) {
-          if let selectedIndex = selectedWordIndex, selectedIndex < words.count {
-            WordMenuView(
-              word: words[selectedIndex],
-              onDismiss: { onWordSelected(nil) },
-              onForgot: { incrementForgotCount(for: $0) },
-              onRemembered: { incrementRememberedCount(for: $0) },
-              onRemove: { removeVocabulary(for: $0) },
-              forgotCount: forgotCount(for: words[selectedIndex]),
-              rememberedCount: rememberedCount(for: words[selectedIndex]),
-              createdAt: createdAt(for: words[selectedIndex])
-            )
+            },
+            onDismiss: {
+              onWordSelected(nil)
+            },
+            onForgot: { word in
+              incrementForgotCount(for: word)
+            },
+            onRemembered: { word in
+              incrementRememberedCount(for: word)
+            },
+            onRemove: { word in
+              removeVocabulary(for: word)
+            },
+            onWordRectChanged: { rect in
+              if popoverSourceRect != rect {
+                popoverSourceRect = rect
+              }
+            },
+            onHeightChanged: { height in
+              if contentHeight != height {
+                contentHeight = height
+              }
+            },
+            forgotCount: { forgotCount(for: $0) },
+            rememberedCount: { rememberedCount(for: $0) },
+            createdAt: { createdAt(for: $0) }
+          )
+          .alignmentGuide(.firstTextBaseline) { context in
+            let font = NSFont.systemFont(ofSize: fontSize)
+            let lineHeight = font.ascender + font.leading
+            return lineHeight
           }
-        }
-        .onDisappear {
-          onHidePopover()
-        }
+          .frame(width: textWidth, alignment: .leading)
+          .popover(
+            isPresented: Binding(
+              get: { popoverSourceRect != nil },
+              set: {
+                if !$0 {
+                  popoverSourceRect = nil
+                  onWordSelected(nil)
+                }
+              }
+            ),
+            attachmentAnchor: .rect(.rect(popoverSourceRect ?? .zero)),
+            arrowEdge: .bottom
+          ) {
+            if let selectedIndex = selectedWordIndex, selectedIndex < words.count {
+              WordMenuView(
+                word: words[selectedIndex],
+                onDismiss: { onWordSelected(nil) },
+                onForgot: { incrementForgotCount(for: $0) },
+                onRemembered: { incrementRememberedCount(for: $0) },
+                onRemove: { removeVocabulary(for: $0) },
+                forgotCount: forgotCount(for: words[selectedIndex]),
+                rememberedCount: rememberedCount(for: words[selectedIndex]),
+                createdAt: createdAt(for: words[selectedIndex])
+              )
+            }
+          }
+          .onDisappear {
+            onHidePopover()
+          }
+      }
     }
-    .padding(.vertical, 14)
-    .padding(.horizontal, 12)
+    .frame(height: max(contentHeight, 23), alignment: .center)
+    .padding(.vertical, 8)
+    .padding(.horizontal, 8)
     .background(
       RoundedRectangle(cornerRadius: 8, style: .continuous)
         .fill(backgroundColor)
@@ -589,6 +600,7 @@ private struct InteractiveAttributedTextView: NSViewRepresentable {
   let onRemembered: (String) -> Void
   let onRemove: (String) -> Void
   let onWordRectChanged: (CGRect?) -> Void
+  let onHeightChanged: (CGFloat) -> Void
   let forgotCount: (String) -> Int
   let rememberedCount: (String) -> Int
   let createdAt: (String) -> Date?
@@ -641,6 +653,7 @@ private struct InteractiveAttributedTextView: NSViewRepresentable {
       if context.coordinator.vocabularyVersion != vocabularyVersion {
         context.coordinator.cachedAttributedString = nil
       }
+      context.coordinator.cachedSize = nil
       context.coordinator.updateState(
         cueID: cueID,
         words: words,
@@ -693,15 +706,38 @@ private struct InteractiveAttributedTextView: NSViewRepresentable {
     }
     
     let width = proposal.width ?? 400
+    
+    if let cachedWidth = context.coordinator.cachedWidth,
+       let cachedSize = context.coordinator.cachedSize,
+       abs(cachedWidth - width) < 1.0 {
+      Logger.ui.debug("hit cache \(words.first ?? "nil") w:\(cachedSize.width), h:\(cachedSize.height)")
+      return cachedSize
+    }
+    
     textContainer.containerSize = NSSize(width: width, height: .greatestFiniteMagnitude)
     
     layoutManager.ensureLayout(for: textContainer)
     let usedRect = layoutManager.usedRect(for: textContainer)
+    if usedRect.isEmpty {
+      return nil
+    }
     
     let inset = nsView.textContainerInset
     let height = usedRect.height + inset.height * 2
     
-    return CGSize(width: width, height: height)
+    let size = CGSize(width: width, height: height)
+    if width.isNormal && height.isNormal {
+      context.coordinator.cachedWidth = width
+      context.coordinator.cachedSize = size
+    }
+    
+    DispatchQueue.main.async {
+      onHeightChanged(height)
+    }
+    
+    Logger.ui.debug("\(words.first ?? "nil") w:\(width), h:\(height)")
+    
+    return size
   }
 
   func makeCoordinator() -> Coordinator {
@@ -751,6 +787,8 @@ private struct InteractiveAttributedTextView: NSViewRepresentable {
     var lastHoveredIndex: Int?
     var wordRanges: [NSRange] = []
     var wordFrames: [CGRect] = []
+    var cachedWidth: CGFloat?
+    var cachedSize: CGSize?
 
     init(
       cueID: UUID,
@@ -961,6 +999,7 @@ private class InteractiveNSTextView: NSTextView {
     }
     
     let firstLineFragmentRect = layoutManager.lineFragmentRect(forGlyphAt: 0, effectiveRange: nil)
+    Logger.ui.debug("firstLineFragmentRect: \(String(describing: firstLineFragmentRect))")
     let firstLineBaselineOffset = layoutManager.typesetter.baselineOffset(
       in: layoutManager,
       glyphIndex: 0

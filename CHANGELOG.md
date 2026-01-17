@@ -1,3 +1,11 @@
+## [0.2.9.52] - 2026-01-16
+
+### Other
+- fix(subtitle): improve SubtitleView layout and height calculation
+- feat(opencode): update github-release
+- Merge pull request #77 from sunset-valley/release/0.2.9-51
+
+
 ## [0.2.9.51] - 2026-01-13
 
 ### Other

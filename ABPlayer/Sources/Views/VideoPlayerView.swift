@@ -173,7 +173,7 @@ struct VideoPlayerView: View {
         Divider()
         ContentPanelView(audioFile: audioFile)
       }
-      .padding()
+//      .padding()
       .background(.thinMaterial)
     }
   }
