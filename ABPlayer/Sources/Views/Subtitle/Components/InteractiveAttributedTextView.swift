@@ -203,9 +203,17 @@ struct InteractiveAttributedTextView: NSViewRepresentable {
     var lastSelectedIndex: Int?
     var lastHoveredIndex: Int?
     var wordRanges: [NSRange] = []
-    var wordFrames: [CGRect] = []
     var cachedWidth: CGFloat?
     var cachedSize: CGSize?
+    
+    private var layoutManager = WordLayoutManager()
+    private var stringBuilder: AttributedStringBuilder {
+      AttributedStringBuilder(
+        fontSize: fontSize,
+        defaultTextColor: defaultTextColor,
+        difficultyLevelProvider: difficultyLevelProvider
+      )
+    }
 
     init(
       cueID: UUID,
@@ -268,83 +276,41 @@ struct InteractiveAttributedTextView: NSViewRepresentable {
 
       cachedDefaultTextColor = defaultTextColor
       cachedVocabularyVersion = vocabularyVersion
-      wordRanges.removeAll(keepingCapacity: true)
-      wordFrames.removeAll(keepingCapacity: true)
-      let result = NSMutableAttributedString()
-      let font = NSFont.systemFont(ofSize: fontSize)
-
-      for (index, word) in words.enumerated() {
-        let attributes: [NSAttributedString.Key: Any] = [
-          .font: font,
-          .foregroundColor: baseColorForWord(word),
-          NSAttributedString.Key("wordIndex"): index
-        ]
-        
-        let startLocation = result.length
-        let wordString = NSAttributedString(string: word, attributes: attributes)
-        result.append(wordString)
-        let endLocation = result.length
-        
-        wordRanges.append(NSRange(location: startLocation, length: endLocation - startLocation))
-        
-        if index < words.count - 1 {
-          result.append(NSAttributedString(string: " ", attributes: [.font: font]))
-        }
-      }
       
-      cachedAttributedString = result
-      return result
+      let result = stringBuilder.build(words: words)
+      wordRanges = result.wordRanges
+      cachedAttributedString = result.attributedString
+      
+      return result.attributedString
     }
     
     func cacheWordFrames(in textView: NSTextView) {
-      guard let layoutManager = textView.layoutManager,
-            let textContainer = textView.textContainer else { return }
-      
-      wordFrames.removeAll(keepingCapacity: true)
-      
-      for range in wordRanges {
-        let glyphRange = layoutManager.glyphRange(forCharacterRange: range, actualCharacterRange: nil)
-        var rect = layoutManager.boundingRect(forGlyphRange: glyphRange, in: textContainer)
-        rect.origin.x += textView.textContainerInset.width
-        rect.origin.y += textView.textContainerInset.height
-        wordFrames.append(rect)
-      }
+      layoutManager.cacheWordFrames(wordRanges: wordRanges, in: textView)
     }
 
     func baseColorForWord(_ word: String) -> NSColor {
-      guard let level = difficultyLevelProvider(word), level > 0 else {
-        return defaultTextColor
-      }
-      switch level {
-      case 1: return .systemGreen
-      case 2: return .systemYellow
-      default: return .systemRed
-      }
+      stringBuilder.colorForWord(word)
     }
 
     @MainActor
     func updateSelectedRect(in textView: NSTextView) {
       Task { @MainActor in
-        guard let index = selectedWordIndex,
-              index < wordRanges.count,
-              let layoutManager = textView.layoutManager,
-              let textContainer = textView.textContainer else {
+        guard let index = selectedWordIndex else {
           onWordRectChanged(nil)
           return
         }
-
-        let range = wordRanges[index]
-        let glyphRange = layoutManager.glyphRange(forCharacterRange: range, actualCharacterRange: nil)
-        var rect = layoutManager.boundingRect(forGlyphRange: glyphRange, in: textContainer)
-        rect.origin.x += textView.textContainerInset.width
-        rect.origin.y += textView.textContainerInset.height
-        onWordRectChanged(rect)
+        
+        if let rect = layoutManager.boundingRect(forWordAt: index, wordRanges: wordRanges, in: textView) {
+          onWordRectChanged(rect)
+        } else {
+          onWordRectChanged(nil)
+        }
       }
     }
 
     @MainActor
     func handleClick(at point: NSPoint, in textView: NSTextView) {
-      guard let wordIndex = findWordIndex(at: point, in: textView) else {
+      guard let wordIndex = layoutManager.findWordIndex(at: point, in: textView, wordRanges: wordRanges) else {
         onDismiss()
         return
       }
@@ -354,44 +320,7 @@ struct InteractiveAttributedTextView: NSViewRepresentable {
     @MainActor
     func handleMouseMoved(at point: NSPoint, in textView: NSTextView) -> Int? {
       if isScrolling { return nil }
-      return findWordIndex(at: point, in: textView)
-    }
-
-    @MainActor
-    private func findWordIndex(at point: NSPoint, in textView: NSTextView) -> Int? {
-      let containerInset = textView.textContainerInset
-      
-      let hoverAreaFrame = textView.bounds.insetBy(
-        dx: containerInset.width * 2,
-        dy: containerInset.height * 2
-      )
-      
-      guard hoverAreaFrame.contains(point) else {
-        return nil
-      }
-      
-      if !wordFrames.isEmpty && wordFrames.count == wordRanges.count {
-        for (index, frame) in wordFrames.enumerated() {
-          if frame.contains(point) {
-            return index
-          }
-        }
-        return nil
-      }
-
-      guard let layoutManager = textView.layoutManager,
-            let textContainer = textView.textContainer,
-            let textStorage = textView.textStorage else { return nil }
-
-      let characterIndex = layoutManager.characterIndex(
-        for: point,
-        in: textContainer,
-        fractionOfDistanceBetweenInsertionPoints: nil
-      )
-
-      guard characterIndex < textStorage.length else { return nil }
-
-      return textStorage.attribute(NSAttributedString.Key("wordIndex"), at: characterIndex, effectiveRange: nil) as? Int
+      return layoutManager.findWordIndex(at: point, in: textView, wordRanges: wordRanges)
     }
   }
 }
