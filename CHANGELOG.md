@@ -1,3 +1,16 @@
+## [0.2.9.55] - 2026-01-17
+
+### Bug Fixes
+- control Sentry app hang tracking by scene phase
+
+### Chores
+- update git-release process instructions
+- upgrade Sentry from 9.0.0 to 9.1.0
+
+### Other
+- release: 0.2.9-53 (#79)
+
+
 ## [0.2.9.54] - 2026-01-17
 
 ### Other
