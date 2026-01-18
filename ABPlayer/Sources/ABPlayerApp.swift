@@ -31,6 +31,8 @@ final class SparkleUpdater: ObservableObject {
 
 @main
 struct ABPlayerApp: App {
+  @Environment(\.scenePhase) private var scenePhase
+
   private let modelContainer: ModelContainer
   private let playerManager = AudioPlayerManager()
   private let sessionTracker = SessionTracker()
@@ -161,6 +163,14 @@ struct ABPlayerApp: App {
     .defaultSize(width: 1600, height: 900)
     .windowResizability(.contentSize)
     .modelContainer(modelContainer)
+    .onChange(of: scenePhase) { _, newPhase in
+      switch newPhase {
+      case .active:
+        SentrySDK.resumeAppHangTracking()
+      default:
+        SentrySDK.pauseAppHangTracking()
+      }
+    }
     .commands {
       SettingsCommands()
       CommandGroup(replacing: .appInfo) {
