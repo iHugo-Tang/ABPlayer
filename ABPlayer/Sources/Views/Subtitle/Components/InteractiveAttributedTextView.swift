@@ -29,27 +29,27 @@ struct InteractiveAttributedTextView: NSViewRepresentable {
     textView.backgroundColor = .clear
     textView.textContainerInset = NSSize(width: 2, height: 1)
     textView.textContainer?.lineFragmentPadding = 0
-    textView.textContainer?.widthTracksTextView = true
+    textView.textContainer?.widthTracksTextView = false
     textView.textContainer?.heightTracksTextView = false
     textView.isVerticallyResizable = true
     textView.isHorizontallyResizable = false
     textView.autoresizingMask = [.width]
     textView.coordinator = context.coordinator
-    
+ 
     textView.setContentHuggingPriority(.defaultHigh, for: .vertical)
     textView.setContentCompressionResistancePriority(.required, for: .vertical)
-    
+
     return textView
   }
 
   func updateNSView(_ textView: InteractiveNSTextView, context: Context) {
     let isFirstRender = context.coordinator.cachedAttributedString == nil
-    let needsContentUpdate = isFirstRender ||
-                             context.coordinator.cueID != cueID ||
-                             context.coordinator.fontSize != fontSize ||
-                             context.coordinator.defaultTextColor != defaultTextColor ||
-                             context.coordinator.words != words ||
-                             context.coordinator.vocabularyVersion != vocabularyVersion
+    let needsContentUpdate = isFirstRender 
+        || context.coordinator.cueID != cueID
+        || context.coordinator.fontSize != fontSize 
+        || context.coordinator.defaultTextColor != defaultTextColor
+        || context.coordinator.words != words
+        || context.coordinator.vocabularyVersion != vocabularyVersion
 
     let needsSelectionUpdate = context.coordinator.selectedWordIndex != selectedWordIndex
 
