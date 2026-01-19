@@ -170,17 +170,8 @@ struct SubtitleCueRow: View {
       }
     }
     .onHover { hovering in
-      guard !isScrolling else {
-        if isHovered { isHovered = false }
-        return
-      }
       withAnimation(.easeInOut(duration: 0.15)) {
         isHovered = hovering
-      }
-    }
-    .onChange(of: isScrolling) { _, isScrolling in
-      if isScrolling {
-        isHovered = false
       }
     }
     .onChange(of: isActive) { _, newValue in
@@ -194,7 +185,7 @@ struct SubtitleCueRow: View {
   private var backgroundColor: Color {
     if isActive {
       return Color.accentColor.opacity(0.12)
-    } else if isHovered && !isScrolling {
+    } else if isHovered {
       return Color.primary.opacity(0.04)
     } else {
       return Color.clear
