@@ -1,3 +1,10 @@
+## [0.2.9.56] - 2026-01-19
+
+### Improvements
+- simplify hover logic in SubtitleCueRow
+- do not widthTraccksTextView
+
+
 ## [0.2.9.55] - 2026-01-17
 
 ### Bug Fixes
