@@ -2,67 +2,6 @@ import Observation
 import SwiftData
 import SwiftUI
 
-// MARK: - Isolated Progress View (prevents parent re-renders on currentTime updates)
-
-private struct PlaybackProgressView: View {
-  @Environment(AudioPlayerManager.self) private var playerManager
-
-  @Binding var isSeeking: Bool
-  @Binding var seekValue: Double
-  @Binding var wasPlayingBeforeSeek: Bool
-
-  var body: some View {
-    VStack(alignment: .leading, spacing: 8) {
-      Slider(
-        value: Binding(
-          get: {
-            isSeeking ? seekValue : playerManager.currentTime
-          },
-          set: { newValue in
-            seekValue = newValue
-          }
-        ),
-        in: 0...(playerManager.duration > 0 ? playerManager.duration : 1),
-        onEditingChanged: { editing in
-          if editing {
-            isSeeking = true
-            wasPlayingBeforeSeek = playerManager.isPlaying
-            if playerManager.isPlaying {
-              playerManager.togglePlayPause()
-            }
-          } else {
-            playerManager.seek(to: seekValue)
-            isSeeking = false
-            if wasPlayingBeforeSeek {
-              playerManager.togglePlayPause()
-            }
-          }
-        }
-      )
-
-      HStack {
-        Text(timeString(from: isSeeking ? seekValue : playerManager.currentTime))
-        Spacer()
-        Text(timeString(from: playerManager.duration))
-      }
-      .captionStyle()
-      .foregroundStyle(.secondary)
-    }
-  }
-
-  private func timeString(from value: Double) -> String {
-    guard value.isFinite, value >= 0 else {
-      return "0:00"
-    }
-
-    let totalSeconds = Int(value.rounded())
-    let minutes = totalSeconds / 60
-    let seconds = totalSeconds % 60
-
-    return String(format: "%d:%02d", minutes, seconds)
-  }
-}
-
 // MARK: - Audio Player View
 
 struct AudioPlayerView: View {
@@ -71,132 +10,59 @@ struct AudioPlayerView: View {
   @Environment(\.modelContext) private var modelContext
 
   @Bindable var audioFile: ABFile
-
-  @AppStorage("audioPlayerShowContentPanel") private var showContentPanel: Bool = true
-
-  // Progress bar seeking state
-  @State private var isSeeking: Bool = false
-  @State private var seekValue: Double = 0
-  @State private var wasPlayingBeforeSeek: Bool = false
-
-  // Persisted panel widths
-  let minWidthOfPlayerSection: CGFloat = 380
-  let minWidthOfContentPanel: CGFloat = 300
-  let dividerWidth: CGFloat = 8
-  @AppStorage("playerSectionWidth") private var playerSectionWidth: Double = 380
-  @State private var draggingWidth: Double?  // Temporary width during drag, avoids I/O on every frame
-
-  // Volume Persistence
-  @AppStorage("playerVolume") private var playerVolume: Double = 1.0
-  @State private var showVolumePopover: Bool = false
-  @State private var volumeDebounceTask: Task<Void, Never>?
-
-  // Loop Mode Persistence
-  @AppStorage("playerLoopMode") private var storedLoopMode: String = LoopMode.none.rawValue
+  
+  @State private var viewModel = AudioPlayerViewModel()
 
   var body: some View {
     GeometryReader { geometry in
       let availableWidth = geometry.size.width
-      let effectiveWidth = clampWidth(
-        draggingWidth ?? playerSectionWidth, availableWidth: availableWidth)
+      let effectiveWidth = viewModel.clampWidth(
+        viewModel.draggingWidth ?? viewModel.playerSectionWidth, availableWidth: availableWidth)
 
       HStack(spacing: 0) {
         // Left: Player controls + Content (Transcription/PDF)
         playerSection
-          .frame(minWidth: minWidthOfPlayerSection)
-          .frame(width: showContentPanel ? effectiveWidth : nil)
+          .frame(minWidth: viewModel.minWidthOfPlayerSection)
+          .frame(width: viewModel.showContentPanel ? effectiveWidth : nil)
 
         // Right: Segments panel - takes remaining space
-        if showContentPanel {
+        if viewModel.showContentPanel {
           // Draggable divider for playerSection
-          Rectangle()
-            .fill(Color.gray.opacity(0.01))
-            .frame(width: 8)
-            .contentShape(Rectangle())
-            .overlay(
-              Rectangle()
-                .fill(Color(nsColor: .separatorColor))
-                .frame(width: 1)
-            )
-            .onHover { hovering in
-              if hovering {
-                NSCursor.resizeLeftRight.push()
-              } else {
-                NSCursor.pop()
-              }
-            }
-            .gesture(
-              DragGesture(minimumDistance: 1)
-                .onChanged { value in
-                  let newWidth = (draggingWidth ?? playerSectionWidth) + value.translation.width
-                  draggingWidth = clampWidth(newWidth, availableWidth: availableWidth)
-                }
-                .onEnded { _ in
-                  if let finalWidth = draggingWidth {
-                    playerSectionWidth = finalWidth  // Persist only once at the end
-                  }
-                  draggingWidth = nil
-                }
-            )
+          divider(availableWidth: availableWidth)
 
           // SegmentsSection takes remaining space
           SegmentsSection(audioFile: audioFile)
-            .frame(minWidth: minWidthOfContentPanel, maxWidth: .infinity)
+            .frame(minWidth: viewModel.minWidthOfContentPanel, maxWidth: .infinity)
             .padding()
             .transition(.move(edge: .trailing).combined(with: .opacity))
         }
       }
-      .animation(.easeInOut(duration: 0.25), value: showContentPanel)
-      .onChange(of: showContentPanel) { _, isShowing in
+      .animation(.easeInOut(duration: 0.25), value: viewModel.showContentPanel)
+      .onChange(of: viewModel.showContentPanel) { _, isShowing in
         if isShowing {
-          playerSectionWidth = clampWidth(playerSectionWidth, availableWidth: availableWidth)
+          viewModel.playerSectionWidth = viewModel.clampWidth(viewModel.playerSectionWidth, availableWidth: availableWidth)
         }
       }
     }
     .toolbar {
       ToolbarItem(placement: .automatic) {
-        HStack(spacing: 6) {
-          Image(systemName: "timer")
-            .font(.system(size: 14))
-            .foregroundStyle(.secondary)
-          Text(timeString(from: Double(sessionTracker.displaySeconds)))
-            .font(.system(size: 13, weight: .medium, design: .monospaced))
-            .foregroundStyle(.primary)
-        }
-        .padding(.horizontal, 10)
-        .padding(.vertical, 5)
-        .background(.ultraThinMaterial, in: Capsule())
-        .help("Session practice time")
+        sessionTimeDisplay
       }
 
       ToolbarItem(placement: .primaryAction) {
         Button {
-          showContentPanel.toggle()
+          viewModel.showContentPanel.toggle()
         } label: {
           Label(
-            showContentPanel ? "Hide Segments" : "Show Segments",
-            systemImage: showContentPanel ? "sidebar.trailing" : "sidebar.trailing"
+            viewModel.showContentPanel ? "Hide Segments" : "Show Segments",
+            systemImage: viewModel.showContentPanel ? "sidebar.trailing" : "sidebar.trailing"
           )
         }
-        .help(showContentPanel ? "Hide segments panel" : "Show segments panel")
+        .help(viewModel.showContentPanel ? "Hide segments panel" : "Show segments panel")
       }
-    }
-    .onChange(of: playerVolume) { _, newValue in
-      volumeDebounceTask?.cancel()
-      volumeDebounceTask = Task {
-        try? await Task.sleep(for: .milliseconds(100))
-        guard !Task.isCancelled else { return }
-        playerManager.setVolume(Float(newValue))
-      }
-    }
-    .onChange(of: playerManager.loopMode) { _, newValue in
-      storedLoopMode = newValue.rawValue
     }
     .onAppear {
-      // Restore persisted loop mode
-      if let mode = LoopMode(rawValue: storedLoopMode) {
-        playerManager.loopMode = mode
-      }
+      viewModel.setup(with: playerManager)
       if playerManager.currentFile?.id != audioFile.id,
         playerManager.currentFile != nil
       {
@@ -210,7 +76,55 @@ struct AudioPlayerView: View {
         }
       }
     }
-
+  }
+  
+  // MARK: - Components
+  
+  private func divider(availableWidth: CGFloat) -> some View {
+    Rectangle()
+      .fill(Color.gray.opacity(0.01))
+      .frame(width: 8)
+      .contentShape(Rectangle())
+      .overlay(
+        Rectangle()
+          .fill(Color(nsColor: .separatorColor))
+          .frame(width: 1)
+      )
+      .onHover { hovering in
+        if hovering {
+          NSCursor.resizeLeftRight.push()
+        } else {
+          NSCursor.pop()
+        }
+      }
+      .gesture(
+        DragGesture(minimumDistance: 1)
+          .onChanged { value in
+            let newWidth = (viewModel.draggingWidth ?? viewModel.playerSectionWidth) + value.translation.width
+            viewModel.draggingWidth = viewModel.clampWidth(newWidth, availableWidth: availableWidth)
+          }
+          .onEnded { _ in
+            if let finalWidth = viewModel.draggingWidth {
+              viewModel.playerSectionWidth = finalWidth
+            }
+            viewModel.draggingWidth = nil
+          }
+      )
+  }
+  
+  private var sessionTimeDisplay: some View {
+    HStack(spacing: 6) {
+      Image(systemName: "timer")
+        .font(.system(size: 14))
+        .foregroundStyle(.secondary)
+      Text(viewModel.timeString(from: Double(sessionTracker.displaySeconds)))
+        .font(.system(size: 13, weight: .medium, design: .monospaced))
+        .foregroundStyle(.primary)
+    }
+    .padding(.horizontal, 10)
+    .padding(.vertical, 5)
+    .background(.ultraThinMaterial, in: Capsule())
+    .help("Session practice time")
   }
 
   // MARK: - Player Section
@@ -240,7 +154,7 @@ struct AudioPlayerView: View {
           Menu {
             ForEach(LoopMode.allCases, id: \.self) { mode in
               Button {
-                playerManager.loopMode = mode
+                viewModel.updateLoopMode(mode)
               } label: {
                 HStack {
                   Image(systemName: mode.iconName)
@@ -274,23 +188,23 @@ struct AudioPlayerView: View {
 
   private var volumeControl: some View {
     Button {
-      showVolumePopover.toggle()
+      viewModel.showVolumePopover.toggle()
     } label: {
-      Image(systemName: playerVolume == 0 ? "speaker.slash" : "speaker.wave.3")
+      Image(systemName: viewModel.playerVolume == 0 ? "speaker.slash" : "speaker.wave.3")
         .font(.title3)
         .frame(width: 24, height: 24)
     }
     .buttonStyle(.plain)
-    .popover(isPresented: $showVolumePopover, arrowEdge: .bottom) {
+    .popover(isPresented: $viewModel.showVolumePopover, arrowEdge: .bottom) {
       HStack(spacing: 8) {
-        Slider(value: $playerVolume, in: 0...2) {
+        Slider(value: $viewModel.playerVolume, in: 0...2) {
           Text("Volume")
         }
         .frame(width: 150)
 
         HStack(spacing: 2) {
-          Text("\(Int(playerVolume * 100))%")
-          if playerVolume > 1.001 {
+          Text("\(Int(viewModel.playerVolume * 100))%")
+          if viewModel.playerVolume > 1.001 {
             Image(systemName: "bolt.fill")
               .foregroundStyle(.orange)
           }
@@ -300,7 +214,7 @@ struct AudioPlayerView: View {
         .foregroundStyle(.secondary)
 
         Button {
-          playerVolume = 1.0
+          viewModel.resetVolume()
         } label: {
           Image(systemName: "arrow.counterclockwise")
             .font(.caption)
@@ -311,18 +225,13 @@ struct AudioPlayerView: View {
       }
       .padding()
     }
-    .onAppear {
-      // Sync initial volume
-      playerManager.setVolume(Float(playerVolume))
-    }
     .help("Volume")
   }
 
   private var playbackControls: some View {
     HStack(spacing: 8) {
       Button {
-        let targetTime = playerManager.currentTime - 5
-        playerManager.seek(to: targetTime)
+        viewModel.seekBack()
       } label: {
         Image(systemName: "gobackward.5")
           .resizable()
@@ -332,7 +241,7 @@ struct AudioPlayerView: View {
       .keyboardShortcut("f", modifiers: [])
 
       Button {
-        playerManager.togglePlayPause()
+        viewModel.togglePlayPause()
       } label: {
         Image(systemName: playerManager.isPlaying ? "pause.circle.fill" : "play.circle.fill")
           .resizable()
@@ -342,8 +251,7 @@ struct AudioPlayerView: View {
       .keyboardShortcut(.space, modifiers: [])
 
       Button {
-        let targetTime = playerManager.currentTime + 10
-        playerManager.seek(to: targetTime)
+        viewModel.seekForward()
       } label: {
         Image(systemName: "goforward.10")
           .resizable()
@@ -357,31 +265,10 @@ struct AudioPlayerView: View {
   // MARK: - Progress Section
 
   private var progressSection: some View {
-    PlaybackProgressView(
-      isSeeking: $isSeeking,
-      seekValue: $seekValue,
-      wasPlayingBeforeSeek: $wasPlayingBeforeSeek
+    AudioProgressView(
+      isSeeking: $viewModel.isSeeking,
+      seekValue: $viewModel.seekValue,
+      wasPlayingBeforeSeek: $viewModel.wasPlayingBeforeSeek
     )
-  }
-
-  // MARK: - Layout Helpers
-
-  private func clampWidth(_ width: Double, availableWidth: CGFloat) -> Double {
-    let maxWidth = Double(availableWidth) - dividerWidth - minWidthOfContentPanel
-    return min(max(width, minWidthOfPlayerSection), max(maxWidth, minWidthOfPlayerSection))
-  }
-
-  // MARK: - Helpers
-
-  private func timeString(from value: Double) -> String {
-    guard value.isFinite, value >= 0 else {
-      return "0:00"
-    }
-
-    let totalSeconds = Int(value.rounded())
-    let minutes = totalSeconds / 60
-    let seconds = totalSeconds % 60
-
-    return String(format: "%d:%02d", minutes, seconds)
   }
 }

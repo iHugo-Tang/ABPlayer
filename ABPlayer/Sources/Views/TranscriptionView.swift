@@ -11,35 +11,22 @@ struct TranscriptionView: View {
   @Environment(AudioPlayerManager.self) private var playerManager
   @Environment(\.modelContext) private var modelContext
 
-  @AppStorage("subtitleFontSize") private var subtitleFontSize: Double = 16
-
-  @State private var cachedCues: [SubtitleCue] = []
-  @State private var hasCheckedCache = false
-  @State private var isLoadingCache = false
-  /// Countdown seconds for pause highlight/scroll (nil when not paused)
-  @State private var pauseCountdown: Int?
-
-  @State private var loadCachedTask: Task<(), Never>?
-
-  /// Current file's task from the queue
-  private var currentTask: TranscriptionTask? {
-    queueManager.getTask(for: audioFile.id)
-  }
+  @State private var viewModel = TranscriptionViewModel()
 
   var body: some View {
     Group {
       // Check if current file has a task in the queue
-      if let task = currentTask {
+      if let task = viewModel.currentTask {
         taskProgressView(task: task)
       } else {
         // Original logic for non-queued state
         switch transcriptionManager.state {
         case .idle:
-          if isLoadingCache {
+          if viewModel.isLoadingCache {
             loadingCacheView
-          } else if cachedCues.isEmpty && hasCheckedCache {
+          } else if viewModel.cachedCues.isEmpty && viewModel.hasCheckedCache {
             noTranscriptionView
-          } else if !cachedCues.isEmpty {
+          } else if !viewModel.cachedCues.isEmpty {
             transcriptionContentView
           } else {
             loadingCacheView
@@ -58,7 +45,7 @@ struct TranscriptionView: View {
           transcribingView(progress: progress, fileName: fileName)
 
         case .completed:
-          if !cachedCues.isEmpty {
+          if !viewModel.cachedCues.isEmpty {
             transcriptionContentView
           } else {
             loadingCacheView
@@ -72,18 +59,17 @@ struct TranscriptionView: View {
         }
       }
     }
-    .task {
-      await loadCachedTranscription()
+    .task(id: audioFile.id) {
+      viewModel.setup(
+        audioFile: audioFile,
+        transcriptionManager: transcriptionManager,
+        queueManager: queueManager,
+        settings: settings,
+        modelContext: modelContext
+      )
     }
     .onChange(of: audioFile.id) { _, _ in
-      // Reset when audio file changes
-      cachedCues = []
-      hasCheckedCache = false
-      isLoadingCache = false
-      transcriptionManager.reset()
-      Task {
-        await loadCachedTranscription()
-      }
+      viewModel.resetState()
     }
   }
 
@@ -94,7 +80,7 @@ struct TranscriptionView: View {
       // Toolbar with cache management
       HStack {
         Button {
-          Task { await clearAndRetranscribe() }
+          Task { await viewModel.clearAndRetranscribe() }
         } label: {
           HStack(spacing: 4) {
             Image(systemName: "arrow.clockwise")
@@ -110,7 +96,7 @@ struct TranscriptionView: View {
         HStack(spacing: 0) {
           ForEach([("Small", 14.0), ("Medium", 16.0), ("Large", 18.0)], id: \.0) { label, size in
             Button {
-              subtitleFontSize = size
+              viewModel.subtitleFontSize = size
             } label: {
               Text(label)
                 .font(.caption)
@@ -119,9 +105,9 @@ struct TranscriptionView: View {
             }
             .buttonStyle(.plain)
             .background(
-              subtitleFontSize == size ? Color.accentColor : Color.secondary.opacity(0.15)
+              viewModel.subtitleFontSize == size ? Color.accentColor : Color.secondary.opacity(0.15)
             )
-            .foregroundStyle(subtitleFontSize == size ? .white : .secondary)
+            .foregroundStyle(viewModel.subtitleFontSize == size ? .white : .secondary)
           }
         }
         .clipShape(RoundedRectangle(cornerRadius: 6))
@@ -131,7 +117,7 @@ struct TranscriptionView: View {
 
       Divider()
 
-      SubtitleView(cues: cachedCues, countdownSeconds: $pauseCountdown, fontSize: subtitleFontSize)
+      SubtitleView(cues: viewModel.cachedCues, countdownSeconds: $viewModel.pauseCountdown, fontSize: viewModel.subtitleFontSize)
     }
   }
 
@@ -168,7 +154,7 @@ struct TranscriptionView: View {
       }
 
       Button {
-        startTranscription()
+        viewModel.startTranscription()
       } label: {
         HStack(spacing: 6) {
           Image(systemName: "waveform")
@@ -196,8 +182,7 @@ struct TranscriptionView: View {
       )
 
       Button("Cancel") {
-        transcriptionManager.cancelDownload()
-        settings.deleteDownloadCache(modelName: modelName)
+        viewModel.cancelDownload(modelName: modelName)
       }
       .buttonStyle(.bordered)
       .controlSize(.small)
@@ -303,14 +288,13 @@ struct TranscriptionView: View {
 
       case .completed:
         // Reload cache and show content
-        if !cachedCues.isEmpty {
+        if !viewModel.cachedCues.isEmpty {
           transcriptionContentView
         } else {
           loadingCacheView
             .task {
-              await loadCachedTranscription()
-              // Remove completed task from queue
-              queueManager.removeTask(id: task.id)
+              await viewModel.loadCachedTranscription()
+              viewModel.removeTask(id: task.id)
             }
         }
 
@@ -318,7 +302,7 @@ struct TranscriptionView: View {
         VStack(spacing: 20) {
           failedView(error: error)
           Button("Remove") {
-            queueManager.removeTask(id: task.id)
+            viewModel.removeTask(id: task.id)
           }
           .buttonStyle(.bordered)
         }
@@ -328,7 +312,7 @@ struct TranscriptionView: View {
           noTranscriptionView
         }
         .task {
-          queueManager.removeTask(id: task.id)
+          viewModel.removeTask(id: task.id)
         }
       }
     }
@@ -336,7 +320,7 @@ struct TranscriptionView: View {
 
   private func cancelButton(taskId: UUID) -> some View {
     Button("Cancel") {
-      queueManager.cancelTask(id: taskId)
+      viewModel.cancelTask(id: taskId)
     }
     .buttonStyle(.bordered)
     .controlSize(.small)
@@ -376,7 +360,7 @@ struct TranscriptionView: View {
 
           if showPercentage {
             Text("\(Int(progress * 100))%")
-              .captionStyle()
+              .font(.caption)
               .foregroundStyle(.secondary)
               .monospacedDigit()
           }
@@ -428,116 +412,5 @@ struct TranscriptionView: View {
     }
     .frame(maxWidth: .infinity, maxHeight: .infinity)
     .padding()
-  }
-
-  // MARK: - Cache Operations
-
-  private func loadCachedTranscription() async {
-    loadCachedTask?.cancel()
-    loadCachedTask = Task {
-      isLoadingCache = true
-      defer { isLoadingCache = false }
-
-      try? await Task.sleep(nanoseconds: 1_000_000_000)
-      guard !Task.isCancelled else { return }
-
-      // 1. 优先检查SRT文件 (先检查数据库标志位，如果不一致再尝试文件系统作为容错)
-      if audioFile.hasTranscriptionRecord
-        || FileManager.default.fileExists(atPath: audioFile.srtFileURL?.path ?? "")
-      {
-        guard !Task.isCancelled else { return }
-        if let srtCues = await loadSRTFile() {
-          cachedCues = srtCues
-          hasCheckedCache = true
-          return
-        }
-      }
-
-      // 2. 回退到数据库缓存
-      let audioFileId = audioFile.id.uuidString
-      let descriptor = FetchDescriptor<Transcription>(
-        predicate: #Predicate { $0.audioFileId == audioFileId }
-      )
-
-      guard !Task.isCancelled else { return }
-      if let cached = try? modelContext.fetch(descriptor).first {
-        cachedCues = cached.cues
-      }
-      hasCheckedCache = true
-    }
-  }
-
-  private func loadSRTFile() async -> [SubtitleCue]? {
-    guard let srtURL = audioFile.srtFileURL else { return nil }
-
-    // 需要security-scoped access
-    guard let audioURL = try? resolveURL(from: audioFile.bookmarkData) else { return nil }
-
-    let gotAccess = audioURL.startAccessingSecurityScopedResource()
-    defer { if gotAccess { audioURL.stopAccessingSecurityScopedResource() } }
-
-    return try? await Task.detached {
-      try SubtitleParser.parse(from: srtURL)
-    }.value
-  }
-
-  private func startTranscription() {
-    // Set modelContext on queue manager if needed
-    if queueManager.modelContext == nil {
-      queueManager.modelContext = modelContext
-    }
-    // Enqueue the transcription task
-    queueManager.enqueue(audioFile: audioFile)
-  }
-
-  private func clearAndRetranscribe() async {
-    // Delete existing cache
-    let audioFileId = audioFile.id.uuidString
-    let descriptor = FetchDescriptor<Transcription>(
-      predicate: #Predicate { $0.audioFileId == audioFileId }
-    )
-
-    if let existing = try? modelContext.fetch(descriptor).first {
-      modelContext.delete(existing)
-      try? modelContext.save()
-    }
-
-    // Delete SRT file
-    if let srtURL = audioFile.srtFileURL {
-      if let audioURL = try? resolveURL(from: audioFile.bookmarkData),
-        audioURL.startAccessingSecurityScopedResource()
-      {
-        try? FileManager.default.removeItem(at: srtURL)
-        audioURL.stopAccessingSecurityScopedResource()
-      }
-    }
-    audioFile.hasTranscriptionRecord = false
-
-    // Reset state and start fresh transcription
-    cachedCues = []
-    transcriptionManager.reset()
-    startTranscription()
-  }
-
-  private func resolveURL(from bookmarkData: Data) throws -> URL {
-    var isStale = false
-    return try URL(
-      resolvingBookmarkData: bookmarkData,
-      options: [.withSecurityScope],
-      relativeTo: nil,
-      bookmarkDataIsStale: &isStale
-    )
-  }
-}
-
-// MARK: - Empty State
-
-struct TranscriptionEmptyView: View {
-  var body: some View {
-    ContentUnavailableView(
-      "No Audio Selected",
-      systemImage: "text.bubble",
-      description: Text("Select an audio file to transcribe")
-    )
   }
 }

@@ -148,9 +148,9 @@ public struct MainSplitView: View {
   private var versionFooter: some View {
     HStack {
       Text("v\(bundleShortVersion)(\(bundleVersion))")
-      
+
       Spacer()
-      
+
       Button("Feedback", systemImage: "bubble.left.and.exclamationmark.bubble.right") {
         if let url = URL(string: "https://github.com/sunset-valley/ABPlayer/issues/new") {
           openURL(url)
