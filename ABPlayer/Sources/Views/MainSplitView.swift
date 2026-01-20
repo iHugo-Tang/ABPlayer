@@ -27,17 +27,24 @@ public struct MainSplitView: View {
   @State private var isImportingFolder: Bool = false
   @State private var importErrorMessage: String?
   @State private var isClearingData: Bool = false
+  @State private var loadAudioTask: Task<Void, Never>?
+
   @AppStorage("lastSelectedAudioFileID") private var lastSelectedAudioFileID: String?
   @AppStorage("lastFolderID") private var lastFolderID: String?
-  @State private var loadAudioTask: Task<Void, Never>?
 
   public init() {}
 
   public var body: some View {
     NavigationSplitView {
       sidebar
-        .navigationSplitViewColumnWidth(min: 200, ideal: 300, max: 400)
+        .navigationSplitViewColumnWidth(min: 220, ideal: 300, max: 400)
         .background(Color.asset.bgPrimary)
+        .fileImporter(
+          isPresented: $isImportingFile,
+          allowedContentTypes: [UTType.audio, UTType.movie],
+          allowsMultipleSelection: false,
+          onCompletion: handleFileImportResult
+        )
     } detail: {
       if let selectedFile {
         if selectedFile.isVideo {
@@ -50,12 +57,6 @@ public struct MainSplitView: View {
       }
     }
     .frame(minWidth: 1000, minHeight: 600)
-    .fileImporter(
-      isPresented: $isImportingFile,
-      allowedContentTypes: [UTType.mp3, UTType.audio],
-      allowsMultipleSelection: false,
-      onCompletion: handleFileImportResult
-    )
     .fileImporter(
       isPresented: $isImportingFolder,
       allowedContentTypes: [UTType.folder],
@@ -113,7 +114,7 @@ public struct MainSplitView: View {
           Button {
             isImportingFile = true
           } label: {
-            Label("Import Media File", systemImage: "music.note")
+            Label("Import Media File", systemImage: "tray.and.arrow.down")
           }
 
           Button {
@@ -148,9 +149,9 @@ public struct MainSplitView: View {
   private var versionFooter: some View {
     HStack {
       Text("v\(bundleShortVersion)(\(bundleVersion))")
-      
+
       Spacer()
-      
+
       Button("Feedback", systemImage: "bubble.left.and.exclamationmark.bubble.right") {
         if let url = URL(string: "https://github.com/sunset-valley/ABPlayer/issues/new") {
           openURL(url)

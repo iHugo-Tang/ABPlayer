@@ -76,6 +76,6 @@ struct FolderNavigationHeaderView: View {
     .font(.title3)
     .frame(height: 44)
     .padding(.horizontal, 16)
-    .background(Color.asset.bgPrimary)
+    .background(Color.asset.bgTertiary)
   }
 }

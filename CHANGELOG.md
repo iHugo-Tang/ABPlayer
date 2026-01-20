@@ -1,3 +1,16 @@
+## [0.2.9.57] - 2026-01-19
+
+### Bug Fixes
+- allow mp4 files by using UTType.movie in fileImporter
+
+### Improvements
+- migrate player and transcription views to MVVM and decompose components
+
+### Chores
+- update BgPrimary color and adjust navigation header background
+- improve sidebar background and remove redundant panel background
+
+
 ## [0.2.9.56] - 2026-01-19
 
 ### Improvements
