@@ -13,7 +13,6 @@ struct SegmentsSection: View {
 
   var body: some View {
     VStack(alignment: .leading, spacing: 8) {
-
       HStack {
         // Loop Controls Group
         HStack {

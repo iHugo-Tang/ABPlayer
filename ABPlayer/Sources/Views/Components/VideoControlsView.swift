@@ -4,19 +4,28 @@ import Observation
 struct VideoControlsView: View {
   @Bindable var viewModel: VideoPlayerViewModel
   @Environment(AudioPlayerManager.self) private var playerManager
+  @State private var showSubtitle = false
   
   var body: some View {
     ZStack(alignment: .center) {
       HStack {
-        // Loop Mode & Volume
-        HStack(spacing: 12) {
+        VideoTimeDisplay(isSeeking: viewModel.isSeeking, seekValue: viewModel.seekValue)
+        
+        Spacer()
+        
+        HStack {
           loopModeMenu
+          
+          Button {
+            showSubtitle.toggle()
+          } label: {
+            Image(.closedCaption).renderingMode(.template).resizable().aspectRatio(contentMode: .fit).frame(width: 24)
+          }
+          .buttonStyle(.plain)
+          .foregroundStyle(showSubtitle ? Color.accentColor : .primary)
+          
           VolumeControl(playerVolume: $viewModel.playerVolume)
         }
-
-        Spacer()
-
-        VideoTimeDisplay(isSeeking: viewModel.isSeeking, seekValue: viewModel.seekValue)
       }
 
       // Playback Controls
@@ -39,11 +48,11 @@ struct VideoControlsView: View {
     } label: {
       Image(
         systemName: playerManager.loopMode != .none
-          ? "\(playerManager.loopMode.iconName).circle.fill"
-          : "repeat.circle"
+          ? "\(playerManager.loopMode.iconName)"
+          : "repeat"
       )
-      .font(.title)
-      .foregroundStyle(playerManager.loopMode != .none ? .blue : .primary)
+      .font(.title2)
+      .foregroundStyle(playerManager.loopMode != .none ? Color.accentColor : .primary)
     }
     .buttonStyle(.plain)
     .help("Loop mode: \(playerManager.loopMode.displayName)")
@@ -51,6 +60,15 @@ struct VideoControlsView: View {
   
   private var playbackControls: some View {
     HStack(spacing: 16) {
+      Button {
+        // switch to previous item
+      } label: {
+        Image(systemName: "backward.end")
+          .font(.title)
+      }
+      .buttonStyle(.plain)
+      .keyboardShortcut("f", modifiers: [])
+      
       Button {
         viewModel.seekBack()
       } label: {
@@ -77,6 +95,15 @@ struct VideoControlsView: View {
       }
       .buttonStyle(.plain)
       .keyboardShortcut("g", modifiers: [])
+      
+      Button {
+        // switch to next item
+      } label: {
+        Image(systemName: "forward.end")
+          .font(.title)
+      }
+      .buttonStyle(.plain)
+      .keyboardShortcut("f", modifiers: [])
     }
   }
 }

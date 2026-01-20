@@ -1,3 +1,12 @@
+## [0.2.9.58] - 2026-01-19
+
+### Features
+- add HUD feedback, subtitle toggle, and track navigation controls
+
+### Chores
+- refine VideoPlayerView layout and SegmentsSection spacing
+
+
 ## [0.2.9.57] - 2026-01-19
 
 ### Bug Fixes
