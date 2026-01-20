@@ -126,20 +126,33 @@ struct VideoPlayerView: View {
   private var videoSection: some View {
     VStack(alignment: .leading, spacing: 0) {
       // 1. Video Player Area
-      Group {
-        if let player = playerManager.player {
-          NativeVideoPlayer(player: player)
-        } else {
-          ZStack {
-            Color.black
-            ProgressView()
-              .scaleEffect(1.5)
-              .tint(.white)
+      ZStack {
+        Group {
+          if let player = playerManager.player {
+            NativeVideoPlayer(player: player)
+          } else {
+            ZStack {
+              Color.black
+              ProgressView()
+                .scaleEffect(1.5)
+                .tint(.white)
+            }
           }
         }
+        .aspectRatio(16 / 9, contentMode: .fit)
+        .layoutPriority(1)
+        
+        if viewModel.showHudMessage {
+          Text(viewModel.hudMessage ?? "")
+            .font(.title)
+            .padding(.all, 16)
+            .background(.black.opacity(0.6))
+            .cornerRadius(8)
+            .id(viewModel.hudMessage)
+            .transition(.scale.combined(with: .opacity))
+            .animation(.bouncy, value: viewModel.hudMessage)
+        }
       }
-      .aspectRatio(16 / 9, contentMode: .fit)
-      .layoutPriority(1)
 
       // 2. Controls Area (Fixed height)
       VStack(spacing: 12) {

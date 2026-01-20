@@ -13,6 +13,16 @@ final class VideoPlayerViewModel {
   var seekValue: Double = 0
   var wasPlayingBeforeSeek: Bool = false
   
+  // MARK: - HUD
+  var hudMessage: String?
+  var hideHudTask: Task<Void, Never>?
+  var showHudMessage: Bool {
+    guard let hudMessage else {
+      return false
+    }
+    return !hudMessage.isEmpty
+  }
+  
   // MARK: - Layout State
   var draggingWidth: Double?
   
@@ -113,12 +123,14 @@ final class VideoPlayerViewModel {
     guard let manager = playerManager else { return }
     let targetTime = manager.currentTime - 5
     manager.seek(to: targetTime)
+    showHUDMessage("- 5")
   }
   
   func seekForward() {
     guard let manager = playerManager else { return }
     let targetTime = manager.currentTime + 10
     manager.seek(to: targetTime)
+    showHUDMessage("+ 10s")
   }
   
   func timeString(from value: Double) -> String {
@@ -137,5 +149,27 @@ final class VideoPlayerViewModel {
     }
 
     return String(format: "%d:%02d", minutes, seconds)
+  }
+
+  func showHUDMessage(_ message: String) {
+    hideHudTask?.cancel()
+    hudMessage = nil
+    
+    Task { @MainActor in
+      try? await Task.sleep(nanoseconds: 10_000_000)
+      withAnimation(.bouncy) {
+        hudMessage = message
+      }
+      
+      hideHudTask = Task {
+        try? await Task.sleep(nanoseconds: 2_000_000_000)
+        if Task.isCancelled {
+          return
+        }
+        withAnimation {
+          hudMessage = nil
+        }
+      }
+    }
   }
 }
