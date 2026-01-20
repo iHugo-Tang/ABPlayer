@@ -1,3 +1,9 @@
+## [0.2.9.59] - 2026-01-19
+
+### Improvements
+- improve HUD animation and visibility state management
+
+
 ## [0.2.9.58] - 2026-01-19
 
 ### Features
