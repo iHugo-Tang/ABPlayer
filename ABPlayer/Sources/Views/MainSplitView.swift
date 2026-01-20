@@ -38,7 +38,7 @@ public struct MainSplitView: View {
     NavigationSplitView {
       sidebar
         .navigationSplitViewColumnWidth(min: 220, ideal: 300, max: 400)
-        .background(Color.asset.bgPrimary)
+        .background(Color.asset.bgPrimary.ignoresSafeArea())
         .fileImporter(
           isPresented: $isImportingFile,
           allowedContentTypes: [UTType.audio, UTType.movie],

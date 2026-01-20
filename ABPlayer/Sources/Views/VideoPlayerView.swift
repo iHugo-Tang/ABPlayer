@@ -154,7 +154,6 @@ struct VideoPlayerView: View {
         Divider()
         ContentPanelView(audioFile: audioFile)
       }
-      .background(.thinMaterial)
     }
   }
 }
