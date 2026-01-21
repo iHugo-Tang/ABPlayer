@@ -5,7 +5,7 @@ import SwiftUI
 // MARK: - Audio Player View
 
 struct AudioPlayerView: View {
-  @Environment(AudioPlayerManager.self) private var playerManager
+  @Environment(PlayerManager.self) private var playerManager
   @Environment(SessionTracker.self) private var sessionTracker
   @Environment(\.modelContext) private var modelContext
 
@@ -152,7 +152,7 @@ struct AudioPlayerView: View {
 
         HStack {
           Menu {
-            ForEach(LoopMode.allCases, id: \.self) { mode in
+            ForEach(PlaybackQueue.LoopMode.allCases, id: \.self) { mode in
               Button {
                 viewModel.updateLoopMode(mode)
               } label: {

@@ -3,7 +3,7 @@ import SwiftData
 import SwiftUI
 
 struct SegmentsSection: View {
-  @Environment(AudioPlayerManager.self) private var playerManager
+  @Environment(PlayerManager.self) private var playerManager
   @Environment(\.modelContext) private var modelContext
 
   @Bindable var audioFile: ABFile

@@ -3,7 +3,7 @@ import Observation
 
 struct VideoControlsView: View {
   @Bindable var viewModel: VideoPlayerViewModel
-  @Environment(AudioPlayerManager.self) private var playerManager
+  @Environment(PlayerManager.self) private var playerManager
   @State private var showSubtitle = false
   
   var body: some View {
@@ -35,7 +35,7 @@ struct VideoControlsView: View {
   
   private var loopModeMenu: some View {
     Menu {
-      ForEach(LoopMode.allCases, id: \.self) { mode in
+      ForEach(PlaybackQueue.LoopMode.allCases, id: \.self) { mode in
         Button {
           viewModel.updateLoopMode(mode)
         } label: {
@@ -61,7 +61,9 @@ struct VideoControlsView: View {
   private var playbackControls: some View {
     HStack(spacing: 16) {
       Button {
-        // switch to previous item
+        Task {
+          await playerManager.playPrev()
+        }
       } label: {
         Image(systemName: "backward.end")
           .font(.title)
@@ -97,7 +99,9 @@ struct VideoControlsView: View {
       .keyboardShortcut("g", modifiers: [])
       
       Button {
-        // switch to next item
+        Task {
+          await playerManager.playNext()
+        }
       } label: {
         Image(systemName: "forward.end")
           .font(.title)

@@ -24,7 +24,7 @@ enum SelectionItem: Hashable {
 /// Hierarchical folder navigation view for the sidebar
 struct FolderNavigationView: View {
   @Environment(\.modelContext) private var modelContext
-  @Environment(AudioPlayerManager.self) private var playerManager
+  @Environment(PlayerManager.self) private var playerManager
 
   @Query(filter: #Predicate<Folder> { $0.parent == nil }, sort: \Folder.name)
   private var rootFolders: [Folder]

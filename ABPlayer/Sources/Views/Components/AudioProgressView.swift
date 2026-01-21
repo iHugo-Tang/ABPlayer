@@ -2,7 +2,7 @@ import SwiftUI
 import Observation
 
 struct AudioProgressView: View {
-  @Environment(AudioPlayerManager.self) private var playerManager
+  @Environment(PlayerManager.self) private var playerManager
 
   @Binding var isSeeking: Bool
   @Binding var seekValue: Double

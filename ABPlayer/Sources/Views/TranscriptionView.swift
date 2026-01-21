@@ -8,7 +8,7 @@ struct TranscriptionView: View {
   @Environment(TranscriptionManager.self) private var transcriptionManager
   @Environment(TranscriptionQueueManager.self) private var queueManager
   @Environment(TranscriptionSettings.self) private var settings
-  @Environment(AudioPlayerManager.self) private var playerManager
+  @Environment(PlayerManager.self) private var playerManager
   @Environment(\.modelContext) private var modelContext
 
   @State private var viewModel = TranscriptionViewModel()

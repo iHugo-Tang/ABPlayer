@@ -168,6 +168,91 @@ struct ABLoopTests {
     #expect(isDuplicate == false)
   }
 }
+@MainActor
+struct PlaybackQueueLogicTests {
+  @Test
+  func testRepeatAllWrapsToStart() {
+    let queue = PlaybackQueue()
+    queue.loopMode = .repeatAll
+
+    let fileA = ABFile(displayName: "A.mp3", bookmarkData: Data("A".utf8))
+    let fileB = ABFile(displayName: "B.mp3", bookmarkData: Data("B".utf8))
+    let fileC = ABFile(displayName: "C.mp3", bookmarkData: Data("C".utf8))
+
+    queue.updateQueue([fileA, fileB, fileC])
+    queue.setCurrentFile(fileC)
+
+    let nextFile = queue.playNext()
+
+    #expect(nextFile?.id == fileA.id)
+  }
+
+  @Test
+  func testAutoPlayNextStopsAtEnd() {
+    let queue = PlaybackQueue()
+    queue.loopMode = .autoPlayNext
+
+    let fileA = ABFile(displayName: "A.mp3", bookmarkData: Data("A".utf8))
+    let fileB = ABFile(displayName: "B.mp3", bookmarkData: Data("B".utf8))
+
+    queue.updateQueue([fileA, fileB])
+    queue.setCurrentFile(fileB)
+
+    let nextFile = queue.playNext()
+
+    #expect(nextFile == fileA)
+  }
+
+  @Test
+  func testShuffleSkipsCurrentWhenPossible() {
+    let queue = PlaybackQueue()
+    queue.loopMode = .shuffle
+
+    let fileA = ABFile(displayName: "A.mp3", bookmarkData: Data("A".utf8))
+    let fileB = ABFile(displayName: "B.mp3", bookmarkData: Data("B".utf8))
+
+    queue.updateQueue([fileA, fileB])
+    queue.setCurrentFile(fileA)
+
+    let nextFile = queue.playNext()
+
+    #expect(nextFile?.id != fileA.id)
+  }
+
+  @Test
+  func testPlayPrevRepeatAllWrapsToEnd() {
+    let queue = PlaybackQueue()
+    queue.loopMode = .repeatAll
+
+    let fileA = ABFile(displayName: "A.mp3", bookmarkData: Data("A".utf8))
+    let fileB = ABFile(displayName: "B.mp3", bookmarkData: Data("B".utf8))
+
+    queue.updateQueue([fileA, fileB])
+    queue.setCurrentFile(fileA)
+
+    let previousFile = queue.playPrev()
+
+    #expect(previousFile?.id == fileB.id)
+  }
+
+  @Test
+  func testQueueClearsCurrentWhenMissing() {
+    let queue = PlaybackQueue()
+    queue.loopMode = .repeatAll
+
+    let fileA = ABFile(displayName: "A.mp3", bookmarkData: Data("A".utf8))
+    let fileB = ABFile(displayName: "B.mp3", bookmarkData: Data("B".utf8))
+    let fileC = ABFile(displayName: "C.mp3", bookmarkData: Data("C".utf8))
+
+    queue.updateQueue([fileA, fileB, fileC])
+    queue.setCurrentFile(fileB)
+
+    queue.updateQueue([fileA, fileC])
+    let nextFile = queue.playNext()
+
+    #expect(nextFile?.id == fileA.id)
+  }
+}
 
 // MARK: - SessionTracker Logic Tests
 
@@ -638,7 +723,7 @@ struct VocabularyLogicTests {
 
 // MARK: - Mocks
 
-actor MockAudioPlayerEngine: AudioPlayerEngineProtocol {
+actor MockAudioPlayerEngine: PlayerEngineProtocol {
   var currentPlayer: AVPlayer? = AVPlayer()
 
   // Call tracking
@@ -693,13 +778,13 @@ actor MockAudioPlayerEngine: AudioPlayerEngineProtocol {
 // MARK: - Integration Tests with Mock Engine
 
 @MainActor
-struct AudioPlayerManagerIntegrationTests {
+struct PlayerManagerIntegrationTests {
 
   @Test
   func testSwitchingFileResetsPlayingState() async {
     // Given
     let mockEngine = MockAudioPlayerEngine()
-    let manager = AudioPlayerManager(engine: mockEngine)
+    let manager = PlayerManager(engine: mockEngine)
 
     // Setup dummy file A
     let fileA = ABFile(displayName: "A.mp3", bookmarkData: Data("A".utf8))
@@ -726,7 +811,7 @@ struct AudioPlayerManagerIntegrationTests {
   func testCurrentFileUpdatesCorrectly() async {
     // Given
     let mockEngine = MockAudioPlayerEngine()
-    let manager = AudioPlayerManager(engine: mockEngine)
+    let manager = PlayerManager(engine: mockEngine)
 
     let fileA = ABFile(displayName: "A.mp3", bookmarkData: Data("A".utf8))
     let fileB = ABFile(displayName: "B.mp3", bookmarkData: Data("B".utf8))
@@ -752,7 +837,7 @@ struct AudioPlayerManagerIntegrationTests {
     // 100ms delay
     await mockEngine.setDelay(100_000_000)
 
-    let manager = AudioPlayerManager(engine: mockEngine)
+    let manager = PlayerManager(engine: mockEngine)
     let fileA = ABFile(displayName: "A.mp3", bookmarkData: Data("A".utf8))
     let fileB = ABFile(displayName: "B.mp3", bookmarkData: Data("B".utf8))
 
@@ -776,7 +861,7 @@ struct AudioPlayerManagerIntegrationTests {
   func testTogglePlayPauseWhilePlayingCallsPauseReference() async {
     // Given: Playing
     let mockEngine = MockAudioPlayerEngine()
-    let manager = AudioPlayerManager(engine: mockEngine)
+    let manager = PlayerManager(engine: mockEngine)
     manager.isPlaying = true
 
     // When: Toggle
@@ -796,7 +881,7 @@ struct AudioPlayerManagerIntegrationTests {
   func testRapidFileSwitchingCancelsOldLoad() async {
     // Given
     let mockEngine = MockAudioPlayerEngine()
-    let manager = AudioPlayerManager(engine: mockEngine)
+    let manager = PlayerManager(engine: mockEngine)
     // Set a delay to simulate async loading
     await mockEngine.setDelay(50_000_000)  // 50ms
 

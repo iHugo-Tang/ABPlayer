@@ -34,7 +34,7 @@ struct ABPlayerApp: App {
   @Environment(\.scenePhase) private var scenePhase
 
   private let modelContainer: ModelContainer
-  private let playerManager = AudioPlayerManager()
+  private let playerManager = PlayerManager()
   private let sessionTracker = SessionTracker()
   private let transcriptionManager = TranscriptionManager()
   private let transcriptionSettings = TranscriptionSettings()

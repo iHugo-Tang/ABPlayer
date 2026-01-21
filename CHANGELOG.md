@@ -1,3 +1,14 @@
+## [0.2.9.60] - 2026-01-20
+
+### Features
+- implement next/previous navigation with circular queue support
+
+### Improvements
+- move selection and queue state from MainSplitView to PlayerManager
+- reorganize AudioPlayerManager into modular PlayerManager structure
+- extract playback queue and loop logic to dedicated service
+
+
 ## [0.2.9.59] - 2026-01-19
 
 ### Improvements

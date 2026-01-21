@@ -6,7 +6,7 @@ import SwiftUI
 @MainActor
 final class AudioPlayerViewModel {
   // MARK: - Dependencies
-  weak var playerManager: AudioPlayerManager?
+  weak var playerManager: PlayerManager?
 
   // MARK: - UI State
   var isSeeking: Bool = false
@@ -66,12 +66,12 @@ final class AudioPlayerViewModel {
   }
 
   // MARK: - Setup
-  func setup(with manager: AudioPlayerManager) {
+  func setup(with manager: PlayerManager) {
     self.playerManager = manager
     
     // Restore loop mode
     if let storedLoopMode = UserDefaults.standard.string(forKey: "playerLoopMode"),
-       let mode = LoopMode(rawValue: storedLoopMode) {
+       let mode = PlaybackQueue.LoopMode(rawValue: storedLoopMode) {
       manager.loopMode = mode
     }
     
@@ -81,7 +81,7 @@ final class AudioPlayerViewModel {
 
   // MARK: - Logic
   
-  func updateLoopMode(_ mode: LoopMode) {
+  func updateLoopMode(_ mode: PlaybackQueue.LoopMode) {
     playerManager?.loopMode = mode
     UserDefaults.standard.set(mode.rawValue, forKey: "playerLoopMode")
   }

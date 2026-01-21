@@ -7,7 +7,7 @@ import SwiftUI
 // MARK: - Video Player View
 
 struct VideoPlayerView: View {
-  @Environment(AudioPlayerManager.self) private var playerManager
+  @Environment(PlayerManager.self) private var playerManager
   @Environment(SessionTracker.self) private var sessionTracker
   @Environment(\.modelContext) private var modelContext
 

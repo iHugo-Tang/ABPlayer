@@ -4,7 +4,7 @@ import Observation
 // MARK: - Video Time Display
 
 struct VideoTimeDisplay: View {
-  @Environment(AudioPlayerManager.self) private var playerManager
+  @Environment(PlayerManager.self) private var playerManager
 
   let isSeeking: Bool
   let seekValue: Double
