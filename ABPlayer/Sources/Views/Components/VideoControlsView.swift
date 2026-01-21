@@ -61,7 +61,9 @@ struct VideoControlsView: View {
   private var playbackControls: some View {
     HStack(spacing: 16) {
       Button {
-        // switch to previous item
+        Task {
+          await playerManager.playPrev()
+        }
       } label: {
         Image(systemName: "backward.end")
           .font(.title)
@@ -97,7 +99,9 @@ struct VideoControlsView: View {
       .keyboardShortcut("g", modifiers: [])
       
       Button {
-        // switch to next item
+        Task {
+          await playerManager.playNext()
+        }
       } label: {
         Image(systemName: "forward.end")
           .font(.title)

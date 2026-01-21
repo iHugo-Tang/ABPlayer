@@ -409,6 +409,33 @@ final class PlayerManager {
     play()
   }
 
-  func playNext() {}
-  func playPrev() {}
+  func playNext() async {
+    guard let file = playbackQueue.playNext() else {
+      return
+    }
+    let isPlaying = isPlaying
+    // TODO: refactor it：always play from start and show a button to restore playing progress
+    await selectFile(
+      file,
+      fromStart: true,
+      debounce: false
+    )
+    if isPlaying {
+      play()
+    }
+  }
+
+  func playPrev() async {
+    guard let file = playbackQueue.playPrev() else {
+      return
+    }
+    await selectFile(
+      file,
+      fromStart: true,
+      debounce: false
+    )
+    if isPlaying {
+      play()
+    }
+  }
 }

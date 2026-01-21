@@ -115,8 +115,9 @@ public final class PlaybackQueue {
         
       case .autoPlayNext:
         guard let index = currentIndex() else { return nil }
-        let nextIndex = direction == .next ? index + 1 : index - 1
-        guard (0..<files.count).contains(nextIndex) else { return nil }
+        let nextIndex = direction == .next
+        ? (index + 1) % files.count
+        : (index - 1 + files.count) % files.count
         return files[nextIndex]
     }
   }
