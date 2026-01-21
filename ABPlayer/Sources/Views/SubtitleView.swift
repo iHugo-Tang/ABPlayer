@@ -3,7 +3,7 @@ import SwiftData
 import SwiftUI
 
 struct SubtitleView: View {
-  @Environment(AudioPlayerManager.self) private var playerManager
+  @Environment(PlayerManager.self) private var playerManager
   @Environment(VocabularyService.self) private var vocabularyService
 
   let cues: [SubtitleCue]

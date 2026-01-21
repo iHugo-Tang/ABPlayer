@@ -6,7 +6,7 @@ import SwiftUI
 @MainActor
 final class VideoPlayerViewModel {
   // MARK: - Dependencies
-  weak var playerManager: AudioPlayerManager?
+  weak var playerManager: PlayerManager?
 
   // MARK: - UI State
   var isSeeking: Bool = false
@@ -74,7 +74,7 @@ final class VideoPlayerViewModel {
 
   // MARK: - Setup
   @MainActor
-  func setup(with manager: AudioPlayerManager) {
+  func setup(with manager: PlayerManager) {
     self.playerManager = manager
     
     // Restore persistence

@@ -3,7 +3,7 @@ import Observation
 
 struct VideoControlsView: View {
   @Bindable var viewModel: VideoPlayerViewModel
-  @Environment(AudioPlayerManager.self) private var playerManager
+  @Environment(PlayerManager.self) private var playerManager
   @State private var showSubtitle = false
   
   var body: some View {

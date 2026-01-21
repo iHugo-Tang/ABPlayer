@@ -4,7 +4,7 @@ import Observation
 // MARK: - Volume Control
 
 struct VolumeControl: View {
-  @Environment(AudioPlayerManager.self) private var playerManager
+  @Environment(PlayerManager.self) private var playerManager
 
   @Binding var playerVolume: Double
   @State private var showVolumePopover: Bool = false

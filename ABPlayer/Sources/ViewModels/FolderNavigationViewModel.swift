@@ -6,7 +6,7 @@ import SwiftUI
 @Observable
 final class FolderNavigationViewModel {
   private let modelContext: ModelContext
-  private let playerManager: AudioPlayerManager
+  private let playerManager: PlayerManager
   
   // MARK: - State Properties
   
@@ -18,7 +18,7 @@ final class FolderNavigationViewModel {
   
   // MARK: - Initialization
   
-  init(modelContext: ModelContext, playerManager: AudioPlayerManager) {
+  init(modelContext: ModelContext, playerManager: PlayerManager) {
     self.modelContext = modelContext
     self.playerManager = playerManager
   }

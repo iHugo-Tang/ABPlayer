@@ -9,8 +9,8 @@ import UniformTypeIdentifiers
 #endif
 
 public struct MainSplitView: View {
-  @Environment(AudioPlayerManager.self) private var playerManager
-  @Environment(SessionTracker.self) private var sessionTracker
+  @Environment(PlayerManager.self) private var playerManager: PlayerManager
+  @Environment(SessionTracker.self) private var sessionTracker: SessionTracker
   @Environment(\.modelContext) private var modelContext
   @Environment(\.openURL) private var openURL
 

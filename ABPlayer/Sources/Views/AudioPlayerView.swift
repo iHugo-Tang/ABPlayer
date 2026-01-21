@@ -5,7 +5,7 @@ import SwiftUI
 // MARK: - Audio Player View
 
 struct AudioPlayerView: View {
-  @Environment(AudioPlayerManager.self) private var playerManager
+  @Environment(PlayerManager.self) private var playerManager
   @Environment(SessionTracker.self) private var sessionTracker
   @Environment(\.modelContext) private var modelContext
 
