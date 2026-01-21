@@ -3,36 +3,6 @@ import Foundation
 import OSLog
 import Observation
 
-// MARK: - Loop Mode
-
-enum LoopMode: String, CaseIterable {
-  case none
-  case repeatOne  // 无限重播当前文件
-  case repeatAll  // 重播当前目录
-  case shuffle  // 随机播放当前目录
-  case autoPlayNext  // 自动播放下一个文件
-
-  var displayName: String {
-    switch self {
-    case .none: "Off"
-    case .repeatOne: "Repeat One"
-    case .repeatAll: "Repeat All"
-    case .shuffle: "Shuffle"
-    case .autoPlayNext: "Auto Play Next"
-    }
-  }
-
-  var iconName: String {
-    switch self {
-    case .none: "repeat"
-    case .repeatOne: "repeat.1"
-    case .repeatAll: "repeat"
-    case .shuffle: "shuffle"
-    case .autoPlayNext: "arrow.forward.to.line"
-    }
-  }
-}
-
 // MARK: - Audio Engine Protocol
 
 protocol AudioPlayerEngineProtocol: Actor {
@@ -91,8 +61,12 @@ final class AudioPlayerManager {
   /// Whether A-B looping should be active when a valid range is set.
   var isLoopEnabled: Bool = true
 
-  /// Current loop mode for playback behavior
-  var loopMode: LoopMode = .none
+  var playbackQueue = PlaybackQueue()
+
+  var loopMode: PlaybackQueue.LoopMode {
+    get { playbackQueue.loopMode }
+    set { playbackQueue.loopMode = newValue }
+  }
 
   /// Currently selected segment ID
   var currentSegmentID: UUID?
@@ -242,7 +216,7 @@ final class AudioPlayerManager {
       file.playbackRecord?.completionCount += 1
     }
 
-    switch loopMode {
+    switch playbackQueue.loopMode {
     case .none:
       isPlaying = false
 

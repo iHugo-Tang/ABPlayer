@@ -23,6 +23,7 @@ public struct MainSplitView: View {
   @State private var selectedFile: ABFile?
   @State private var currentFolder: Folder?
   @State private var navigationPath: [Folder] = []
+  @State private var playbackQueue = PlaybackQueue()
   @State private var isImportingFile: Bool = false
   @State private var isImportingFolder: Bool = false
   @State private var importErrorMessage: String?
@@ -71,6 +72,13 @@ public struct MainSplitView: View {
     }
     .task(id: allAudioFiles.map(\.id)) {
       restoreLastSelectionIfNeeded()
+    }
+    .onChange(of: currentFolder?.id, initial: true) { _, _ in
+      if let folder = currentFolder {
+        playbackQueue.updateQueue(folder.sortedAudioFiles)
+      } else {
+        playbackQueue.updateQueue([])
+      }
     }
     #if os(macOS)
       .onReceive(NotificationCenter.default.publisher(for: NSApplication.willTerminateNotification))
@@ -250,6 +258,8 @@ public struct MainSplitView: View {
     lastSelectedAudioFileID = file.id.uuidString
     lastFolderID = file.folder?.id.uuidString
 
+    playbackQueue.setCurrentFile(file)
+
     if playerManager.currentFile?.id == file.id,
       playerManager.currentFile != nil
     {
@@ -328,58 +338,16 @@ public struct MainSplitView: View {
   // MARK: - Playback Loop Handling
 
   private func setupPlaybackEndedHandler() {
-    playerManager.onPlaybackEnded = { [weak playerManager] currentFile in
-      guard let playerManager,
-        let currentFile,
-        let folder = currentFile.folder
-      else { return }
+    playerManager.onPlaybackEnded = { currentFile in
+      guard let currentFile else { return }
 
-      let files = folder.sortedAudioFiles
-      guard !files.isEmpty else { return }
+      playbackQueue.loopMode = playerManager.loopMode
+      playbackQueue.setCurrentFile(currentFile)
 
-      let nextFile: ABFile?
+      guard let nextFile = playbackQueue.playNext() else { return }
 
-      switch playerManager.loopMode {
-      case .none, .repeatOne:
-        // These cases are handled in AudioPlayerManager
-        return
-
-      case .repeatAll:
-        // Play next file in sequence, wrap around to first
-        if let currentIndex = files.firstIndex(where: { $0.id == currentFile.id }) {
-          let nextIndex = (currentIndex + 1) % files.count
-          nextFile = files[nextIndex]
-        } else {
-          nextFile = files.first
-        }
-
-      case .shuffle:
-        // Play random file (different from current if possible)
-        if files.count > 1 {
-          var randomFile: ABFile
-          repeat {
-            randomFile = files.randomElement()!
-          } while randomFile.id == currentFile.id
-          nextFile = randomFile
-        } else {
-          nextFile = files.first
-        }
-
-      case .autoPlayNext:
-        // Play next file in sequence, stop if at end
-        if let currentIndex = files.firstIndex(where: { $0.id == currentFile.id }),
-          currentIndex + 1 < files.count
-        {
-          nextFile = files[currentIndex + 1]
-        } else {
-          nextFile = nil
-        }
-      }
-
-      if let nextFile {
-        Task { @MainActor in
-          await self.playFile(nextFile, fromStart: true)
-        }
+      Task { @MainActor in
+        await self.playFile(nextFile, fromStart: true)
       }
     }
   }

@@ -35,7 +35,7 @@ struct VideoControlsView: View {
   
   private var loopModeMenu: some View {
     Menu {
-      ForEach(LoopMode.allCases, id: \.self) { mode in
+      ForEach(PlaybackQueue.LoopMode.allCases, id: \.self) { mode in
         Button {
           viewModel.updateLoopMode(mode)
         } label: {

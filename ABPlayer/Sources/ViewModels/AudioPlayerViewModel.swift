@@ -71,7 +71,7 @@ final class AudioPlayerViewModel {
     
     // Restore loop mode
     if let storedLoopMode = UserDefaults.standard.string(forKey: "playerLoopMode"),
-       let mode = LoopMode(rawValue: storedLoopMode) {
+       let mode = PlaybackQueue.LoopMode(rawValue: storedLoopMode) {
       manager.loopMode = mode
     }
     
@@ -81,7 +81,7 @@ final class AudioPlayerViewModel {
 
   // MARK: - Logic
   
-  func updateLoopMode(_ mode: LoopMode) {
+  func updateLoopMode(_ mode: PlaybackQueue.LoopMode) {
     playerManager?.loopMode = mode
     UserDefaults.standard.set(mode.rawValue, forKey: "playerLoopMode")
   }

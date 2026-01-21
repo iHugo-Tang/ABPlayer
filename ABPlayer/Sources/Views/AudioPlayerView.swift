@@ -152,7 +152,7 @@ struct AudioPlayerView: View {
 
         HStack {
           Menu {
-            ForEach(LoopMode.allCases, id: \.self) { mode in
+            ForEach(PlaybackQueue.LoopMode.allCases, id: \.self) { mode in
               Button {
                 viewModel.updateLoopMode(mode)
               } label: {
