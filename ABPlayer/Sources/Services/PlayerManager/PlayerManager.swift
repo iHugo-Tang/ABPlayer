@@ -19,7 +19,18 @@ final class PlayerManager {
   private var loadingFileID: UUID?
 
   var currentFile: ABFile?
+  var selectedFile: ABFile?
   var sessionTracker: SessionTracker?
+  
+  var lastSelectedAudioFileID: String? {
+    get { UserDefaults.standard.string(forKey: "lastSelectedAudioFileID") }
+    set { UserDefaults.standard.set(newValue, forKey: "lastSelectedAudioFileID") }
+  }
+  
+  var lastFolderID: String? {
+    get { UserDefaults.standard.string(forKey: "lastFolderID") }
+    set { UserDefaults.standard.set(newValue, forKey: "lastFolderID") }
+  }
 
   var avPlayer: AVPlayer? {
     get async { await _engine.currentPlayer }
@@ -50,6 +61,7 @@ final class PlayerManager {
 
   private var lastPersistedTime: Double = 0
   private var endOfFileObserver: Any?
+  private var loadAudioTask: Task<Void, Never>?
 
   var hasValidLoopRange: Bool {
     guard let pointA, let pointB else {
@@ -350,4 +362,53 @@ final class PlayerManager {
       onPlaybackEnded?(currentFile)
     }
   }
+
+  // MARK: - File Selection
+
+  func selectFile(
+    _ file: ABFile,
+    fromStart: Bool = false,
+    debounce: Bool = true
+  ) async {
+    lastSelectedAudioFileID = file.id.uuidString
+    lastFolderID = file.folder?.id.uuidString
+
+    playbackQueue.setCurrentFile(file)
+
+    if currentFile?.id == file.id,
+      currentFile != nil
+    {
+      currentFile = file
+      return
+    }
+
+    selectedFile = file
+
+    loadAudioTask?.cancel()
+    if debounce {
+      loadAudioTask = Task {
+        await clearPlayer()
+        if !Task.isCancelled {
+          await load(audioFile: file, fromStart: fromStart)
+        }
+      }
+    } else {
+      await load(audioFile: file, fromStart: fromStart)
+    }
+  }
+
+  func playFile(
+    _ file: ABFile,
+    fromStart: Bool = false
+  ) async {
+    await selectFile(
+      file,
+      fromStart: fromStart,
+      debounce: false
+    )
+    play()
+  }
+
+  func playNext() {}
+  func playPrev() {}
 }

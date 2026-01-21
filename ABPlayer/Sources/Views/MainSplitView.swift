@@ -20,18 +20,12 @@ public struct MainSplitView: View {
   @Query(sort: \Folder.name)
   private var allFolders: [Folder]
 
-  @State private var selectedFile: ABFile?
   @State private var currentFolder: Folder?
   @State private var navigationPath: [Folder] = []
-  @State private var playbackQueue = PlaybackQueue()
   @State private var isImportingFile: Bool = false
   @State private var isImportingFolder: Bool = false
   @State private var importErrorMessage: String?
   @State private var isClearingData: Bool = false
-  @State private var loadAudioTask: Task<Void, Never>?
-
-  @AppStorage("lastSelectedAudioFileID") private var lastSelectedAudioFileID: String?
-  @AppStorage("lastFolderID") private var lastFolderID: String?
 
   public init() {}
 
@@ -47,7 +41,7 @@ public struct MainSplitView: View {
           onCompletion: handleFileImportResult
         )
     } detail: {
-      if let selectedFile {
+      if let selectedFile = playerManager.selectedFile {
         if selectedFile.isVideo {
           VideoPlayerView(audioFile: selectedFile)
         } else {
@@ -75,9 +69,9 @@ public struct MainSplitView: View {
     }
     .onChange(of: currentFolder?.id, initial: true) { _, _ in
       if let folder = currentFolder {
-        playbackQueue.updateQueue(folder.sortedAudioFiles)
+        playerManager.playbackQueue.updateQueue(folder.sortedAudioFiles)
       } else {
-        playbackQueue.updateQueue([])
+        playerManager.playbackQueue.updateQueue([])
       }
     }
     #if os(macOS)
@@ -103,13 +97,14 @@ public struct MainSplitView: View {
   // MARK: - Sidebar
 
   private var sidebar: some View {
-    Group {
+    @Bindable var playerManager = playerManager
+    return Group {
       if isClearingData {
         ProgressView("Clearing...")
           .frame(maxWidth: .infinity, maxHeight: .infinity)
       } else {
         FolderNavigationView(
-          selectedFile: $selectedFile,
+          selectedFile: $playerManager.selectedFile,
           currentFolder: $currentFolder,
           navigationPath: $navigationPath,
           onSelectFile: { file in await selectFile(file) }
@@ -255,48 +250,19 @@ public struct MainSplitView: View {
   // MARK: - Selection
 
   private func selectFile(_ file: ABFile, fromStart: Bool = false, debounce: Bool = true) async {
-    lastSelectedAudioFileID = file.id.uuidString
-    lastFolderID = file.folder?.id.uuidString
-
-    playbackQueue.setCurrentFile(file)
-
-    if playerManager.currentFile?.id == file.id,
-      playerManager.currentFile != nil
-    {
-      playerManager.currentFile = file
-      return
-    }
-
-    // Update selectedFile first so the view switches immediately
-    // (e.g., video -> audio won't show loading in video view first)
-    selectedFile = file
-
-    loadAudioTask?.cancel()
-    if debounce {
-      loadAudioTask = Task {
-        await playerManager.clearPlayer()
-        if !Task.isCancelled {
-          await playerManager.load(audioFile: file, fromStart: fromStart)
-        }
-      }
-    } else {
-      await playerManager.load(audioFile: file, fromStart: fromStart)
-    }
+    await playerManager.selectFile(file, fromStart: fromStart, debounce: debounce)
   }
 
   private func playFile(_ file: ABFile, fromStart: Bool = false) async {
-    await selectFile(file, fromStart: fromStart, debounce: false)
-    playerManager.play()
+    await playerManager.playFile(file, fromStart: fromStart)
   }
 
   private func restoreLastSelectionIfNeeded() {
-    // Restore folder navigation
     if currentFolder == nil, navigationPath.isEmpty,
-      let lastFolderID,
+      let lastFolderID = playerManager.lastFolderID,
       let folderUUID = UUID(uuidString: lastFolderID),
       let folder = allFolders.first(where: { $0.id == folderUUID })
     {
-      // Build navigation path from root to folder
       var path: [Folder] = []
       var current: Folder? = folder
       while let f = current {
@@ -307,11 +273,11 @@ public struct MainSplitView: View {
       currentFolder = folder
     }
 
-    guard selectedFile == nil else {
+    guard playerManager.selectedFile == nil else {
       if let currentFile = playerManager.currentFile,
         let matchedFile = allAudioFiles.first(where: { $0.id == currentFile.id })
       {
-        selectedFile = matchedFile
+        playerManager.selectedFile = matchedFile
         playerManager.currentFile = matchedFile
       }
       return
@@ -320,12 +286,12 @@ public struct MainSplitView: View {
     if let currentFile = playerManager.currentFile,
       let matchedFile = allAudioFiles.first(where: { $0.id == currentFile.id })
     {
-      selectedFile = matchedFile
+      playerManager.selectedFile = matchedFile
       playerManager.currentFile = matchedFile
       return
     }
 
-    guard let lastSelectedAudioFileID,
+    guard let lastSelectedAudioFileID = playerManager.lastSelectedAudioFileID,
       let lastID = UUID(uuidString: lastSelectedAudioFileID),
       let file = allAudioFiles.first(where: { $0.id == lastID })
     else {
@@ -338,16 +304,16 @@ public struct MainSplitView: View {
   // MARK: - Playback Loop Handling
 
   private func setupPlaybackEndedHandler() {
-    playerManager.onPlaybackEnded = { currentFile in
+    playerManager.onPlaybackEnded = { @MainActor [playerManager] currentFile in
       guard let currentFile else { return }
 
-      playbackQueue.loopMode = playerManager.loopMode
-      playbackQueue.setCurrentFile(currentFile)
+      playerManager.playbackQueue.loopMode = playerManager.loopMode
+      playerManager.playbackQueue.setCurrentFile(currentFile)
 
-      guard let nextFile = playbackQueue.playNext() else { return }
+      guard let nextFile = playerManager.playbackQueue.playNext() else { return }
 
       Task { @MainActor in
-        await self.playFile(nextFile, fromStart: true)
+        await playerManager.playFile(nextFile, fromStart: true)
       }
     }
   }
@@ -365,7 +331,7 @@ public struct MainSplitView: View {
       }
 
       // Step 2: Clear UI state and player references immediately
-      selectedFile = nil
+      playerManager.selectedFile = nil
       currentFolder = nil
       navigationPath = []
       playerManager.currentFile = nil
