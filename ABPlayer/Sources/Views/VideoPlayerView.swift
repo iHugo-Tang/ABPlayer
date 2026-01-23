@@ -116,6 +116,16 @@ struct VideoPlayerView: View {
       Text(viewModel.timeString(from: Double(sessionTracker.displaySeconds)))
         .font(.system(size: 13, weight: .medium, design: .monospaced))
         .foregroundStyle(.primary)
+
+      Button {
+        sessionTracker.resetSession()
+      } label: {
+        Image(systemName: "arrow.counterclockwise")
+          .font(.system(size: 12))
+          .foregroundStyle(.secondary)
+      }
+      .buttonStyle(.plain)
+      .help("Reset session")
     }
     .padding(.horizontal, 10)
     .padding(.vertical, 5)

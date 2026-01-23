@@ -17,6 +17,7 @@ final class PlayerManager {
   private(set) weak var player: AVPlayer?
 
   private var loadingFileID: UUID?
+  var failedFileIDs: Set<UUID> = []
 
   var currentFile: ABFile?
   var selectedFile: ABFile?
@@ -96,12 +97,18 @@ final class PlayerManager {
   // MARK: - Public API
 
   func load(audioFile: ABFile, fromStart: Bool = false) async {
+    guard audioFile.isBookmarkValid else {
+      Logger.audio.error("Load aborted: Bookmark invalid or file missing for \(audioFile.displayName)")
+      return
+    }
+
     if let cached = audioFile.cachedDuration, cached > 0 {
       duration = cached
     }
 
     let fileID = audioFile.id
     loadingFileID = fileID
+    failedFileIDs.remove(fileID)
 
     currentFile = audioFile
     currentTime = 0
@@ -169,7 +176,8 @@ final class PlayerManager {
       await _engine.setVolume(volume)
     } catch {
       if loadingFileID == fileID {
-        assertionFailure("Failed to load audio file: \(error)")
+        failedFileIDs.insert(fileID)
+        Logger.audio.error("Failed to load audio file: \(error, privacy: .public)")
       }
     }
   }
@@ -185,7 +193,6 @@ final class PlayerManager {
       let success = await _engine.play()
       if success {
         self.isPlaying = true
-        self.sessionTracker?.startSessionIfNeeded()
         if let file = self.currentFile {
           if file.playbackRecord == nil {
             file.playbackRecord = PlaybackRecord(audioFile: file)
@@ -253,7 +260,6 @@ final class PlayerManager {
       Task { [weak self] in
         guard let self else { return }
         await _engine.syncPlayState()
-        self.sessionTracker?.startSessionIfNeeded()
         if let file = self.currentFile {
           if file.playbackRecord == nil {
             file.playbackRecord = PlaybackRecord(audioFile: file)
@@ -328,7 +334,6 @@ final class PlayerManager {
     self.isPlaying = isPlaying
 
     if isPlaying {
-      sessionTracker?.startSessionIfNeeded()
       if let file = currentFile {
         if file.playbackRecord == nil {
           file.playbackRecord = PlaybackRecord(audioFile: file)

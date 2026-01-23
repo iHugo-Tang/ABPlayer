@@ -132,6 +132,26 @@ final class SessionTracker {
     }
   }
 
+  /// Reset the current session and start a new one immediately
+  func resetSession() {
+    if isSessionActive {
+      commitPendingTime()
+      Task {
+        await recorder?.endSession()
+      }
+    }
+    
+    isSessionActive = true
+    _totalSeconds = 0
+    displaySeconds = 0
+    bufferedListeningTime = 0
+    lastCommitTime = Date()
+    
+    Task {
+      await recorder?.startNewSession()
+    }
+  }
+
   /// Add listening time (called frequently during playback)
   func addListeningTime(_ delta: Double) {
     guard isSessionActive else { return }

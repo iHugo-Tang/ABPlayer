@@ -5,10 +5,11 @@ import SwiftUI
 struct FileRowView: View {
   let file: ABFile
   let isSelected: Bool
+  var isFailed: Bool = false
   let onDelete: () -> Void
 
   private var isAvailable: Bool {
-    file.isBookmarkValid
+    file.isBookmarkValid && !isFailed
   }
   private var hasPlayed: Bool {
     file.currentPlaybackPosition > 0
@@ -27,7 +28,7 @@ struct FileRowView: View {
             .foregroundStyle(isSelected ? Color.accentColor : Color.secondary)
         } else {
           Image(systemName: "exclamationmark.triangle.fill")
-            .foregroundStyle(.orange)
+            .foregroundStyle(file.isBookmarkValid ? .red : .orange)
         }
         
         VStack(alignment: .leading) {
@@ -37,9 +38,12 @@ struct FileRowView: View {
             .bodyStyle()
           
           HStack(spacing: 4) {
-            if !isAvailable {
+            if !file.isBookmarkValid {
               Text("文件不可用")
                 .foregroundStyle(.orange)
+            } else if isFailed {
+               Text("无法播放")
+                .foregroundStyle(.red)
             } else if let duration = file.cachedDuration, duration > 0 {
               Text(timeString(from: duration))
               if !hasPlayed {
