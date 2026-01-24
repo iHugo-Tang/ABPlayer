@@ -224,18 +224,16 @@ public struct MainSplitView: View {
   }
 
   private func importFolder(from url: URL) {
-    Task {
-      let importer = FolderImporter(modelContainer: modelContext.container)
+    Task { @MainActor in
+      let importer = FolderImporter(modelContext: modelContext)
 
       do {
         if let folderID = try await importer.syncFolder(at: url) {
           // Select first audio file if available
-          await MainActor.run {
-            if let folder = modelContext.model(for: folderID) as? Folder,
-               let firstFile = folder.audioFiles.first {
-              Task {
-                await selectFile(firstFile)
-              }
+          if let folder = modelContext.model(for: folderID) as? Folder,
+             let firstFile = folder.audioFiles.first {
+            Task {
+              await selectFile(firstFile)
             }
           }
         }

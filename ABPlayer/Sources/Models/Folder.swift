@@ -50,9 +50,11 @@ final class Folder {
 }
 
 extension Folder {
-  /// 基于相对路径生成确定性 UUID
-  static func generateDeterministicID(from relativePath: String) -> UUID {
-    let data = Data(relativePath.utf8)
+  /// 基于 URL 的绝对路径生成确定性 UUID
+  static func generateDeterministicID(from url: URL) -> UUID {
+    // 使用规范化的绝对路径确保一致性
+    let path = url.standardized.path
+    let data = Data(path.utf8)
     let hash = SHA256.hash(data: data)
     let hashData = Data(hash)
 

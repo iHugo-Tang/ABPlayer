@@ -6,8 +6,13 @@ import UniformTypeIdentifiers
 
 /// Handles recursive folder import with automatic file pairing
 /// Supports idempotent sync operations (safe to call multiple times)
-@ModelActor
-actor FolderImporter {
+@MainActor
+final class FolderImporter {
+  private let modelContext: ModelContext
+
+  init(modelContext: ModelContext) {
+    self.modelContext = modelContext
+  }
 
   /// Supported file extensions
   static let audioExtensions: Set<String> = [
@@ -118,7 +123,7 @@ actor FolderImporter {
   /// 查找或创建文件夹
   private func findOrCreateFolder(at url: URL, relativePath: String) -> Folder {
     let name = url.lastPathComponent
-    let folderId = Folder.generateDeterministicID(from: relativePath)
+    let folderId = Folder.generateDeterministicID(from: url)
 
     // 尝试查找已有记录
     let descriptor = FetchDescriptor<Folder>(
