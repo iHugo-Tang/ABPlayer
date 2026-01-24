@@ -26,13 +26,9 @@ enum SelectionItem: Hashable {
 struct FolderNavigationView: View {
   init(
     viewModel: FolderNavigationViewModel,
-    currentFolder: Binding<Folder?>,
-    navigationPath: Binding<[Folder]>,
     onSelectFile: @escaping (ABFile) async -> Void
   ) {
     self.viewModel = viewModel
-    self._currentFolder = currentFolder
-    self._navigationPath = navigationPath
     self.onSelectFile = onSelectFile
   }
   @Environment(\.modelContext) private var modelContext
@@ -44,9 +40,6 @@ struct FolderNavigationView: View {
 
   @Query(filter: #Predicate<ABFile> { $0.folder == nil }, sort: \ABFile.createdAt)
   private var rootAudioFiles: [ABFile]
-
-  @Binding var currentFolder: Folder?
-  @Binding var navigationPath: [Folder]
 
   @Bindable var viewModel: FolderNavigationViewModel
 
@@ -116,11 +109,11 @@ struct FolderNavigationView: View {
 
   private var navigationHeader: some View {
     FolderNavigationHeaderView(
-      currentFolder: currentFolder,
-      canNavigateBack: viewModel.canNavigateBack(navigationPath: navigationPath),
+      currentFolder: viewModel.currentFolder,
+      canNavigateBack: viewModel.canNavigateBack(),
       sortOrder: viewModel.sortOrder,
       onNavigateBack: {
-        viewModel.navigateBack(navigationPath: &navigationPath, currentFolder: &currentFolder)
+        viewModel.navigateBack()
       },
       onSortChange: { viewModel.sortOrder = $0 }
     )
@@ -214,8 +207,6 @@ struct FolderNavigationView: View {
         viewModel.selection = newSelection
         viewModel.handleSelectionChange(
           newSelection,
-          navigationPath: &navigationPath,
-          currentFolder: &currentFolder,
           onSelectFile: onSelectFile
         )
       }
@@ -241,12 +232,12 @@ struct FolderNavigationView: View {
   // MARK: - Selection Handling
 
   private var currentFolders: [Folder] {
-    let folders = currentFolder.map { Array($0.subfolders) } ?? rootFolders
+    let folders = viewModel.currentFolder.map { Array($0.subfolders) } ?? rootFolders
     return viewModel.sortedFolders(folders)
   }
 
   private var currentAudioFiles: [ABFile] {
-    let files = currentFolder.map { Array($0.audioFiles) } ?? rootAudioFiles
+    let files = viewModel.currentFolder.map { Array($0.audioFiles) } ?? rootAudioFiles
     return viewModel.sortedAudioFiles(files)
   }
 
@@ -279,8 +270,6 @@ struct FolderNavigationView: View {
     viewModel.selection = selection
     viewModel.handleSelectionChange(
       selection,
-      navigationPath: &navigationPath,
-      currentFolder: &currentFolder,
       onSelectFile: onSelectFile
     )
   }
@@ -336,15 +325,10 @@ struct FolderNavigationView: View {
   private func performDeleteConfirmation(deleteFromDisk: Bool) {
     switch deleteTarget {
     case .folder(let folder):
-      var selectedFile = viewModel.selectedFile
       viewModel.deleteFolder(
         folder,
-        deleteFromDisk: deleteFromDisk,
-        currentFolder: &currentFolder,
-        selectedFile: &selectedFile,
-        navigationPath: &navigationPath
+        deleteFromDisk: deleteFromDisk
       )
-      viewModel.selectedFile = selectedFile
     case .audioFile(let file):
       var selectedFile = viewModel.selectedFile
       viewModel.deleteAudioFile(
@@ -368,15 +352,10 @@ struct FolderNavigationView: View {
 
     switch selection {
     case .folder(let folder):
-      var selectedFile = viewModel.selectedFile
       viewModel.deleteFolder(
         folder,
-        deleteFromDisk: false,
-        currentFolder: &currentFolder,
-        selectedFile: &selectedFile,
-        navigationPath: &navigationPath
+        deleteFromDisk: false
       )
-      viewModel.selectedFile = selectedFile
     case .audioFile(let file):
       var selectedFile = viewModel.selectedFile
       viewModel.deleteAudioFile(
