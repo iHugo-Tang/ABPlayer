@@ -291,7 +291,7 @@ struct FolderNavigationView: View {
     FileRowView(
       file: file,
       isSelected: viewModel?.selection == .audioFile(file),
-      isFailed: playerManager.failedFileIDs.contains(file.id),
+      isFailed: file.loadError != nil,
       onDelete: {
         guard let viewModel else { return }
         viewModel.deleteAudioFile(

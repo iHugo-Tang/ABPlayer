@@ -17,7 +17,6 @@ final class PlayerManager {
   private(set) weak var player: AVPlayer?
 
   private var loadingFileID: UUID?
-  var failedFileIDs: Set<UUID> = []
 
   var currentFile: ABFile?
   var selectedFile: ABFile?
@@ -108,7 +107,7 @@ final class PlayerManager {
 
     let fileID = audioFile.id
     loadingFileID = fileID
-    failedFileIDs.remove(fileID)
+    audioFile.loadError = nil
 
     currentFile = audioFile
     currentTime = 0
@@ -176,7 +175,7 @@ final class PlayerManager {
       await _engine.setVolume(volume)
     } catch {
       if loadingFileID == fileID {
-        failedFileIDs.insert(fileID)
+        audioFile.loadError = error.localizedDescription
         Logger.audio.error("Failed to load audio file: \(error, privacy: .public)")
       }
     }

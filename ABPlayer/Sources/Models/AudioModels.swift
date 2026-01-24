@@ -62,6 +62,9 @@ final class ABFile {
   /// 是否有转录记录 (DB Record)
   var hasTranscriptionRecord: Bool = false
 
+  /// 加载错误信息
+  var loadError: String?
+
   init(
     id: UUID = UUID(),
     displayName: String,
@@ -73,7 +76,8 @@ final class ABFile {
     subtitleFile: SubtitleFile? = nil,
     pdfBookmarkData: Data? = nil,
     cachedDuration: Double? = nil,
-    hasTranscriptionRecord: Bool = false
+    hasTranscriptionRecord: Bool = false,
+    loadError: String? = nil
   ) {
     self.id = id
     self.displayName = displayName
@@ -86,6 +90,7 @@ final class ABFile {
     self.pdfBookmarkData = pdfBookmarkData
     self.cachedDuration = cachedDuration
     self.hasTranscriptionRecord = hasTranscriptionRecord
+    self.loadError = loadError
   }
 }
 
