@@ -9,9 +9,11 @@ import UniformTypeIdentifiers
 @MainActor
 final class FolderImporter {
   private let modelContext: ModelContext
+  private let librarySettings: LibrarySettings
 
-  init(modelContext: ModelContext) {
+  init(modelContext: ModelContext, librarySettings: LibrarySettings) {
     self.modelContext = modelContext
+    self.librarySettings = librarySettings
   }
 
   /// Supported file extensions
@@ -26,7 +28,7 @@ final class FolderImporter {
   /// 同步文件夹（支持首次导入和重新扫描）
   /// - Parameter url: 根文件夹 URL
   /// - Returns: 同步后的根 Folder ID
-  func syncFolder(at url: URL) async throws -> PersistentIdentifier? {
+  func syncFolder(at url: URL, parentFolder: Folder?) async throws -> PersistentIdentifier? {
     guard url.startAccessingSecurityScopedResource() else {
       throw ImportError.accessDenied
     }
@@ -35,20 +37,19 @@ final class FolderImporter {
       url.stopAccessingSecurityScopedResource()
     }
 
-    // 创建 bookmark 用于后续 rescan
-    let bookmarkData = try url.bookmarkData(
-      options: [.withSecurityScope],
-      includingResourceValuesForKeys: nil,
-      relativeTo: nil
-    )
+    try librarySettings.ensureLibraryDirectoryExists()
 
-    let rootPath = url.lastPathComponent
-    let folder = try await processDirectory(at: url, relativePath: rootPath, parent: nil)
+    let destinationURL: URL
+    if isInLibrary(url) {
+      destinationURL = url
+    } else {
+      let destinationDirectory = folderLibraryURL(for: parentFolder) ?? librarySettings.libraryDirectoryURL
+      destinationURL = try copyItemToLibrary(from: url, destinationDirectory: destinationDirectory)
+    }
 
-    // 仅根文件夹存储 bookmark
-    folder.bookmarkData = bookmarkData
-    
-    // Save context before returning to avoid deinitialization warning
+    let rootPath = destinationURL.lastPathComponent
+    let folder = try await processDirectory(at: destinationURL, relativePath: rootPath, parent: parentFolder)
+
     try modelContext.save()
 
     return folder.persistentModelID
@@ -320,6 +321,53 @@ final class FolderImporter {
   private func getFileCreationDate(from url: URL) -> Date {
     let attributes = try? FileManager.default.attributesOfItem(atPath: url.path)
     return attributes?[.creationDate] as? Date ?? Date()
+  }
+
+  private func copyItemToLibrary(from url: URL, destinationDirectory: URL) throws -> URL {
+    let fileManager = FileManager.default
+
+    var destinationURL = destinationDirectory.appendingPathComponent(url.lastPathComponent)
+    if fileManager.fileExists(atPath: destinationURL.path) {
+      destinationURL = uniqueURL(for: destinationURL)
+    }
+
+    try fileManager.copyItem(at: url, to: destinationURL)
+    return destinationURL
+  }
+
+  private func isInLibrary(_ url: URL) -> Bool {
+    let libraryURL = librarySettings.libraryDirectoryURL.standardizedFileURL
+    let candidateURL = url.standardizedFileURL
+    return candidateURL.path.hasPrefix(libraryURL.path)
+  }
+
+  private func folderLibraryURL(for folder: Folder?) -> URL? {
+    guard let folder else { return nil }
+    let relativePath = folder.relativePath
+    guard !relativePath.isEmpty else { return nil }
+    return librarySettings.libraryDirectoryURL.appendingPathComponent(relativePath)
+  }
+
+  private func uniqueURL(for url: URL) -> URL {
+    let fileManager = FileManager.default
+    let directory = url.deletingLastPathComponent()
+    let baseName = url.deletingPathExtension().lastPathComponent
+    let fileExtension = url.pathExtension
+
+    var counter = 1
+    var candidate = url
+
+    while fileManager.fileExists(atPath: candidate.path) {
+      let newName = "\(baseName) \(counter)"
+      if fileExtension.isEmpty {
+        candidate = directory.appendingPathComponent(newName)
+      } else {
+        candidate = directory.appendingPathComponent(newName).appendingPathExtension(fileExtension)
+      }
+      counter += 1
+    }
+
+    return candidate
   }
 }
 

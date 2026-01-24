@@ -19,18 +19,7 @@ final class PlayerManager {
   private var loadingFileID: UUID?
 
   var currentFile: ABFile?
-  var selectedFile: ABFile?
   var sessionTracker: SessionTracker?
-  
-  var lastSelectedAudioFileID: String? {
-    get { UserDefaults.standard.string(forKey: "lastSelectedAudioFileID") }
-    set { UserDefaults.standard.set(newValue, forKey: "lastSelectedAudioFileID") }
-  }
-  
-  var lastFolderID: String? {
-    get { UserDefaults.standard.string(forKey: "lastFolderID") }
-    set { UserDefaults.standard.set(newValue, forKey: "lastFolderID") }
-  }
 
   var avPlayer: AVPlayer? {
     get async { await _engine.currentPlayer }
@@ -374,9 +363,6 @@ final class PlayerManager {
     fromStart: Bool = false,
     debounce: Bool = true
   ) async {
-    lastSelectedAudioFileID = file.id.uuidString
-    lastFolderID = file.folder?.id.uuidString
-
     playbackQueue.setCurrentFile(file)
 
     if currentFile?.id == file.id,
@@ -386,7 +372,6 @@ final class PlayerManager {
       return
     }
 
-    selectedFile = file
 
     loadAudioTask?.cancel()
     if debounce {

@@ -38,6 +38,7 @@ struct ABPlayerApp: App {
   private let sessionTracker = SessionTracker()
   private let transcriptionManager = TranscriptionManager()
   private let transcriptionSettings = TranscriptionSettings()
+  private let librarySettings = LibrarySettings()
   private let vocabularyService: VocabularyService
 
   private let queueManager: TranscriptionQueueManager
@@ -157,6 +158,7 @@ struct ABPlayerApp: App {
         .environment(sessionTracker)
         .environment(transcriptionManager)
         .environment(transcriptionSettings)
+        .environment(librarySettings)
         .environment(queueManager)
         .environment(vocabularyService)
     }
@@ -196,6 +198,7 @@ struct ABPlayerApp: App {
       WindowGroup(id: "settings-window") {
         SettingsView()
           .environment(transcriptionSettings)
+          .environment(librarySettings)
           .environment(transcriptionManager)
       }
       .defaultPosition(.center)

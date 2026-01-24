@@ -5,11 +5,9 @@ import SwiftUI
 struct FolderNavigationHeaderView: View {
   let currentFolder: Folder?
   let canNavigateBack: Bool
-  let isRescanningFolder: Bool
   let sortOrder: SortOrder
   
   let onNavigateBack: () -> Void
-  let onRescan: () -> Void
   let onSortChange: (SortOrder) -> Void
   
   var body: some View {
@@ -39,20 +37,6 @@ struct FolderNavigationHeaderView: View {
       }
 
       Spacer()
-
-      if isRescanningFolder {
-        ProgressView()
-          .controlSize(.small)
-      } else if currentFolder != nil {
-        Button {
-          onRescan()
-        } label: {
-          Label("Rescan", systemImage: "arrow.2.circlepath")
-            .labelStyle(.iconOnly)
-        }
-        .buttonStyle(.plain)
-        .disabled(isRescanningFolder)
-      }
 
       Menu {
         ForEach(SortOrder.allCases, id: \.self) { order in

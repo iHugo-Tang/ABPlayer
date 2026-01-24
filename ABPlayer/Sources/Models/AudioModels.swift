@@ -145,8 +145,23 @@ extension ABFile {
 
   /// 获取对应的SRT字幕文件URL（与音频文件同目录）
   var srtFileURL: URL? {
-    guard let audioURL = try? resolveURL() else { return nil }
+    guard let audioURL = resolvedURL() else { return nil }
     return audioURL.deletingPathExtension().appendingPathExtension("srt")
+  }
+
+  func resolvedURL() -> URL? {
+    try? resolveURL()
+  }
+
+  func resolvedPDFURL() -> URL? {
+    guard let pdfBookmarkData else { return nil }
+    var isStale = false
+    return try? URL(
+      resolvingBookmarkData: pdfBookmarkData,
+      options: [.withSecurityScope],
+      relativeTo: nil,
+      bookmarkDataIsStale: &isStale
+    )
   }
 
   private func resolveURL() throws -> URL {
@@ -166,7 +181,7 @@ extension ABFile {
 
   /// 检查 Bookmark 是否有效（文件是否存在）
   var isBookmarkValid: Bool {
-    guard let url = try? resolveURL() else { return false }
+    guard let url = resolvedURL() else { return false }
     return FileManager.default.fileExists(atPath: url.path)
   }
 

@@ -1,5 +1,6 @@
 import KeyboardShortcuts
 import SwiftUI
+import Observation
 
 /// FFmpeg path validation status
 enum FFmpegStatus {
@@ -12,12 +13,12 @@ enum FFmpegStatus {
 /// Settings view for configuring application options
 struct SettingsView: View {
   @Environment(TranscriptionSettings.self) private var settings
+  @Environment(LibrarySettings.self) private var librarySettings
   @Environment(TranscriptionManager.self) private var transcriptionManager
 
   // Navigation selection
-  @State private var selectedTab: SettingsTab? = .transcription
+  @State private var selectedTab: SettingsTab? = .media
 
-  // Transcription states
   @State private var isSelectingDirectory = false
   @State private var downloadedModels: [(name: String, size: Int64)] = []
   @State private var modelToDelete: String?
@@ -26,7 +27,9 @@ struct SettingsView: View {
   @State private var migrationError: String?
   @State private var previousDirectory: String = ""
 
-  // FFmpeg states
+  @State private var isSelectingLibraryDirectory = false
+  @State private var libraryPathError: String?
+
   @State private var isSelectingFFmpegPath = false
   @State private var ffmpegPathStatus: FFmpegStatus = .unchecked
 
@@ -52,6 +55,8 @@ struct SettingsView: View {
       Group {
         if let selectedTab {
           switch selectedTab {
+          case .media:
+            mediaSettingsView
           case .shortcuts:
             shortcutsView
           case .transcription:
@@ -81,6 +86,13 @@ struct SettingsView: View {
     ) { result in
       handleDirectorySelection(result)
     }
+    .fileImporter(
+      isPresented: $isSelectingLibraryDirectory,
+      allowedContentTypes: [.folder],
+      allowsMultipleSelection: false
+    ) { result in
+      handleLibraryDirectorySelection(result)
+    }
     .confirmationDialog(
       "Delete Model",
       isPresented: $showDeleteConfirmation,
@@ -99,6 +111,13 @@ struct SettingsView: View {
       Button("OK") { migrationError = nil }
     } message: {
       if let error = migrationError {
+        Text(error)
+      }
+    }
+    .alert("Library Path Error", isPresented: .constant(libraryPathError != nil)) {
+      Button("OK") { libraryPathError = nil }
+    } message: {
+      if let error = libraryPathError {
         Text(error)
       }
     }
@@ -184,6 +203,13 @@ struct SettingsView: View {
     KeyboardShortcuts.reset(.nextSegment)
   }
 
+  private var mediaSettingsView: some View {
+    Form {
+      librarySection
+    }
+    .formStyle(.grouped)
+  }
+
   // MARK: - Transcription Settings View
 
   private var transcriptionSettingsView: some View {
@@ -192,6 +218,48 @@ struct SettingsView: View {
       downloadedModelsSection
     }
     .formStyle(.grouped)
+  }
+
+  private var librarySection: some View {
+    Section {
+      LabeledContent("Library Directory") {
+        HStack {
+          Text(displayLibraryDirectory)
+            .foregroundStyle(.secondary)
+            .lineLimit(1)
+            .truncationMode(.middle)
+
+          Button("Choose...") {
+            isSelectingLibraryDirectory = true
+          }
+        }
+      }
+    } header: {
+      Label("Library", systemImage: "books.vertical")
+    } footer: {
+      VStack(alignment: .leading, spacing: 8) {
+        HStack(spacing: 4) {
+          Text("Library stored at:")
+          Button {
+            let url = librarySettings.libraryDirectoryURL
+            NSWorkspace.shared.open(url)
+          } label: {
+            Text(displayLibraryDirectory)
+              .underline()
+              .foregroundStyle(.primary)
+          }
+          .buttonStyle(.plain)
+          .onHover { inside in
+            if inside {
+              NSCursor.pointingHand.push()
+            } else {
+              NSCursor.pop()
+            }
+          }
+        }
+        .captionStyle()
+      }
+    }
   }
 
   // MARK: - Transcription Section
@@ -421,6 +489,13 @@ struct SettingsView: View {
     return settings.ffmpegPath
   }
 
+  private var displayLibraryDirectory: String {
+    if librarySettings.libraryPath.isEmpty {
+      return LibrarySettings.defaultLibraryDirectory.path
+    }
+    return librarySettings.libraryPath
+  }
+
   private var ffmpegStatusColor: Color {
     updateFFmpegStatus()
 
@@ -513,7 +588,6 @@ struct SettingsView: View {
     switch result {
     case .success(let urls):
       if let url = urls.first {
-        // Store bookmark for security-scoped access
         if (try? url.bookmarkData(
           options: [.withSecurityScope],
           includingResourceValuesForKeys: nil,
@@ -525,7 +599,6 @@ struct SettingsView: View {
             ? TranscriptionSettings.defaultModelDirectory.path
             : previousDirectory
 
-          // Check if we need to migrate
           if !downloadedModels.isEmpty && oldPath != newPath {
             migrateModels(from: oldPath, to: newPath)
           }
@@ -536,6 +609,29 @@ struct SettingsView: View {
       }
     case .failure:
       break
+    }
+  }
+
+  private func handleLibraryDirectorySelection(_ result: Result<[URL], Error>) {
+    switch result {
+    case .success(let urls):
+      guard let url = urls.first else { return }
+      if (try? url.bookmarkData(
+        options: [.withSecurityScope],
+        includingResourceValuesForKeys: nil,
+        relativeTo: nil
+      )) != nil {
+        librarySettings.libraryPath = url.path
+        do {
+          try librarySettings.ensureLibraryDirectoryExists()
+        } catch {
+          libraryPathError = "Failed to create library directory: \(error.localizedDescription)"
+        }
+      } else {
+        libraryPathError = "Unable to access selected folder."
+      }
+    case .failure(let error):
+      libraryPathError = error.localizedDescription
     }
   }
 
@@ -564,6 +660,7 @@ struct SettingsView: View {
 // MARK: - Supporting Views
 
 enum SettingsTab: String, CaseIterable, Identifiable {
+  case media = "Media"
   case shortcuts = "Shortcuts"
   case transcription = "Transcription"
 
@@ -571,6 +668,7 @@ enum SettingsTab: String, CaseIterable, Identifiable {
 
   var icon: String {
     switch self {
+    case .media: return "books.vertical"
     case .shortcuts: return "keyboard"
     case .transcription: return "text.bubble"
     }

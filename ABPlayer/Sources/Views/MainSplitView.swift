@@ -3,16 +3,72 @@ import OSLog
 import SwiftData
 import SwiftUI
 import UniformTypeIdentifiers
+import Observation
 
 #if os(macOS)
   import AppKit
 #endif
 
+import Observation
+
+extension MainSplitView {
+  private func copyItemToLibrary(from url: URL, destinationDirectory: URL) throws -> URL {
+    let fileManager = FileManager.default
+
+    var destinationURL = destinationDirectory.appendingPathComponent(url.lastPathComponent)
+    if fileManager.fileExists(atPath: destinationURL.path) {
+      destinationURL = uniqueURL(for: destinationURL)
+    }
+
+    try fileManager.copyItem(at: url, to: destinationURL)
+    return destinationURL
+  }
+
+  private func isInLibrary(_ url: URL) -> Bool {
+    let libraryURL = librarySettings.libraryDirectoryURL.standardizedFileURL
+    let candidateURL = url.standardizedFileURL
+    return candidateURL.path.hasPrefix(libraryURL.path)
+  }
+
+  private func currentFolderLibraryURL() -> URL? {
+    guard let currentFolder else { return nil }
+    let relativePath = currentFolder.relativePath
+    guard !relativePath.isEmpty else { return nil }
+    return librarySettings.libraryDirectoryURL.appendingPathComponent(relativePath)
+  }
+
+  private func uniqueURL(for url: URL) -> URL {
+    let fileManager = FileManager.default
+    let directory = url.deletingLastPathComponent()
+    let baseName = url.deletingPathExtension().lastPathComponent
+    let fileExtension = url.pathExtension
+
+    var counter = 1
+    var candidate = url
+
+    while fileManager.fileExists(atPath: candidate.path) {
+      let newName = "\(baseName) \(counter)"
+      if fileExtension.isEmpty {
+        candidate = directory.appendingPathComponent(newName)
+      } else {
+        candidate = directory.appendingPathComponent(newName).appendingPathExtension(fileExtension)
+      }
+      counter += 1
+    }
+
+    return candidate
+  }
+}
+
+@MainActor
 public struct MainSplitView: View {
   @Environment(PlayerManager.self) private var playerManager: PlayerManager
   @Environment(SessionTracker.self) private var sessionTracker: SessionTracker
+  @Environment(LibrarySettings.self) private var librarySettings
   @Environment(\.modelContext) private var modelContext
   @Environment(\.openURL) private var openURL
+
+  @State private var folderNavigationViewModel: FolderNavigationViewModel?
 
   @Query(sort: \ABFile.createdAt, order: .forward)
   private var allAudioFiles: [ABFile]
@@ -41,7 +97,7 @@ public struct MainSplitView: View {
           onCompletion: handleFileImportResult
         )
     } detail: {
-      if let selectedFile = playerManager.selectedFile {
+      if let selectedFile = folderNavigationViewModel?.selectedFile {
         if selectedFile.isVideo {
           VideoPlayerView(audioFile: selectedFile)
         } else {
@@ -61,6 +117,13 @@ public struct MainSplitView: View {
     .onAppear {
       sessionTracker.setModelContainer(modelContext.container)
       playerManager.sessionTracker = sessionTracker
+      if folderNavigationViewModel == nil {
+        folderNavigationViewModel = FolderNavigationViewModel(
+          modelContext: modelContext,
+          playerManager: playerManager,
+          librarySettings: librarySettings
+        )
+      }
       restoreLastSelectionIfNeeded()
       setupPlaybackEndedHandler()
     }
@@ -97,14 +160,13 @@ public struct MainSplitView: View {
   // MARK: - Sidebar
 
   private var sidebar: some View {
-    @Bindable var playerManager = playerManager
     return Group {
       if isClearingData {
         ProgressView("Clearing...")
           .frame(maxWidth: .infinity, maxHeight: .infinity)
-      } else {
+      } else if let folderNavigationViewModel {
         FolderNavigationView(
-          selectedFile: $playerManager.selectedFile,
+          viewModel: folderNavigationViewModel,
           currentFolder: $currentFolder,
           navigationPath: $navigationPath,
           onSelectFile: { file in await selectFile(file) }
@@ -199,13 +261,23 @@ public struct MainSplitView: View {
 
   private func addAudioFile(from url: URL) {
     do {
-      let bookmarkData = try url.bookmarkData(
+      try librarySettings.ensureLibraryDirectoryExists()
+
+      let fileURL: URL
+      if isInLibrary(url) {
+        fileURL = url
+      } else {
+        let destinationDirectory = currentFolderLibraryURL() ?? librarySettings.libraryDirectoryURL
+        fileURL = try copyItemToLibrary(from: url, destinationDirectory: destinationDirectory)
+      }
+
+      let bookmarkData = try fileURL.bookmarkData(
         options: [.withSecurityScope],
         includingResourceValuesForKeys: nil,
         relativeTo: nil
       )
 
-      let displayName = url.lastPathComponent
+      let displayName = fileURL.lastPathComponent
       let deterministicID = ABFile.generateDeterministicID(from: bookmarkData)
 
       let audioFile = ABFile(
@@ -217,7 +289,6 @@ public struct MainSplitView: View {
 
       modelContext.insert(audioFile)
       currentFolder?.audioFiles.append(audioFile)
-      Task { await selectFile(audioFile) }
     } catch {
       importErrorMessage = "Failed to import file: \(error.localizedDescription)"
     }
@@ -225,18 +296,11 @@ public struct MainSplitView: View {
 
   private func importFolder(from url: URL) {
     Task { @MainActor in
-      let importer = FolderImporter(modelContext: modelContext)
+      let importer = FolderImporter(modelContext: modelContext, librarySettings: librarySettings)
 
       do {
-        if let folderID = try await importer.syncFolder(at: url) {
-          // Select first audio file if available
-          if let folder = modelContext.model(for: folderID) as? Folder,
-             let firstFile = folder.audioFiles.first {
-            Task {
-              await selectFile(firstFile)
-            }
-          }
-        }
+        let parentFolder = currentFolder
+        _ = try await importer.syncFolder(at: url, parentFolder: parentFolder)
       } catch {
         await MainActor.run {
           importErrorMessage = "Failed to import folder: \(error.localizedDescription)"
@@ -256,8 +320,11 @@ public struct MainSplitView: View {
   }
 
   private func restoreLastSelectionIfNeeded() {
+    guard let folderNavigationViewModel else { return }
+    guard !navigationPath.isEmpty else { return }
+
     if currentFolder == nil, navigationPath.isEmpty,
-      let lastFolderID = playerManager.lastFolderID,
+      let lastFolderID = folderNavigationViewModel.lastFolderID,
       let folderUUID = UUID(uuidString: lastFolderID),
       let folder = allFolders.first(where: { $0.id == folderUUID })
     {
@@ -271,11 +338,11 @@ public struct MainSplitView: View {
       currentFolder = folder
     }
 
-    guard playerManager.selectedFile == nil else {
+    guard folderNavigationViewModel.selectedFile == nil else {
       if let currentFile = playerManager.currentFile,
         let matchedFile = allAudioFiles.first(where: { $0.id == currentFile.id })
       {
-        playerManager.selectedFile = matchedFile
+        folderNavigationViewModel.selectedFile = matchedFile
         playerManager.currentFile = matchedFile
       }
       return
@@ -284,19 +351,23 @@ public struct MainSplitView: View {
     if let currentFile = playerManager.currentFile,
       let matchedFile = allAudioFiles.first(where: { $0.id == currentFile.id })
     {
-      playerManager.selectedFile = matchedFile
+      folderNavigationViewModel.selectedFile = matchedFile
       playerManager.currentFile = matchedFile
       return
     }
 
-    guard let lastSelectedAudioFileID = playerManager.lastSelectedAudioFileID,
-      let lastID = UUID(uuidString: lastSelectedAudioFileID),
-      let file = allAudioFiles.first(where: { $0.id == lastID })
-    else {
+    if let lastSelectedAudioFileID = folderNavigationViewModel.lastSelectedAudioFileID,
+       let lastID = UUID(uuidString: lastSelectedAudioFileID),
+       let file = allAudioFiles.first(where: { $0.id == lastID })
+    {
+      Task { await selectFile(file) }
       return
     }
 
-    Task { await selectFile(file) }
+    if let folder = currentFolder,
+       let firstFile = folder.audioFiles.first {
+      _ = firstFile
+    }
   }
 
   // MARK: - Playback Loop Handling
@@ -329,7 +400,7 @@ public struct MainSplitView: View {
       }
 
       // Step 2: Clear UI state and player references immediately
-      playerManager.selectedFile = nil
+      folderNavigationViewModel?.selectedFile = nil
       currentFolder = nil
       navigationPath = []
       playerManager.currentFile = nil

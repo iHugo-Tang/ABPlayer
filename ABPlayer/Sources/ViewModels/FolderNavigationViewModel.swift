@@ -7,20 +7,60 @@ import SwiftUI
 final class FolderNavigationViewModel {
   private let modelContext: ModelContext
   private let playerManager: PlayerManager
-  
-  // MARK: - State Properties
-  
+  private let librarySettings: LibrarySettings
+
+  var selectedFile: ABFile?
+
+  var lastSelectedAudioFileID: String? {
+    get { UserDefaults.standard.string(forKey: "lastSelectedAudioFileID") }
+    set { UserDefaults.standard.set(newValue, forKey: "lastSelectedAudioFileID") }
+  }
+
+  var lastFolderID: String? {
+    get { UserDefaults.standard.string(forKey: "lastFolderID") }
+    set { UserDefaults.standard.set(newValue, forKey: "lastFolderID") }
+  }
+
+  var lastSelectionItemID: String? {
+    get { UserDefaults.standard.string(forKey: "lastSelectionItemID") }
+    set { UserDefaults.standard.set(newValue, forKey: "lastSelectionItemID") }
+  }
+
+  var selection: SelectionItem? {
+    didSet {
+      guard let selection else {
+        lastSelectionItemID = nil
+        return
+      }
+
+      switch selection {
+      case .folder(let folder):
+        lastSelectionItemID = folder.id.uuidString
+      case .audioFile(let file):
+        selectedFile = file
+        lastSelectedAudioFileID = file.id.uuidString
+        lastFolderID = file.folder?.id.uuidString
+        lastSelectionItemID = file.id.uuidString
+      case .empty:
+        lastSelectionItemID = nil
+      }
+    }
+  }
+
   var sortOrder: SortOrder = .nameAZ
-  var isRescanningFolder = false
-  var selection: SelectionItem?
   var hovering: SelectionItem?
   var pressing: SelectionItem?
-  
-  // MARK: - Initialization
-  
-  init(modelContext: ModelContext, playerManager: PlayerManager) {
+
+  init(
+    modelContext: ModelContext,
+    playerManager: PlayerManager,
+    librarySettings: LibrarySettings,
+    selectedFile: ABFile? = nil
+  ) {
     self.modelContext = modelContext
     self.playerManager = playerManager
+    self.librarySettings = librarySettings
+    self.selectedFile = selectedFile
   }
   
   // MARK: - Computed Properties for Sorting
@@ -103,11 +143,13 @@ final class FolderNavigationViewModel {
     onSelectFile: @escaping (ABFile) async -> Void
   ) {
     guard let newSelection else { return }
-    
+
+    selection = newSelection
+
     switch newSelection {
     case .folder(let folder):
       navigateInto(folder, navigationPath: &navigationPath, currentFolder: &currentFolder)
-      
+
     case .audioFile(let file):
       Task {
         await onSelectFile(file)
@@ -118,89 +160,73 @@ final class FolderNavigationViewModel {
     }
   }
   
-  // MARK: - Rescan Action
-  
-  func rescanCurrentFolder(_ folder: Folder?) {
-    guard let folder else { return }
-    
-    let rootFolder = folder.rootFolder
-    
-    guard let url = try? rootFolder.resolveURL() else {
-      Logger.data.warning("⚠️ No root folder bookmark found")
-      return
-    }
-    
-    isRescanningFolder = true
-    
-    Task {
-      defer {
-        isRescanningFolder = false
-      }
-      
-      do {
-        let importer = FolderImporter(modelContext: modelContext)
-        _ = try await importer.syncFolder(at: url)
-        
-        try? modelContext.save()
-        Logger.data.info("✅ Successfully rescanned folder: \(rootFolder.name)")
-      } catch {
-        Logger.data.error("❌ Failed to rescan folder: \(error.localizedDescription)")
-      }
-    }
-  }
-  
   // MARK: - Deletion Actions
   
   func deleteFolder(
     _ folder: Folder,
+    deleteFromDisk: Bool = true,
     currentFolder: inout Folder?,
     selectedFile: inout ABFile?,
     navigationPath: inout [Folder]
   ) {
+    deleteFolderContents(
+      folder,
+      deleteFromDisk: deleteFromDisk,
+      currentFolder: &currentFolder,
+      selectedFile: &selectedFile,
+      navigationPath: &navigationPath
+    )
+
     do {
       try modelContext.save()
     } catch {
       Logger.data.error(
         "⚠️ Failed to save context before folder deletion: \(error.localizedDescription)")
     }
-    
+
     if isCurrentFileInFolder(folder) {
       if playerManager.isPlaying {
         playerManager.togglePlayPause()
       }
       playerManager.currentFile = nil
     }
-    
+
     if isSelectedFileInFolder(folder, selectedFile: selectedFile) {
       selectedFile = nil
+      lastSelectedAudioFileID = nil
+      lastFolderID = nil
+      lastSelectionItemID = nil
+      selection = nil
     }
-    
+
     if currentFolder?.id == folder.id {
       navigateBack(navigationPath: &navigationPath, currentFolder: &currentFolder)
     }
-    
-    for subfolder in folder.subfolders {
-      deleteFolder(
-        subfolder,
-        currentFolder: &currentFolder,
-        selectedFile: &selectedFile,
-        navigationPath: &navigationPath
-      )
+
+    if lastFolderID == folder.id.uuidString {
+      lastFolderID = nil
     }
-    
-    for audioFile in folder.audioFiles {
-      deleteAudioFile(audioFile, updateSelection: false, checkPlayback: false, selectedFile: &selectedFile)
-    }
-    
+
     modelContext.delete(folder)
   }
   
   func deleteAudioFile(
     _ file: ABFile,
+    deleteFromDisk: Bool = true,
     updateSelection: Bool = true,
     checkPlayback: Bool = true,
     selectedFile: inout ABFile?
   ) {
+    if deleteFromDisk {
+      if let url = file.resolvedURL() {
+        try? FileManager.default.removeItem(at: url)
+      }
+
+      if let pdfURL = file.resolvedPDFURL() {
+        try? FileManager.default.removeItem(at: pdfURL)
+      }
+    }
+    
     if checkPlayback {
       do {
         try modelContext.save()
@@ -217,6 +243,22 @@ final class FolderNavigationViewModel {
     if updateSelection && selectedFile?.id == file.id {
       selectedFile = nil
       playerManager.currentFile = nil
+      lastSelectedAudioFileID = nil
+      lastFolderID = nil
+      lastSelectionItemID = nil
+      selection = nil
+    }
+
+    var subtitleIsStale = false
+    if deleteFromDisk,
+       let subtitleFile = file.subtitleFile,
+       let subtitleURL = (try? URL(
+         resolvingBookmarkData: subtitleFile.bookmarkData,
+         options: [.withSecurityScope],
+         relativeTo: nil,
+         bookmarkDataIsStale: &subtitleIsStale
+       )) {
+      try? FileManager.default.removeItem(at: subtitleURL)
     }
     
     for segment in file.segments {
@@ -274,5 +316,45 @@ final class FolderNavigationViewModel {
     }
     
     return false
+  }
+
+  private func deleteFolderContents(
+    _ folder: Folder,
+    deleteFromDisk: Bool,
+    currentFolder: inout Folder?,
+    selectedFile: inout ABFile?,
+    navigationPath: inout [Folder]
+  ) {
+    for audioFile in folder.audioFiles {
+      deleteAudioFile(
+        audioFile,
+        deleteFromDisk: deleteFromDisk,
+        updateSelection: false,
+        checkPlayback: false,
+        selectedFile: &selectedFile
+      )
+    }
+
+    for subfolder in folder.subfolders {
+      deleteFolderContents(
+        subfolder,
+        deleteFromDisk: deleteFromDisk,
+        currentFolder: &currentFolder,
+        selectedFile: &selectedFile,
+        navigationPath: &navigationPath
+      )
+      modelContext.delete(subfolder)
+    }
+
+    if deleteFromDisk,
+       let url = (try? folder.resolveURL()) ?? folderLibraryURL(for: folder) {
+      try? FileManager.default.removeItem(at: url)
+    }
+  }
+
+  private func folderLibraryURL(for folder: Folder) -> URL? {
+    let relativePath = folder.relativePath
+    guard !relativePath.isEmpty else { return nil }
+    return librarySettings.libraryDirectoryURL.appendingPathComponent(relativePath)
   }
 }
