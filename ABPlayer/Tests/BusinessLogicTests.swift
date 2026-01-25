@@ -723,6 +723,25 @@ struct VocabularyLogicTests {
 
 // MARK: - Mocks
 
+private func makeBookmarkedAudioFile(displayName: String) -> (ABFile, URL) {
+  let fileName = "\(UUID().uuidString)-\(displayName)"
+  let fileURL = FileManager.default.temporaryDirectory.appendingPathComponent(fileName)
+  do {
+    try Data("test".utf8).write(to: fileURL)
+    let bookmarkData = try fileURL.bookmarkData(
+      options: [.withSecurityScope],
+      includingResourceValuesForKeys: nil,
+      relativeTo: nil
+    )
+    let file = ABFile(displayName: displayName, bookmarkData: bookmarkData)
+    return (file, fileURL)
+  } catch {
+    assertionFailure("Failed to create bookmark for \(displayName): \(error)")
+    let file = ABFile(displayName: displayName, bookmarkData: Data())
+    return (file, fileURL)
+  }
+}
+
 actor MockAudioPlayerEngine: PlayerEngineProtocol {
   var currentPlayer: AVPlayer? = AVPlayer()
 
@@ -787,7 +806,8 @@ struct PlayerManagerIntegrationTests {
     let manager = PlayerManager(engine: mockEngine)
 
     // Setup dummy file A
-    let fileA = ABFile(displayName: "A.mp3", bookmarkData: Data("A".utf8))
+    let (fileA, fileAURL) = makeBookmarkedAudioFile(displayName: "A.mp3")
+    defer { try? FileManager.default.removeItem(at: fileAURL) }
 
     // Begin playing file A (manually set state since logic handles UI update immediately)
     // We simulate "play" has happened
@@ -798,7 +818,8 @@ struct PlayerManagerIntegrationTests {
     #expect(manager.isPlaying == true)
 
     // When: Loading file B
-    let fileB = ABFile(displayName: "B.mp3", bookmarkData: Data("B".utf8))
+    let (fileB, fileBURL) = makeBookmarkedAudioFile(displayName: "B.mp3")
+    defer { try? FileManager.default.removeItem(at: fileBURL) }
     await manager.load(audioFile: fileB)
 
     // Then: Manager should have stopped playing immediately upon load starts
@@ -813,8 +834,10 @@ struct PlayerManagerIntegrationTests {
     let mockEngine = MockAudioPlayerEngine()
     let manager = PlayerManager(engine: mockEngine)
 
-    let fileA = ABFile(displayName: "A.mp3", bookmarkData: Data("A".utf8))
-    let fileB = ABFile(displayName: "B.mp3", bookmarkData: Data("B".utf8))
+    let (fileA, fileAURL) = makeBookmarkedAudioFile(displayName: "A.mp3")
+    defer { try? FileManager.default.removeItem(at: fileAURL) }
+    let (fileB, fileBURL) = makeBookmarkedAudioFile(displayName: "B.mp3")
+    defer { try? FileManager.default.removeItem(at: fileBURL) }
 
     // When: Switch A -> B
     await manager.load(audioFile: fileA)
@@ -838,8 +861,10 @@ struct PlayerManagerIntegrationTests {
     await mockEngine.setDelay(100_000_000)
 
     let manager = PlayerManager(engine: mockEngine)
-    let fileA = ABFile(displayName: "A.mp3", bookmarkData: Data("A".utf8))
-    let fileB = ABFile(displayName: "B.mp3", bookmarkData: Data("B".utf8))
+    let (fileA, fileAURL) = makeBookmarkedAudioFile(displayName: "A.mp3")
+    defer { try? FileManager.default.removeItem(at: fileAURL) }
+    let (fileB, fileBURL) = makeBookmarkedAudioFile(displayName: "B.mp3")
+    defer { try? FileManager.default.removeItem(at: fileBURL) }
 
     // When: Call load A then load B immediately
     // We use Task to launch them potentially concurrently, but Manager is MainActor protected.
@@ -854,7 +879,7 @@ struct PlayerManagerIntegrationTests {
     #expect(manager.currentFile?.displayName == "B.mp3")
 
     let lastBookmark = await mockEngine.lastLoadedBookmarkData
-    #expect(lastBookmark == Data("B".utf8))
+    #expect(lastBookmark == fileB.bookmarkData)
   }
 
   @Test
@@ -885,8 +910,10 @@ struct PlayerManagerIntegrationTests {
     // Set a delay to simulate async loading
     await mockEngine.setDelay(50_000_000)  // 50ms
 
-    let fileA = ABFile(displayName: "A.mp3", bookmarkData: Data("A".utf8))
-    let fileB = ABFile(displayName: "B.mp3", bookmarkData: Data("B".utf8))
+    let (fileA, fileAURL) = makeBookmarkedAudioFile(displayName: "A.mp3")
+    defer { try? FileManager.default.removeItem(at: fileAURL) }
+    let (fileB, fileBURL) = makeBookmarkedAudioFile(displayName: "B.mp3")
+    defer { try? FileManager.default.removeItem(at: fileBURL) }
 
     // When: Start loading A, then immediately load B
     // We launch them in parallel tasks but they will hit the actor sequentially or concurrently depending on scheduling,
