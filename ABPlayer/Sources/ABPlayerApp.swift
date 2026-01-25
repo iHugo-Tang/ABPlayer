@@ -53,6 +53,7 @@ struct ABPlayerApp: App {
         options.dsn =
           "https://0e00826ef2b3fbc195fb428a468fd995@o4504292283580416.ingest.us.sentry.io/4510502660341760"
         options.debug = false
+        options.enableAppHangTracking = false
         options.sendDefaultPii = true
       }
 
@@ -165,14 +166,6 @@ struct ABPlayerApp: App {
     .defaultSize(width: 1600, height: 900)
     .windowResizability(.contentSize)
     .modelContainer(modelContainer)
-    .onChange(of: scenePhase) { _, newPhase in
-      switch newPhase {
-      case .active:
-        SentrySDK.resumeAppHangTracking()
-      default:
-        SentrySDK.pauseAppHangTracking()
-      }
-    }
     .commands {
       SettingsCommands()
       CommandGroup(replacing: .appInfo) {

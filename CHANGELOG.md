@@ -1,3 +1,19 @@
+## [0.2.9.62] - 2026-01-24
+
+### Features
+- separate layout persistence for audio and video
+
+### Bug Fixes
+- use real bookmarks in PlayerManagerIntegrationTests
+
+### Improvements
+- unify player layout with ResizableSplitPanel and ThreePanelLayout
+- disable app hang tracking
+
+### Chores
+- reorganize git-release skill into directory structure
+
+
 ## [0.2.9.61] - 2026-01-24
 
 ### Features

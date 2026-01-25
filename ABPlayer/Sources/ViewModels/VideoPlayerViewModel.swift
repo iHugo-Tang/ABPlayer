@@ -17,22 +17,6 @@ final class VideoPlayerViewModel {
   var hudMessage: String?
   var isHudVisible: Bool = false
   var hideHudTask: Task<Void, Never>?
-  
-  // MARK: - Layout State
-  var draggingWidth: Double?
-  
-  // Persisted Layout State
-  var videoPlayerSectionWidth: Double {
-    didSet {
-      UserDefaults.standard.set(videoPlayerSectionWidth, forKey: "videoPlayerSectionWidth")
-    }
-  }
-  
-  var showContentPanel: Bool {
-    didSet {
-      UserDefaults.standard.set(showContentPanel, forKey: "videoPlayerShowContentPanel")
-    }
-  }
 
   // MARK: - Volume State
   var playerVolume: Double {
@@ -43,28 +27,9 @@ final class VideoPlayerViewModel {
   }
   private var volumeDebounceTask: Task<Void, Never>?
 
-  // MARK: - Constants
-  let minWidthOfPlayerSection: CGFloat = 480
-  let minWidthOfContentPanel: CGFloat = 300
-  let dividerWidth: CGFloat = 8
-
   // MARK: - Initialization
   init() {
-    // Initialize persisted properties
-    let storedWidth = UserDefaults.standard.double(forKey: "videoPlayerSectionWidth")
-    self.videoPlayerSectionWidth = storedWidth > 0 ? storedWidth : 480
-    
-    // For Booleans, we need to check if key exists to distinguish false from "not set" if default is true
-    // Here default is true
-    if UserDefaults.standard.object(forKey: "videoPlayerShowContentPanel") == nil {
-      self.showContentPanel = true
-    } else {
-      self.showContentPanel = UserDefaults.standard.bool(forKey: "videoPlayerShowContentPanel")
-    }
-    
     let storedVolume = UserDefaults.standard.double(forKey: "playerVolume")
-    // If not set, double returns 0. If volume is actually 0, that's fine.
-    // But we probably want default 1.0 if not set.
     if UserDefaults.standard.object(forKey: "playerVolume") == nil {
       self.playerVolume = 1.0
     } else {
@@ -92,11 +57,6 @@ final class VideoPlayerViewModel {
   func updateLoopMode(_ mode: PlaybackQueue.LoopMode) {
     playerManager?.loopMode = mode
     UserDefaults.standard.set(mode.rawValue, forKey: "playerLoopMode")
-  }
-  
-  func clampWidth(_ width: Double, availableWidth: CGFloat) -> Double {
-    let maxWidth = Double(availableWidth) - dividerWidth - minWidthOfContentPanel
-    return min(max(width, minWidthOfPlayerSection), max(maxWidth, minWidthOfPlayerSection))
   }
   
   private func debounceVolumeUpdate() {

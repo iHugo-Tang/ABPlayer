@@ -13,22 +13,6 @@ final class AudioPlayerViewModel {
   var seekValue: Double = 0
   var wasPlayingBeforeSeek: Bool = false
   var showVolumePopover: Bool = false
-  
-  // MARK: - Layout State
-  var draggingWidth: Double?
-  
-  // Persisted Layout State
-  var playerSectionWidth: Double {
-    didSet {
-      UserDefaults.standard.set(playerSectionWidth, forKey: "playerSectionWidth")
-    }
-  }
-  
-  var showContentPanel: Bool {
-    didSet {
-      UserDefaults.standard.set(showContentPanel, forKey: "audioPlayerShowContentPanel")
-    }
-  }
 
   // MARK: - Volume State
   var playerVolume: Double {
@@ -39,24 +23,8 @@ final class AudioPlayerViewModel {
   }
   private var volumeDebounceTask: Task<Void, Never>?
 
-  // MARK: - Constants
-  let minWidthOfPlayerSection: CGFloat = 380
-  let minWidthOfContentPanel: CGFloat = 300
-  let dividerWidth: CGFloat = 8
-
   // MARK: - Initialization
   init() {
-    // Initialize persisted properties
-    let storedWidth = UserDefaults.standard.double(forKey: "playerSectionWidth")
-    self.playerSectionWidth = storedWidth > 0 ? storedWidth : 380
-    
-    // For Booleans, check for existence
-    if UserDefaults.standard.object(forKey: "audioPlayerShowContentPanel") == nil {
-      self.showContentPanel = true
-    } else {
-      self.showContentPanel = UserDefaults.standard.bool(forKey: "audioPlayerShowContentPanel")
-    }
-    
     let storedVolume = UserDefaults.standard.double(forKey: "playerVolume")
     if UserDefaults.standard.object(forKey: "playerVolume") == nil {
       self.playerVolume = 1.0
@@ -88,11 +56,6 @@ final class AudioPlayerViewModel {
   
   func resetVolume() {
     playerVolume = 1.0
-  }
-  
-  func clampWidth(_ width: Double, availableWidth: CGFloat) -> Double {
-    let maxWidth = Double(availableWidth) - dividerWidth - minWidthOfContentPanel
-    return min(max(width, minWidthOfPlayerSection), max(maxWidth, minWidthOfPlayerSection))
   }
   
   private func debounceVolumeUpdate() {

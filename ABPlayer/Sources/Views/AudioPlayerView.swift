@@ -14,103 +14,30 @@ struct AudioPlayerView: View {
   @State private var viewModel = AudioPlayerViewModel()
 
   var body: some View {
-    GeometryReader { geometry in
-      let availableWidth = geometry.size.width
-      let effectiveWidth = viewModel.clampWidth(
-        viewModel.draggingWidth ?? viewModel.playerSectionWidth, availableWidth: availableWidth)
-
-      HStack(spacing: 0) {
-        // Left: Player controls + Content (Transcription/PDF)
-        playerSection
-          .frame(minWidth: viewModel.minWidthOfPlayerSection)
-          .frame(width: viewModel.showContentPanel ? effectiveWidth : nil)
-
-        // Right: Segments panel - takes remaining space
-        if viewModel.showContentPanel {
-          // Draggable divider for playerSection
-          divider(availableWidth: availableWidth)
-
-          // SegmentsSection takes remaining space
-          SegmentsSection(audioFile: audioFile)
-            .frame(minWidth: viewModel.minWidthOfContentPanel, maxWidth: .infinity)
-            .padding()
-            .transition(.move(edge: .trailing).combined(with: .opacity))
+    topPanel
+      .toolbar {
+        ToolbarItem(placement: .automatic) {
+          sessionTimeDisplay
         }
       }
-      .animation(.easeInOut(duration: 0.25), value: viewModel.showContentPanel)
-      .onChange(of: viewModel.showContentPanel) { _, isShowing in
-        if isShowing {
-          viewModel.playerSectionWidth = viewModel.clampWidth(viewModel.playerSectionWidth, availableWidth: availableWidth)
+      .onAppear {
+        viewModel.setup(with: playerManager)
+        if playerManager.currentFile?.id != audioFile.id,
+          playerManager.currentFile != nil
+        {
+          Task { await playerManager.load(audioFile: audioFile) }
         }
       }
-    }
-    .toolbar {
-      ToolbarItem(placement: .automatic) {
-        sessionTimeDisplay
-      }
-
-      ToolbarItem(placement: .primaryAction) {
-        Button {
-          viewModel.showContentPanel.toggle()
-        } label: {
-          Label(
-            viewModel.showContentPanel ? "Hide Segments" : "Show Segments",
-            systemImage: viewModel.showContentPanel ? "sidebar.trailing" : "sidebar.trailing"
-          )
-        }
-        .help(viewModel.showContentPanel ? "Hide segments panel" : "Show segments panel")
-      }
-    }
-    .onAppear {
-      viewModel.setup(with: playerManager)
-      if playerManager.currentFile?.id != audioFile.id,
-        playerManager.currentFile != nil
-      {
-        Task { await playerManager.load(audioFile: audioFile) }
-      }
-    }
-    .onChange(of: audioFile) { _, newFile in
-      Task {
-        if playerManager.currentFile?.id != newFile.id {
-          await playerManager.load(audioFile: newFile)
+      .onChange(of: audioFile) { _, newFile in
+        Task {
+          if playerManager.currentFile?.id != newFile.id {
+            await playerManager.load(audioFile: newFile)
+          }
         }
       }
-    }
   }
   
   // MARK: - Components
-  
-  private func divider(availableWidth: CGFloat) -> some View {
-    Rectangle()
-      .fill(Color.gray.opacity(0.01))
-      .frame(width: 8)
-      .contentShape(Rectangle())
-      .overlay(
-        Rectangle()
-          .fill(Color(nsColor: .separatorColor))
-          .frame(width: 1)
-      )
-      .onHover { hovering in
-        if hovering {
-          NSCursor.resizeLeftRight.push()
-        } else {
-          NSCursor.pop()
-        }
-      }
-      .gesture(
-        DragGesture(minimumDistance: 1)
-          .onChanged { value in
-            let newWidth = (viewModel.draggingWidth ?? viewModel.playerSectionWidth) + value.translation.width
-            viewModel.draggingWidth = viewModel.clampWidth(newWidth, availableWidth: availableWidth)
-          }
-          .onEnded { _ in
-            if let finalWidth = viewModel.draggingWidth {
-              viewModel.playerSectionWidth = finalWidth
-            }
-            viewModel.draggingWidth = nil
-          }
-      )
-  }
   
   private var sessionTimeDisplay: some View {
     HStack(spacing: 6) {
@@ -126,19 +53,16 @@ struct AudioPlayerView: View {
     .background(.ultraThinMaterial, in: Capsule())
     .help("Session practice time")
   }
-
-  // MARK: - Player Section
-
-  private var playerSection: some View {
+  
+  private var topPanel: some View {
     VStack(alignment: .leading, spacing: 16) {
       header
       progressSection
-
-      ContentPanelView(audioFile: audioFile)
     }
     .padding()
     .frame(maxHeight: .infinity)
   }
+
 
   // MARK: - Header
 
