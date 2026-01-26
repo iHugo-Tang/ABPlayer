@@ -25,6 +25,7 @@ struct SettingsView: View {
   // Navigation selection
   @State private var selectedTab: SettingsTab? = .media
 
+  @State private var isFileImporterPresented = false
   @State private var fileImportType: FileImportType?
   @State private var downloadedModels: [(name: String, size: Int64)] = []
   @State private var modelToDelete: String?
@@ -77,10 +78,7 @@ struct SettingsView: View {
     .frame(minHeight: 400, idealHeight: 600)
     // Common modifiers
     .fileImporter(
-      isPresented: Binding(
-        get: { fileImportType != nil },
-        set: { if !$0 { fileImportType = nil } }
-      ),
+      isPresented: $isFileImporterPresented,
       allowedContentTypes: fileImportType == .ffmpegPath ? [.unixExecutable] : [.folder],
       allowsMultipleSelection: false
     ) { result in
@@ -224,6 +222,7 @@ struct SettingsView: View {
 
           Button("Choose...") {
             fileImportType = .libraryDirectory
+            isFileImporterPresented = true
           }
         }
       }
@@ -346,6 +345,7 @@ struct SettingsView: View {
           Button("Choose...") {
             previousDirectory = settings.modelDirectory
             fileImportType = .modelDirectory
+            isFileImporterPresented = true
           }
         }
       }
@@ -368,6 +368,7 @@ struct SettingsView: View {
 
           Button("Choose...") {
             fileImportType = .ffmpegPath
+            isFileImporterPresented = true
           }
         }
       }

@@ -1,3 +1,9 @@
+## [0.2.9.64] - 2026-01-25
+
+### Bug Fixes
+- decouple file importer presentation state from import type
+
+
 ## [0.2.9.63] - 2026-01-25
 
 ### Improvements
