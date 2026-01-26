@@ -50,6 +50,7 @@ struct SegmentsSection: View {
       }
       .buttonStyle(.bordered)
       .controlSize(.small)
+      .padding(.top)
 
       HStack {
         Text("Saved Segments".uppercased())
@@ -141,6 +142,7 @@ struct SegmentsSection: View {
         .frame(minHeight: 120, maxHeight: .infinity)
       }
     }
+    .padding(.horizontal)
   }
 
   // MARK: - Segment Actions

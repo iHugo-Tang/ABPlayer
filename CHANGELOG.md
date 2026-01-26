@@ -1,3 +1,9 @@
+## [0.2.9.66] - 2026-01-26
+
+### Chores
+- add padding to SegmentsSection for better layout
+
+
 ## [0.2.9.65] - 2026-01-26
 
 ### Features
