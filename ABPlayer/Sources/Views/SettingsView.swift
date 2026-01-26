@@ -10,6 +10,12 @@ enum FFmpegStatus {
   case notFound
 }
 
+enum FileImportType {
+  case ffmpegPath
+  case modelDirectory
+  case libraryDirectory
+}
+
 /// Settings view for configuring application options
 struct SettingsView: View {
   @Environment(TranscriptionSettings.self) private var settings
@@ -19,7 +25,7 @@ struct SettingsView: View {
   // Navigation selection
   @State private var selectedTab: SettingsTab? = .media
 
-  @State private var isSelectingDirectory = false
+  @State private var fileImportType: FileImportType?
   @State private var downloadedModels: [(name: String, size: Int64)] = []
   @State private var modelToDelete: String?
   @State private var showDeleteConfirmation = false
@@ -27,10 +33,8 @@ struct SettingsView: View {
   @State private var migrationError: String?
   @State private var previousDirectory: String = ""
 
-  @State private var isSelectingLibraryDirectory = false
   @State private var libraryPathError: String?
 
-  @State private var isSelectingFFmpegPath = false
   @State private var ffmpegPathStatus: FFmpegStatus = .unchecked
 
   // Shortcuts states
@@ -73,25 +77,14 @@ struct SettingsView: View {
     .frame(minHeight: 400, idealHeight: 600)
     // Common modifiers
     .fileImporter(
-      isPresented: $isSelectingFFmpegPath,
-      allowedContentTypes: [.unixExecutable],
+      isPresented: Binding(
+        get: { fileImportType != nil },
+        set: { if !$0 { fileImportType = nil } }
+      ),
+      allowedContentTypes: fileImportType == .ffmpegPath ? [.unixExecutable] : [.folder],
       allowsMultipleSelection: false
     ) { result in
-      handleFFmpegPathSelection(result)
-    }
-    .fileImporter(
-      isPresented: $isSelectingDirectory,
-      allowedContentTypes: [.folder],
-      allowsMultipleSelection: false
-    ) { result in
-      handleDirectorySelection(result)
-    }
-    .fileImporter(
-      isPresented: $isSelectingLibraryDirectory,
-      allowedContentTypes: [.folder],
-      allowsMultipleSelection: false
-    ) { result in
-      handleLibraryDirectorySelection(result)
+      handleFileImportResult(result)
     }
     .confirmationDialog(
       "Delete Model",
@@ -230,7 +223,7 @@ struct SettingsView: View {
             .truncationMode(.middle)
 
           Button("Choose...") {
-            isSelectingLibraryDirectory = true
+            fileImportType = .libraryDirectory
           }
         }
       }
@@ -352,7 +345,7 @@ struct SettingsView: View {
 
           Button("Choose...") {
             previousDirectory = settings.modelDirectory
-            isSelectingDirectory = true
+            fileImportType = .modelDirectory
           }
         }
       }
@@ -374,7 +367,7 @@ struct SettingsView: View {
             .truncationMode(.middle)
 
           Button("Choose...") {
-            isSelectingFFmpegPath = true
+            fileImportType = .ffmpegPath
           }
         }
       }
@@ -524,6 +517,19 @@ struct SettingsView: View {
           ffmpegPathStatus = .invalid
         }
       }
+    }
+  }
+
+  private func handleFileImportResult(_ result: Result<[URL], Error>) {
+    guard let importType = fileImportType else { return }
+    
+    switch importType {
+    case .ffmpegPath:
+      handleFFmpegPathSelection(result)
+    case .modelDirectory:
+      handleDirectorySelection(result)
+    case .libraryDirectory:
+      handleLibraryDirectorySelection(result)
     }
   }
 
