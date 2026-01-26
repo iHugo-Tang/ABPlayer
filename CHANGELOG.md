@@ -1,3 +1,9 @@
+## [0.2.9.67] - 2026-01-26
+
+### Chores
+- center video player and improve HUD visibility
+
+
 ## [0.2.9.66] - 2026-01-26
 
 ### Chores
