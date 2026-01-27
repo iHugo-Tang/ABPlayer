@@ -17,6 +17,9 @@ struct SubtitleCueRow: View {
   @State private var popoverSourceRect: CGRect?
   @State private var isWordInteracting = false
   @State private var contentHeight: CGFloat = 0
+  @State private var lookupWord: String?
+  @State private var lookupIndex: Int?
+  @State private var lookupRequestID: Int = 0
 
   private let words: [String]
 
@@ -68,84 +71,7 @@ struct SubtitleCueRow: View {
           .foregroundStyle(isActive ? Color.primary : Color.secondary)
           .frame(width: 52, alignment: .trailing)
 
-        InteractiveAttributedTextView(
-            cueID: cue.id,
-            isScrolling: isScrolling,
-            words: words,
-            fontSize: fontSize,
-            defaultTextColor: isActive ? NSColor(Color.primary) : NSColor(Color.secondary),
-            selectedWordIndex: selectedWordIndex,
-            difficultyLevelProvider: { difficultyLevel(for: $0) },
-            vocabularyVersion: vocabularyService.version,
-            onWordSelected: { index in
-              isWordInteracting = true
-              onWordSelected(selectedWordIndex == index ? nil : index)
-              Task { @MainActor in
-                try? await Task.sleep(nanoseconds: 100_000_000)
-                isWordInteracting = false
-              }
-            },
-            onDismiss: {
-              onWordSelected(nil)
-            },
-            onForgot: { word in
-              vocabularyService.incrementForgotCount(for: word)
-            },
-            onRemembered: { word in
-              vocabularyService.incrementRememberedCount(for: word)
-            },
-            onRemove: { word in
-              vocabularyService.removeVocabulary(for: word)
-            },
-            onWordRectChanged: { rect in
-              if popoverSourceRect != rect {
-                popoverSourceRect = rect
-              }
-            },
-            onHeightChanged: { height in
-              if contentHeight != height {
-                contentHeight = height
-              }
-            },
-            forgotCount: { forgotCount(for: $0) },
-            rememberedCount: { rememberedCount(for: $0) },
-            createdAt: { createdAt(for: $0) }
-          )
-          .alignmentGuide(.firstTextBaseline) { context in
-            let font = NSFont.systemFont(ofSize: fontSize)
-            let lineHeight = font.ascender + font.leading
-            return lineHeight
-          }
-          .frame(width: textWidth, alignment: .leading)
-          .popover(
-            isPresented: Binding(
-              get: { popoverSourceRect != nil },
-              set: {
-                if !$0 {
-                  popoverSourceRect = nil
-                  onWordSelected(nil)
-                }
-              }
-            ),
-            attachmentAnchor: .rect(.rect(popoverSourceRect ?? .zero)),
-            arrowEdge: .bottom
-          ) {
-            if let selectedIndex = selectedWordIndex, selectedIndex < words.count {
-              WordMenuView(
-                word: words[selectedIndex],
-                onDismiss: { onWordSelected(nil) },
-                onForgot: { vocabularyService.incrementForgotCount(for: $0) },
-                onRemembered: { vocabularyService.incrementRememberedCount(for: $0) },
-                onRemove: { vocabularyService.removeVocabulary(for: $0) },
-                forgotCount: forgotCount(for: words[selectedIndex]),
-                rememberedCount: rememberedCount(for: words[selectedIndex]),
-                createdAt: createdAt(for: words[selectedIndex])
-              )
-            }
-          }
-          .onDisappear {
-            onHidePopover()
-          }
+        subtitleTextView(textWidth: textWidth)
       }
     }
     .frame(height: max(contentHeight, 23), alignment: .center)
@@ -190,6 +116,96 @@ struct SubtitleCueRow: View {
     } else {
       return Color.clear
     }
+  }
+
+  private func subtitleTextView(textWidth: CGFloat) -> some View {
+    InteractiveAttributedTextView(
+        cueID: cue.id,
+        isScrolling: isScrolling,
+        words: words,
+        fontSize: fontSize,
+        defaultTextColor: isActive ? NSColor(Color.primary) : NSColor(Color.secondary),
+        selectedWordIndex: selectedWordIndex,
+        difficultyLevelProvider: { difficultyLevel(for: $0) },
+        vocabularyVersion: vocabularyService.version,
+        onWordSelected: { index in
+          isWordInteracting = true
+          onWordSelected(selectedWordIndex == index ? nil : index)
+          Task { @MainActor in
+            try? await Task.sleep(nanoseconds: 100_000_000)
+            isWordInteracting = false
+          }
+        },
+        onDismiss: {
+          onWordSelected(nil)
+        },
+        onForgot: { word in
+          vocabularyService.incrementForgotCount(for: word)
+        },
+        onRemembered: { word in
+          vocabularyService.incrementRememberedCount(for: word)
+        },
+        onRemove: { word in
+          vocabularyService.removeVocabulary(for: word)
+        },
+        onWordRectChanged: { rect in
+          if popoverSourceRect != rect {
+            popoverSourceRect = rect
+          }
+        },
+        lookupWord: lookupWord,
+        lookupIndex: lookupIndex,
+        lookupRequestID: lookupRequestID,
+        onHeightChanged: { height in
+          if contentHeight != height {
+            contentHeight = height
+          }
+        },
+        forgotCount: { forgotCount(for: $0) },
+        rememberedCount: { rememberedCount(for: $0) },
+        createdAt: { createdAt(for: $0) }
+      )
+      .alignmentGuide(.firstTextBaseline) { _ in
+        let font = NSFont.systemFont(ofSize: fontSize)
+        let lineHeight = font.ascender + font.leading
+        return lineHeight
+      }
+      .frame(width: textWidth, alignment: .leading)
+      .popover(
+        isPresented: Binding(
+          get: { popoverSourceRect != nil },
+          set: {
+            if !$0 {
+              popoverSourceRect = nil
+              onWordSelected(nil)
+            }
+          }
+        ),
+        attachmentAnchor: .rect(.rect(popoverSourceRect ?? .zero)),
+        arrowEdge: .bottom
+      ) {
+        if let selectedIndex = selectedWordIndex, selectedIndex < words.count {
+          WordMenuView(
+            word: words[selectedIndex],
+            onDismiss: { onWordSelected(nil) },
+            onLookup: { word in
+              guard let selectedWordIndex else { return }
+              lookupWord = word
+              lookupIndex = selectedWordIndex
+              lookupRequestID += 1
+            },
+            onForgot: { vocabularyService.incrementForgotCount(for: $0) },
+            onRemembered: { vocabularyService.incrementRememberedCount(for: $0) },
+            onRemove: { vocabularyService.removeVocabulary(for: $0) },
+            forgotCount: forgotCount(for: words[selectedIndex]),
+            rememberedCount: rememberedCount(for: words[selectedIndex]),
+            createdAt: createdAt(for: words[selectedIndex])
+          )
+        }
+      }
+      .onDisappear {
+        onHidePopover()
+      }
   }
 
   private func timeString(from value: Double) -> String {

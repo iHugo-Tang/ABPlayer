@@ -4,6 +4,7 @@ import AppKit
 struct WordMenuView: View {
   let word: String
   let onDismiss: () -> Void
+  let onLookup: (String) -> Void
   let onForgot: (String) -> Void
   let onRemembered: (String) -> Void
   let onRemove: (String) -> Void
@@ -29,13 +30,19 @@ struct WordMenuView: View {
           onDismiss()
         }
 
-        MenuButton(
-          label: "Forgot" + (forgotCount > 0 ? " (\(forgotCount))" : ""),
-          systemImage: "xmark.circle"
-        ) {
+        MenuButton(label: "Look Up" + (forgotCount > 0 ? " (\(forgotCount))" : ""), systemImage: "book") {
+          onLookup(cleanedWord)
           onForgot(cleanedWord)
           onDismiss()
         }
+
+//        MenuButton(
+//          label: "Forgot" + (forgotCount > 0 ? " (\(forgotCount))" : ""),
+//          systemImage: "xmark.circle"
+//        ) {
+//          onForgot(cleanedWord)
+//          onDismiss()
+//        }
 
         if canRemember {
           MenuButton(
