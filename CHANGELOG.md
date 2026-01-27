@@ -1,3 +1,9 @@
+## [0.2.10.69] - 2026-01-27
+
+### Bug Fixes
+- keep current folder on import
+
+
 ## [0.2.9.68] - 2026-01-26
 
 ### Bug Fixes

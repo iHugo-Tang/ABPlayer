@@ -33,6 +33,7 @@ public struct MainSplitView: View {
   
   @State private var folderNavigationViewModel: FolderNavigationViewModel?
   @State private var mainSplitViewModel = MainSplitViewModel()
+  @State private var didAttemptRestoreNavigationPath = false
   
   @Query(sort: \ABFile.createdAt, order: .forward)
   private var allAudioFiles: [ABFile]
@@ -361,20 +362,24 @@ public struct MainSplitView: View {
   
   private func restoreLastSelectionIfNeeded() {
     guard let folderNavigationViewModel else { return }
-    
-    if folderNavigationViewModel.currentFolder == nil, folderNavigationViewModel.navigationPath.isEmpty,
-       let lastFolderID = folderNavigationViewModel.lastFolderID,
-       let folderUUID = UUID(uuidString: lastFolderID),
-       let folder = allFolders.first(where: { $0.id == folderUUID })
-    {
-     var path: [Folder] = []
-     var current: Folder? = folder
-     while let f = current {
-       path.insert(f, at: 0)
-       current = f.parent
-     }
-     folderNavigationViewModel.navigationPath = path
-     folderNavigationViewModel.currentFolder = folder
+
+    if !didAttemptRestoreNavigationPath {
+      defer { didAttemptRestoreNavigationPath = true }
+
+      if folderNavigationViewModel.currentFolder == nil, folderNavigationViewModel.navigationPath.isEmpty,
+         let lastFolderID = folderNavigationViewModel.lastFolderID,
+         let folderUUID = UUID(uuidString: lastFolderID),
+         let folder = allFolders.first(where: { $0.id == folderUUID })
+      {
+        var path: [Folder] = []
+        var current: Folder? = folder
+        while let f = current {
+          path.insert(f, at: 0)
+          current = f.parent
+        }
+        folderNavigationViewModel.navigationPath = path
+        folderNavigationViewModel.currentFolder = folder
+      }
     }
     
     guard folderNavigationViewModel.selectedFile == nil else {
