@@ -72,6 +72,13 @@ struct VideoPlayerView: View {
         
         VideoControlsView(viewModel: viewModel)
           .padding(.horizontal)
+
+        Text(audioFile.displayName)
+          .font(.title)
+          .fontWeight(.semibold)
+          .lineLimit(1)
+          .frame(maxWidth: .infinity, alignment: .leading)
+          .padding(.horizontal)
       }
     }
   }

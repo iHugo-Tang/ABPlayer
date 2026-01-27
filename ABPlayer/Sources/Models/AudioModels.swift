@@ -84,8 +84,8 @@ final class ABFile {
     loadError: String? = nil
   ) {
     self.id = id
-    self.displayName = displayName
     self.fileType = fileType ?? Self.inferFileType(from: displayName)
+    self.displayName = (displayName as NSString).deletingPathExtension
     self.bookmarkData = bookmarkData
     self.createdAt = createdAt
     self.segments = segments

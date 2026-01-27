@@ -825,7 +825,7 @@ struct PlayerManagerIntegrationTests {
     // Then: Manager should have stopped playing immediately upon load starts
     // Manager.load sets isPlaying = false at the beginning
     #expect(manager.isPlaying == false)
-    #expect(manager.currentFile?.displayName == "B.mp3")
+    #expect(manager.currentFile?.displayName == "B")
   }
 
   @Test
@@ -841,12 +841,12 @@ struct PlayerManagerIntegrationTests {
 
     // When: Switch A -> B
     await manager.load(audioFile: fileA)
-    #expect(manager.currentFile?.displayName == "A.mp3")
+    #expect(manager.currentFile?.displayName == "A")
 
     await manager.load(audioFile: fileB)
 
     // Then
-    #expect(manager.currentFile?.displayName == "B.mp3")
+    #expect(manager.currentFile?.displayName == "B")
 
     // Verify Engine was called twice
     let callCount = await mockEngine.loadCallCount
@@ -876,7 +876,7 @@ struct PlayerManagerIntegrationTests {
     // Since we await'ed them sequentially, they ran sequentially.
     // The critical part is that state is correct at the end.
 
-    #expect(manager.currentFile?.displayName == "B.mp3")
+    #expect(manager.currentFile?.displayName == "B")
 
     let lastBookmark = await mockEngine.lastLoadedBookmarkData
     #expect(lastBookmark == fileB.bookmarkData)
@@ -931,13 +931,13 @@ struct PlayerManagerIntegrationTests {
     await manager.load(audioFile: fileB)
 
     // Then: Manager should reflect file B
-    #expect(manager.currentFile?.displayName == "B.mp3")
+    #expect(manager.currentFile?.displayName == "B")
 
     // Wait for everything to settle
     try? await Task.sleep(nanoseconds: 100_000_000)
 
     // Verify that even after A 'finishes' (in background), the manager state is still B
-    #expect(manager.currentFile?.displayName == "B.mp3")
+    #expect(manager.currentFile?.displayName == "B")
     #expect(manager.duration != 0)  // Should have loaded duration for B
   }
 }
