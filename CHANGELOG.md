@@ -1,3 +1,12 @@
+## [0.2.9.68] - 2026-01-26
+
+### Bug Fixes
+- defer state-modifying actions during view updates
+
+### Improvements
+- optimize view updates and decouple state
+
+
 ## [0.2.9.67] - 2026-01-26
 
 ### Chores
