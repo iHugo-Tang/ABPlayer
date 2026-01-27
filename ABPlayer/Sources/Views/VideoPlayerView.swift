@@ -77,6 +77,7 @@ struct VideoPlayerView: View {
           .font(.title)
           .fontWeight(.semibold)
           .lineLimit(1)
+          .frame(maxWidth: .infinity, alignment: .leading)
           .padding(.horizontal)
       }
     }
