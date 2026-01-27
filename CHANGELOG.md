@@ -1,3 +1,10 @@
+## [0.2.10.72] - 2026-01-27
+
+### Bug Fixes
+- align video player title to leading edge
+- remove file extension from displayName on import
+
+
 ## [0.2.10.71] - 2026-01-27
 
 ### Features
