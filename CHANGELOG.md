@@ -1,3 +1,12 @@
+## [0.2.10.73] - 2026-01-31
+
+### Features
+- add plugin infrastructure and counter plugin
+
+### Improvements
+- remove ContentPanelView and improve file selection sync
+
+
 ## [0.2.10.72] - 2026-01-27
 
 ### Bug Fixes
