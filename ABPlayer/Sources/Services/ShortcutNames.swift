@@ -11,4 +11,8 @@ extension KeyboardShortcuts.Name {
   static let previousSegment = Self(
     "previousSegment", default: .init(.leftArrow, modifiers: .option))
   static let nextSegment = Self("nextSegment", default: .init(.rightArrow, modifiers: .option))
+  
+  static let counterIncrement = Self("counterIncrement", default: .init(.a, modifiers: [.option, .control]))
+  static let counterDecrement = Self("counterDecrement", default: .init(.d, modifiers: [.option, .control]))
+  static let counterReset = Self("counterReset", default: .init(.r, modifiers: [.option, .control]))
 }

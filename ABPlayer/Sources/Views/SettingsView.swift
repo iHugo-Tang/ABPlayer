@@ -66,6 +66,8 @@ struct SettingsView: View {
             shortcutsView
           case .transcription:
             transcriptionSettingsView
+          case .plugins:
+            pluginsView
           }
         } else {
           ContentUnavailableView("Select a setting", systemImage: "gear")
@@ -182,7 +184,6 @@ struct SettingsView: View {
   }
 
   private func resetAllShortcuts() {
-    // Reset all shortcuts to their default values
     KeyboardShortcuts.reset(.playPause)
     KeyboardShortcuts.reset(.rewind5s)
     KeyboardShortcuts.reset(.forward10s)
@@ -192,6 +193,30 @@ struct SettingsView: View {
     KeyboardShortcuts.reset(.saveSegment)
     KeyboardShortcuts.reset(.previousSegment)
     KeyboardShortcuts.reset(.nextSegment)
+    KeyboardShortcuts.reset(.counterIncrement)
+    KeyboardShortcuts.reset(.counterDecrement)
+    KeyboardShortcuts.reset(.counterReset)
+  }
+  
+  private var pluginsView: some View {
+    Form {
+      Section("Counter") {
+        Toggle(
+          "Always on Top",
+          isOn: Binding(
+            get: { CounterPlugin.shared.settings.alwaysOnTop },
+            set: { newValue in
+              CounterPlugin.shared.settings.alwaysOnTop = newValue
+              CounterPlugin.shared.updateWindowLevel()
+            }
+          ))
+        
+        shortcutRow(title: "Increment (+):", name: .counterIncrement)
+        shortcutRow(title: "Decrement (-):", name: .counterDecrement)
+        shortcutRow(title: "Reset:", name: .counterReset)
+      }
+    }
+    .formStyle(.grouped)
   }
 
   private var mediaSettingsView: some View {
@@ -670,6 +695,7 @@ enum SettingsTab: String, CaseIterable, Identifiable {
   case media = "Media"
   case shortcuts = "Shortcuts"
   case transcription = "Transcription"
+  case plugins = "Plugins"
 
   var id: Self { self }
 
@@ -678,6 +704,7 @@ enum SettingsTab: String, CaseIterable, Identifiable {
     case .media: return "books.vertical"
     case .shortcuts: return "keyboard"
     case .transcription: return "text.bubble"
+    case .plugins: return "puzzlepiece.extension"
     }
   }
 }
